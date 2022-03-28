@@ -1,0 +1,76 @@
+adv	All about advertising: This includes sites offering banners and banner creation as well as sites delivering banners to be shown in webpages. Advertising companies are listed, too.
+aggressive	Sites of obvious aggressive content. This coveres hate speech and all kinds of racism.
+alcohol	Sites of breweries, wineries and destilleries. This category also covers sites that explain howto make beer, wines and spirits.
+anonvpn	This category covers sites providing vpn services to the public. The focus is on vpn sites used to hide the origin of the traffici like tor nodes.
+The category does not include company vpn accesses.
+automobile/bikes	All around motorcycles. Included are vendor sites, resellers, fan and hobby pages as well as and suppliers. Scooters included.
+automobile/boats	All around motorboats. Included are vendor sites, resellers, fan and hobby pages as well as and suppliers. Not included are travel tips (this can be found in recreation/travel).
+automobile/cars	All around cars. Included are automobile companies and automotive suppliers.
+automobile/planes	All around planes ranging from small one and two seaters up to the large traffic planes, old and new, private, commercial and military. Vendors and supplier are included (airports are not). Helicopter sites are included as well.
+chat	Sites for realtime chatting and instant messaging. Everything that is not realtime is included in -> forum.
+costtraps	Sites that lure with free of charge services but then give you a costly abbonement (written somewhere in tiny letters nearly unreadable).
+dating	Sites to contact people for love and live together. He seeks her, she seeks him and so on.
+downloads	This covers mostly filesharing, p2p and torrent sites. Other download sites (for software, wallpapers, ..) are included as well.
+drugs	Sites offering drugs or explain how to make drugs (legal and non legal). Covers tabacco as well as viagra and similar substances.
+dynamic	All domains where people log in from one obtaining a dynmic IP address. Dynamic sites can be most harmless as well as carry redirecting proxies to bypass the webfilter or porn, games or anything else why may be inappropiate.
+education/schools	Home pages of schools, colleges and universities.
+finance/banking	Home page of banking companies are listed here. This is not restricted to online banking.
+finance/insurance	Sites of insurance companies, about information about insurances and link collections concering this subject.
+finance/moneylending	Sites one can apply for loans and mortgages or can obtain information about this business.
+finance/realestate	Sites about all types of realestate, bying and selling homes, finding appartments for rent and selling.
+finance/trading	Sites about the stock exchange market, trading of stocks and stock options as well as sites related to this subject.
+finance/other	All financial pages that do not fit in the financial categories above.
+fortunetelling	All sites about astrology, horoscopes, numerology, palm reading and so on; sites that offer services to forsay the future.
+forum	Discussion sites. Covered explicit forum sites and some blogs. Sites where people can discuss and share information in a non interactive/realtime way. Realtime discussions are covered with -> chat.
+gamble	Sites offering the possibility to win money. Poker, Casino, Bingo and other chance games as well as betting sites. Differs from -> hobby/games in the aspect of winning or loosing money or being lured to do so.
+government	Sites belonging to the goverment of a country, county or city.
+hacking	Sites with information and discussions about security weaknesses and how to exploit them. Sites offering exploits are listed as well as sites distributing programs that help to find security leaks.
+hobby/cooking	Sites concering food and food preparation.
+hobby/games-misc	Sites related to games. This includes descriptions, news and general information about games. No gamble sites.
+hobby/games-online	Sites about online games (all kinds of browserbased games). The games are for fun only (no gamble).
+hobby/gardening	Sites about gardening, grewing plants, fighting bugs and everything else related to gardening.
+hobby/pets	Sites about all topics concerning pets: description, raise, food, looks, fairs, favorite pet stories and so on.
+homestyle	Sites about everything required to create a cozy home (interior design and assesoirs).
+hospitals	Sites of hospitals and medical facilities.
+imagehosting	Sites specialized on hosting images, photogalleries and so on.
+isp	Home pages of Internet Service Providers. Site of companies offering webspace only are now being added, too.
+jobsearch	Portals for job offers and job seekers as well as the career and work-for-us pages of companies.
+library	Online libraries and sites where you can obtain and/or read e-books. Book shops are not listed here but under shopping.
+military	Sites of military facilites or related to the armed forces.
+models	Model agency, model and supermodel fan pages and other model sites presenting model photos. No porn pictures.
+movies	Sites offering cinema programs, information about movies and actors. Sites for downloading video clips/movies (as long it is legal) are included as well.
+music	Sites that offer the download of music, information about music groups or music in general.
+news	Sites presenting news. Homepages from newspapers, magazines and journals as well as some blogs.
+podcasts	Sites offering podcasts or podcast services.
+politics	Sites of political parties, political organisations and associations; sites with political discussions.
+porn	Sites about all kinds of sexual content ranging from bare bosoms to hardcore porn and sm.
+radiotv	Domains and urls of TV and radio stations, regardless whether they offer any programs on the site or just displaying a static page.
+The sites offering streams are still collected in webradio and webtv, respectively.
+recreation/humor	Humorous pages, comic strips, funny stories, everything which makes people laugh.
+recreation/martialarts	Sites dedicated to martial arts such karate, kung fu, taek won do as well as fighting sports sites like ufc. All site listed in this category are also part of sports. This category is meant for users who wish to allow sports but no "aggressive" kind of sports.
+recreation/restaurants	Sites of restaurants as well as restaurant descriptions and comentaries.
+recreation/sports	All about sports: sports teams, sport discussions as well as information about sports people and the varios sports themselves.
+recreation/travel	Sites with information about foreign countries, travel companies, travel fares, accomondations and everything else that has to do with travel including travel blogs.
+recreation/wellness	Here: Sites about treatments for feeling internally and externally healthy and beautiful again.
+redirector	Sites that actively help to bypass url filters by accepting urls via webform and play a proxing and redirecting role.
+religion	Sites with religious content: all kind of churches, sects, religious interpretations and so on.
+remotecontrol	Sites offering the service to remotely access computers, expecially (but not limited to going) through firewalls. This includes using a third party computer. Traditional VPN is not covered.
+ringtones	Sites that offer the download of ringtones or present other informations about ringtones.
+science/astronomy	Sites of institutions as well as of amateurs about all topics of astronomy.
+science/chemistry	Sites of institutions as well as of amateurs about all topics of chemistry.
+searchengines	Collection of seach engines and directory sites.
+sex/education	Sites explaining the biological functions of the body concerning sexuality as well as sexual health; this, too, covers sites for teenagers with questions about firstlove, first sex, and subjects related to this topics. This category does not cover porn.
+sex/lingerie	Sites selling and presenting sexy lingerie or lingerie in a sexy manner.
+shopping	Sites offering online shopping and price comparisons.
+socialnet	Sites bringing people together (social networking) be it for friendship or for business.
+spyware	Sites that tries to actively try to install software (or lure the user in doing so) in order to spy the surfig behaviour (or worse). This category includes trojan and phishing sites. The homecalling site where the collecting information is sent are listed, too.
+tracker	Site keeping an eye on where you surf and what you do in a passive. Covers web bugs, counters and other tracking mechanism in web pages that do not interfere with the local computer yet collecting information about the surfing person for later analyis. Sites actively spying out the surfer by installing software or calling home sites are not covered with tracker but with -> spyware.
+updatesites	Kind of white list to allow necessary downloads from vendors. Thought as a correction to the downloads category.
+urlshortener	Domains that can be used to shorten long URLs. The orginal (long) URL will be accessed after the the short URL has been requested from the shortener. This distinguishes this category from redirector where the orginal URL is never accessed directly.
+violence	Sites about killing and harming people. Covers anything about brutality and beastiality.
+warez	Collection of sites offering programs to break licence keys, licence keys themselves, cracked software and other copyrighted material.
+weapons	Sites offering all kinds of weapons or accessories for weapons: Firearms, knifes, swords, bows,... . Armory shops are included as well as sites holding general information about arms (manufacturing, usage).
+webmail	Sites that offer web-based email services.
+webphone	Sites that enable user to phone via Internet/WWW. Any site where users can voice-chat with each other (normal chat sites, where users type their messages are part of chat, not webphone).
+webradio	Sites that offer listening live radiostreams.
+webtv	Collection of site offering live TV streams via world wide web.
