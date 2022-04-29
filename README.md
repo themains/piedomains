@@ -7,7 +7,19 @@ We use labeled data from Shallalist and the home page HTML data.
 	- some missing (URLs are no longer available) --- remove
 	- some html files will be 0 KB so remove them. 
 	- I would remove anything less than 5 KB as generally they are error pages
-	
+
+* [UK Classification Data](data/classification.tsv)
+	- https://data.webarchive.org.uk/opendata/ukwa.ds.1/classification/
+
+* [Crowdflower Dataset](data/URL-categorization-DFE.csv)
+	- https://data.world/crowdflower/url-categorization
+
+* [DMOZ data]()
+	- https://www.kaggle.com/datasets/shawon10/url-classification-dataset-dmoz?resource=download
+
+* [UNB data]()
+	- https://www.unb.ca/cic/datasets/url-2016.html
+
 ### Strategy ~ Text
 
 1. HTML features
