@@ -29,12 +29,12 @@ Examples
 
 Output -
 ::
-              name  pred_label  domain_probs
-0      youtube.com  recreation           3.0
-1      netflix.com  recreation           3.0
-2        yahoo.com       forum           3.0
-3  khanacademy.org  recreation           3.0
-4       medium.com  recreation           3.0
+                name  pred_label  domain_probs
+  0      youtube.com  recreation           3.0
+  1      netflix.com  recreation           3.0
+  2        yahoo.com       forum           3.0
+  3  khanacademy.org  recreation           3.0
+  4       medium.com  recreation           3.0
 
 Functions
 ----------
