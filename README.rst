@@ -29,12 +29,13 @@ Examples
 
 Output -
 ::
-                name  pred_label  domain_probs
-  0      youtube.com  recreation           3.0
-  1      netflix.com  recreation           3.0
-  2        yahoo.com       forum           3.0
-  3  khanacademy.org  recreation           3.0
-  4       medium.com  recreation           3.0
+                name  pred_label                                       domain_probs
+  0      youtube.com  recreation  {'adv': 0.02274143, 'aggressive': 0.022215988,...
+  1      netflix.com  recreation  {'adv': 0.022540696, 'aggressive': 0.02221061,...
+  2        yahoo.com       forum  {'adv': 0.022722345, 'aggressive': 0.022219377...
+  3  khanacademy.org  recreation  {'adv': 0.022936365, 'aggressive': 0.022226635...
+  4       medium.com  recreation  {'adv': 0.022473775, 'aggressive': 0.022233406...
+
 
 Functions
 ----------

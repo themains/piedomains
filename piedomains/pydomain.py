@@ -138,6 +138,6 @@ class Pydomain(Base):
         domain_probs = []
         for i in range(len(input)):
             labels.append(cls.classes[res_args[i]])
-            domain_probs.append(np.around(probs[i][res_args[i]] * 100))
+            domain_probs.append(dict(zip(cls.classes, probs[i].numpy())))
 
         return pd.DataFrame(data={"name": input, "pred_label": labels, "domain_probs": domain_probs})
