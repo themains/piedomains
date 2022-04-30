@@ -2,7 +2,8 @@
 Newpydomains: Predict category based on domain and its content
 ==================================================
 
-This package predicts the category based on the domain name and its content.
+This package used `Shallalist dataset <https://dataverse.harvard.edu/dataset.xhtml?persistentId=doi:10.7910/DVN/ZXTQ7V>`__ to train the model.
+Scrapped homepages of the domains mentioned in above dataset. This package predicts the category based on the domain name and its content.
 
 Install
 -------
@@ -26,6 +27,8 @@ Examples
   result = domain.classify(domains)
   print(result)
 
+Output -
+::
               name  pred_label  domain_probs
 0      youtube.com  recreation           3.0
 1      netflix.com  recreation           3.0
