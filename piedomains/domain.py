@@ -3,7 +3,7 @@ import argparse
 
 from .pydomain import Pydomain
 
-classify = Pydomain.predict
+classify = Pydomain.pred_shalla_cat
 
 
 def main(argv=sys.argv[1:]):

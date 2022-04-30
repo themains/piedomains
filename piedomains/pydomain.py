@@ -22,9 +22,8 @@ stop_words = set(stopwords.words("english"))
 
 
 class Pydomain(Base):
-    MODELFN = "model"
+    MODELFN = "model/shallalist"
     weights_loaded = False
-    hin_model = None
     classes = [
         "adv",
         "aggressive",
@@ -110,7 +109,7 @@ class Pydomain(Base):
         return " ".join(w for w in tokens)
 
     @classmethod
-    def predict(cls, input, latest=False):
+    def pred_shalla_cat(cls, input, latest=False):
         """
         Predict category based on domain
         Args:
@@ -118,9 +117,9 @@ class Pydomain(Base):
         Returns:
             output (str): category
         """
-
+        model_file_name = "shallalist_v1_model.tar.gz"
         if not cls.weights_loaded:
-            cls.model_path = cls.load_model_data(latest)
+            cls.model_path = cls.load_model_data(model_file_name, latest)
             model = tf.keras.models.load_model(f"{cls.model_path}/saved_model/newpydomains")
             cls.weights_loaded = True
 

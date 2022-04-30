@@ -56,12 +56,12 @@ class Tox(TestCommand):
 
 
 setup(
-    name="newpydomains",
+    name="piedomains",
     version="0.0.1",
     description="Predict categories based domain names and it's content",
     long_description=long_description,
     # The project's main homepage.
-    url="https://github.com/themains/newpydomains",
+    url="https://github.com/themains/piedomains",
     # Author details
     author="Rajashekar Chintalapati and Gaurav Sood",
     author_email="rajshekar.ch@gmail.com, gsood07@gmail.com",
@@ -99,7 +99,7 @@ setup(
     # your project is installed. For an analysis of "install_requires" vs pip's
     # requirements files see:
     # https://packaging.python.org/en/latest/requirements.html
-    install_requires=["tqdm", "pandas", "nltk", "tensorflow"],
+    install_requires=["tqdm", "bs4", "pandas", "nltk", "tensorflow"],
     # List additional groups of dependencies here (e.g. development
     # dependencies). You can install these using the following syntax,
     # for example:
@@ -112,7 +112,7 @@ setup(
     # installed, specify them here.  If using Python 2.6 or less, then these
     # have to be included in MANIFEST.in as well.
     package_data={
-        "newpydomains": [
+        "piedomains": [
             "notebooks/*.ipynb",
         ],
     },

@@ -1,5 +1,5 @@
 ==================================================
-Newpydomains: Predict category based on domain and its content
+piedomains: Predict category based on domain and its content
 ==================================================
 
 This package used `Shallalist dataset <https://dataverse.harvard.edu/dataset.xhtml?persistentId=doi:10.7910/DVN/ZXTQ7V>`__ to train the model.
@@ -7,12 +7,12 @@ Scrapped homepages of the domains mentioned in above dataset. This package predi
 
 Install
 -------
-We strongly recommend installing `newpydomains` inside a Python virtual environment
+We strongly recommend installing `piedomains` inside a Python virtual environment
 (see `venv documentation <https://docs.python.org/3/library/venv.html#creating-virtual-environments>`__)
 
 ::
 
-    pip install newpydomains
+    pip install piedomains
 
 General API
 -----------
@@ -22,7 +22,7 @@ Examples
 --------
 ::
 
-  from newpydomains import domain
+  from piedomains import domain
   domains = ['youtube.com', 'netflix.com', 'yahoo.com', 'khanacademy.org', 'medium.com']
   result = domain.classify(domains)
   print(result)
