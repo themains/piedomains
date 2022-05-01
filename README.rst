@@ -2,9 +2,6 @@
 piedomains: Predict category based on domain and its content
 ==================================================
 
-
-.. image:: https://app.travis-ci.com/themains/piedomains.svg?branch=master
-    :target: https://travis-ci.org/themains/piedomains
 .. image:: https://ci.appveyor.com/api/projects/status/5wkr850yy3f6sg6a?svg=true
     :target: https://ci.appveyor.com/project/themains/piedomains
 .. image:: https://img.shields.io/pypi/v/piedomains.svg
