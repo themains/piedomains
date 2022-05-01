@@ -2,6 +2,20 @@
 piedomains: Predict category based on domain and its content
 ==================================================
 
+
+.. image:: https://app.travis-ci.com/themains/piedomains.svg?branch=master
+    :target: https://travis-ci.org/themains/piedomains
+.. image:: https://ci.appveyor.com/api/projects/status/5wkr850yy3f6sg6a?svg=true
+    :target: https://ci.appveyor.com/project/soodoku/indicate
+.. image:: https://img.shields.io/pypi/v/piedomains.svg
+    :target: https://pypi.python.org/pypi/piedomains
+.. image:: https://readthedocs.org/projects/piedomains/badge/?version=latest
+    :target: http://piedomains.readthedocs.io/en/latest/?badge=latest
+    :alt: Documentation Status
+.. image:: https://pepy.tech/badge/piedomains
+    :target: https://pepy.tech/project/piedomains
+
+
 This package used `Shallalist dataset <https://dataverse.harvard.edu/dataset.xhtml?persistentId=doi:10.7910/DVN/ZXTQ7V>`__ to train the model.
 Scrapped homepages of the domains mentioned in above dataset. This package predicts the category based on the domain name and its content.
 
