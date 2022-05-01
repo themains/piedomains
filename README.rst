@@ -2,8 +2,8 @@
 piedomains: Predict category based on domain and its content
 ==================================================
 
-.. image:: https://ci.appveyor.com/api/projects/status/5wkr850yy3f6sg6a?svg=true
-    :target: https://ci.appveyor.com/project/themains/piedomains
+.. image:: https://ci.appveyor.com/api/projects/status/k0b72xay9i4ufxff?svg=true
+    :target: https://ci.appveyor.com/project/soodoku/piedomains
 .. image:: https://img.shields.io/pypi/v/piedomains.svg
     :target: https://pypi.python.org/pypi/piedomains
 .. image:: https://readthedocs.org/projects/piedomains/badge/?version=latest
