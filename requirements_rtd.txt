@@ -1,0 +1,3 @@
+tensorflow
+nltk
+bs4
