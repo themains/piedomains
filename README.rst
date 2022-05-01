@@ -1,5 +1,5 @@
 ==================================================
-piedomains: Predict category based on domain and its content
+piedomains: Predict the kind of content hosted by a domain based on domain name and content
 ==================================================
 
 .. image:: https://ci.appveyor.com/api/projects/status/k0b72xay9i4ufxff?svg=true
