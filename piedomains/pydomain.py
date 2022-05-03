@@ -143,10 +143,10 @@ class Pydomain(Base):
         Returns:
             output (str): category
         """
-        model_file_name = "shallalist_v1_model.tar.gz"
+        model_file_name = "shallalist_v2_model.tar.gz"
         if not cls.weights_loaded:
             cls.model_path = cls.load_model_data(model_file_name, latest)
-            model = tf.keras.models.load_model(f"{cls.model_path}/saved_model/piedomains")
+            cls.model = tf.keras.models.load_model(f"{cls.model_path}/saved_model/piedomains")
             cls.weights_loaded = True
 
         input_content = input.copy()
@@ -156,8 +156,8 @@ class Pydomain(Base):
             text = cls.data_cleanup(text)
             input_content[i] = input[i].rsplit(".", 1)[0] + " " + text
 
-        print(input_content)
-        results = model.predict(input_content)
+        # print(input_content)
+        results = cls.model.predict(input_content)
         probs = tf.nn.softmax(results)
         res_args = tf.argmax(results, 1)
 
