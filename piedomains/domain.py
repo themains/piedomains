@@ -3,7 +3,7 @@ import argparse
 
 from .pydomain import Pydomain
 
-classify = Pydomain.pred_shalla_cat
+pred_shalla_cat = Pydomain.pred_shalla_cat
 
 
 def main(argv=sys.argv[1:]):
@@ -15,9 +15,7 @@ def main(argv=sys.argv[1:]):
     if not args.input or not args.type:
         return -1
 
-    output = ""
-    if args.type == "muslim":
-        output = classify(args.input)
+    output = pred_shalla_cat(args.input)
     print(output)
 
     return 0

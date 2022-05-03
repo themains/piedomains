@@ -1,3 +1,3 @@
-from .domain import classify
+from .domain import pred_shalla_cat
 
-__all__ = ["classify"]
+__all__ = ["pred_shalla_cat"]

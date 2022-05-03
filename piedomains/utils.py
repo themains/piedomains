@@ -1,11 +1,9 @@
-# -*- coding: utf-8 -*-
-
 import os
 import tarfile
 import requests
 
 
-REPO_BASE_URL = os.environ.get("PIEDOMAINS_MODEL_URL") or "https://dataverse.harvard.edu/api/access/datafile/6191874"
+REPO_BASE_URL = os.environ.get("PIEDOMAINS_MODEL_URL") or "https://dataverse.harvard.edu/api/access/datafile/6276339"
 
 
 def download_file(url, target, file_name):

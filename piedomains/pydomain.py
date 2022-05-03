@@ -19,6 +19,20 @@ nltk.download("stopwords")
 nltk.download("words")
 words = set(nltk.corpus.words.words())
 stop_words = set(stopwords.words("english"))
+most_common_words = [
+    "home",
+    "contact",
+    "us",
+    "new",
+    "news",
+    "site",
+    "privacy",
+    "search",
+    "help",
+    "copyright",
+    "free",
+    "service",
+]
 
 
 class Pydomain(Base):
@@ -28,8 +42,9 @@ class Pydomain(Base):
         "adv",
         "aggressive",
         "alcohol",
+        "anonvpn",
         "automobile",
-        "chat",
+        "costtraps",
         "dating",
         "downloads",
         "drugs",
@@ -42,20 +57,25 @@ class Pydomain(Base):
         "government",
         "hacking",
         "hobby",
+        "homestyle",
         "hospitals",
         "imagehosting",
         "isp",
         "jobsearch",
+        "library",
+        "military",
         "models",
         "movies",
         "music",
         "news",
+        "podcasts",
         "politics",
         "porn",
         "radiotv",
         "recreation",
         "redirector",
         "religion",
+        "remotecontrol",
         "ringtones",
         "science",
         "searchengines",
@@ -64,11 +84,15 @@ class Pydomain(Base):
         "socialnet",
         "spyware",
         "tracker",
+        "updatesites",
         "urlshortener",
+        "violence",
         "warez",
         "weapons",
         "webmail",
+        "webphone",
         "webradio",
+        "webtv",
     ]
 
     @classmethod
@@ -106,6 +130,8 @@ class Pydomain(Base):
         tokens = [w for w in tokens if not w in stop_words]
         # filter out short tokens
         tokens = [word for word in tokens if len(word) > 1]
+        # remove most common words
+        tokens = [w for w in tokens if not w in most_common_words]
         return " ".join(w for w in tokens)
 
     @classmethod
@@ -120,7 +146,7 @@ class Pydomain(Base):
         model_file_name = "shallalist_v1_model.tar.gz"
         if not cls.weights_loaded:
             cls.model_path = cls.load_model_data(model_file_name, latest)
-            model = tf.keras.models.load_model(f"{cls.model_path}/saved_model/newpydomains")
+            model = tf.keras.models.load_model(f"{cls.model_path}/saved_model/piedomains")
             cls.weights_loaded = True
 
         input_content = input.copy()
@@ -130,14 +156,19 @@ class Pydomain(Base):
             text = cls.data_cleanup(text)
             input_content[i] = input[i].rsplit(".", 1)[0] + " " + text
 
+        print(input_content)
         results = model.predict(input_content)
         probs = tf.nn.softmax(results)
         res_args = tf.argmax(results, 1)
 
         labels = []
         domain_probs = []
+        label_probs = []
         for i in range(len(input)):
             labels.append(cls.classes[res_args[i]])
+            label_probs.append(probs[i][res_args[i]].numpy())
             domain_probs.append(dict(zip(cls.classes, probs[i].numpy())))
 
-        return pd.DataFrame(data={"name": input, "pred_label": labels, "domain_probs": domain_probs})
+        return pd.DataFrame(
+            data={"name": input, "pred_label": labels, "label_prob": label_probs, "all_domain_probs": domain_probs}
+        )
