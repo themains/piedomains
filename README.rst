@@ -1,6 +1,6 @@
-==================================================
+===========================================================================================
 piedomains: Predict the kind of content hosted by a domain based on domain name and content
-==================================================
+===========================================================================================
 
 .. image:: https://ci.appveyor.com/api/projects/status/k0b72xay9i4ufxff?svg=true
     :target: https://ci.appveyor.com/project/soodoku/piedomains
@@ -75,20 +75,15 @@ We expose 1 function, which will take array of domains and predicts category.
 
 Authors
 -------
-
 Rajashekar Chintalapati and Gaurav Sood
 
 Contributor Code of Conduct
 ---------------------------------
-
 The project welcomes contributions from everyone! In fact, it depends on
 it. To maintain this welcoming atmosphere, and to collaborate in a fun
 and productive way, we expect contributors to the project to abide by
-the `Contributor Code of
-Conduct <http://contributor-covenant.org/version/1/0/0/>`__.
+the `Contributor Code of Conduct <http://contributor-covenant.org/version/1/0/0/>`__.
 
 License
 ----------
-
-The package is released under the `MIT
-License <https://opensource.org/licenses/MIT>`__.
+The package is released under the `MIT License <https://opensource.org/licenses/MIT>`__.

@@ -59,6 +59,7 @@ setup(
     name="piedomains",
     version="0.0.1",
     description="Predict categories based domain names and it's content",
+    long_description_content_type="text/x-rst",
     long_description=long_description,
     # The project's main homepage.
     url="https://github.com/themains/piedomains",
@@ -66,7 +67,7 @@ setup(
     author="Rajashekar Chintalapati and Gaurav Sood",
     author_email="rajshekar.ch@gmail.com, gsood07@gmail.com",
     # Choose your license
-    license="MIT",
+    license="MIT License",
     # See https://pypi.python.org/pypi?%3Aaction=list_classifiers
     classifiers=[
         # How mature is this project? Common values are
