@@ -150,10 +150,16 @@ class Pydomain(Base):
             cls.weights_loaded = True
 
         input_content = input.copy()
+        used_domain_content = []
         for i in range(len(input)):
-            page = requests.get(f"https://{input[i]}", timeout=3, headers={"Accept-Language": "en-US"})
-            text = cls.text_from_html(page.text)
-            text = cls.data_cleanup(text)
+            try:
+                page = requests.get(f"https://{input[i]}", timeout=3, headers={"Accept-Language": "en-US"})
+                text = cls.text_from_html(page.text)
+                text = cls.data_cleanup(text)
+                used_domain_content.append(True)
+            except Exception as e:
+                text = ""
+                used_domain_content.append(False)
             input_content[i] = input[i].rsplit(".", 1)[0] + " " + text
 
         # print(input_content)
@@ -170,5 +176,11 @@ class Pydomain(Base):
             domain_probs.append(dict(zip(cls.classes, probs[i].numpy())))
 
         return pd.DataFrame(
-            data={"name": input, "pred_label": labels, "label_prob": label_probs, "all_domain_probs": domain_probs}
+            data={
+                "name": input,
+                "pred_label": labels,
+                "label_prob": label_probs,
+                "used_domain_content": used_domain_content,
+                "all_domain_probs": domain_probs,
+            }
         )
