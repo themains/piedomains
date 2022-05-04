@@ -12,10 +12,7 @@ from piedomains import domain
 
 class TestPredDomain(unittest.TestCase):
     def setUp(self):
-        self.domains = [
-            "forbes.com",
-            "marketwatch.com",
-        ]
+        self.domains = ["forbes.com", "marketwatch.com", "bmwusa.com"]
         self.true_labels = ["news", "finance"]
 
     def tearDown(self):
@@ -25,8 +22,10 @@ class TestPredDomain(unittest.TestCase):
         odf = domain.pred_shalla_cat(self.domains)
         self.assertIn("pred_label", odf.columns)
         self.assertIn("all_domain_probs", odf.columns)
+        self.assertIn("used_domain_content", odf.columns)
         self.assertTrue(odf.iloc[0]["pred_label"] == self.true_labels[0])
         self.assertTrue(odf.iloc[1]["pred_label"] == self.true_labels[1])
+        self.assertTrue(odf.iloc[2]["used_domain_content"] == False)
 
 
 if __name__ == "__main__":
