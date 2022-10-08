@@ -3,6 +3,7 @@ from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
 import pandas as pd
 import os
+from PIL import Image
 
 driver = None
 
@@ -26,6 +27,12 @@ for i, r in df.iterrows():
                 driver.set_page_load_timeout(5)
             driver.get(url)
             driver.save_screenshot(fn)
+            # open png image
+            img_png = Image.open(fn)
+            # save as jpg image
+            img_png.save(fn.replace('.png', '.jpg'))
+            # remove png image
+            os.unlink(fn)
         except Exception as e:
             print('ERROR:', i, url, e)
             if str(e).find('invalid session id'):
