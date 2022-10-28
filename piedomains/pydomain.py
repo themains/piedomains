@@ -32,6 +32,13 @@ most_common_words = [
     "copyright",
     "free",
     "service",
+    "en",
+    "get",
+    "one",
+    "find",
+    "menu",
+    "account",
+    "next",
 ]
 
 
@@ -143,7 +150,7 @@ class Pydomain(Base):
         Returns:
             output (str): category
         """
-        model_file_name = "shallalist_v2_model.tar.gz"
+        model_file_name = "shallalist_v3_model.tar.gz"
         if not cls.weights_loaded:
             cls.model_path = cls.load_model_data(model_file_name, latest)
             cls.model = tf.keras.models.load_model(f"{cls.model_path}/saved_model/piedomains")
