@@ -1,3 +1,4 @@
 tensorflow
 nltk
 bs4
+scikit-learn

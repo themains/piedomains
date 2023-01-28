@@ -12,6 +12,7 @@ from nltk.corpus import stopwords
 import nltk
 import re
 import string
+import joblib
 
 
 logger = get_logger()
@@ -32,6 +33,13 @@ most_common_words = [
     "copyright",
     "free",
     "service",
+    "en",
+    "get",
+    "one",
+    "find",
+    "menu",
+    "account",
+    "next",
 ]
 
 
@@ -143,10 +151,16 @@ class Pydomain(Base):
         Returns:
             output (str): category
         """
-        model_file_name = "shallalist_v2_model.tar.gz"
+        model_file_name = "shallalist_v3_model.tar.gz"
         if not cls.weights_loaded:
             cls.model_path = cls.load_model_data(model_file_name, latest)
             cls.model = tf.keras.models.load_model(f"{cls.model_path}/saved_model/piedomains")
+
+            # load calibrated models
+            cls.calibrated_models = {}
+            for c in cls.classes:
+                cls.calibrated_models[c] = joblib.load(f"{cls.model_path}/../calibrate/text/{c}.sav")
+
             cls.weights_loaded = True
 
         input_content = input.copy()
@@ -165,15 +179,14 @@ class Pydomain(Base):
         # print(input_content)
         results = cls.model.predict(input_content)
         probs = tf.nn.softmax(results)
-        res_args = tf.argmax(results, 1)
+        probs_df = pd.DataFrame(probs.numpy(), columns=cls.classes)
 
-        labels = []
-        domain_probs = []
-        label_probs = []
-        for i in range(len(input)):
-            labels.append(cls.classes[res_args[i]])
-            label_probs.append(probs[i][res_args[i]].numpy())
-            domain_probs.append(dict(zip(cls.classes, probs[i].numpy())))
+        for c in cls.classes:
+            probs_df[c] = cls.calibrated_models[c].transform(probs_df[c].to_numpy())
+
+        labels = probs_df.idxmax(axis=1)
+        label_probs = probs_df.max(axis=1)
+        domain_probs = probs_df.to_dict(orient="records")
 
         return pd.DataFrame(
             data={
