@@ -57,7 +57,7 @@ class Tox(TestCommand):
 
 setup(
     name="piedomains",
-    version="0.0.4",
+    version="0.0.6",
     description="Predict categories based domain names and it's content",
     long_description_content_type="text/x-rst",
     long_description=long_description,
@@ -100,7 +100,7 @@ setup(
     # your project is installed. For an analysis of "install_requires" vs pip's
     # requirements files see:
     # https://packaging.python.org/en/latest/requirements.html
-    install_requires=["tqdm", "bs4", "pandas", "nltk", "tensorflow"],
+    install_requires=["tqdm", "bs4", "pandas", "nltk", "tensorflow", "scikit-learn", "joblib==1.2.0"],
     # List additional groups of dependencies here (e.g. development
     # dependencies). You can install these using the following syntax,
     # for example:
@@ -115,6 +115,7 @@ setup(
     package_data={
         "piedomains": [
             "notebooks/*.ipynb",
+            "model/calibrate/text/*.sav",
         ],
     },
     # Although 'package_data' is the preferred approach, in some case you may
