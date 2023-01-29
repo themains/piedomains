@@ -250,6 +250,15 @@ class Pydomain(Base):
         img_label_probs = img_probs_df.max(axis=1)
         img_domain_probs = img_probs_df.to_dict(orient="records")
 
+        # get valid predictions
+        valid_img_probs = []
+
+        for i in range(len(input)):
+            if used_domain_screenshot[i]:
+                valid_img_probs.append(img_label_probs[i])
+            else:
+                valid_img_probs.append("NA")
+
         return pd.DataFrame(
             data={
                 "name": input,
@@ -260,6 +269,6 @@ class Pydomain(Base):
                 "used_domain_content": used_domain_content,
                 "used_domain_screenshot": used_domain_screenshot,
                 "text_domain_probs": domain_probs,
-                "img_domain_probs": img_domain_probs,
+                "img_domain_probs": valid_img_probs,
             }
         )
