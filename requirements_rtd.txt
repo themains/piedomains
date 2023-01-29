@@ -2,3 +2,6 @@ tensorflow
 nltk
 bs4
 scikit-learn
+pillow
+selenium
+webdriver_manager

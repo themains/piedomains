@@ -1,18 +1,21 @@
 from .logging import get_logger
 from .base import Base
 
-import tensorflow as tf
-import numpy as np
-import pandas as pd
-
+import re
+import os
+import string
 import requests
 from bs4 import BeautifulSoup
 from bs4.element import Comment
-from nltk.corpus import stopwords
+from selenium import webdriver
+from PIL import Image
+
+import numpy as np
+import pandas as pd
+import tensorflow as tf
 import nltk
-import re
-import string
 import joblib
+from nltk.corpus import stopwords
 
 
 logger = get_logger()
@@ -46,6 +49,9 @@ most_common_words = [
 class Pydomain(Base):
     MODELFN = "model/shallalist"
     weights_loaded = False
+    img_width = 160
+    img_height = 160
+
     classes = [
         "adv",
         "aggressive",
@@ -143,6 +149,35 @@ class Pydomain(Base):
         return " ".join(w for w in tokens)
 
     @classmethod
+    def get_image_tensor(cls, domain):
+        options = webdriver.ChromeOptions()
+        options.add_argument("--disable-extensions")
+        options.add_argument("--no-sandbox")  # linux only
+        options.add_argument("--headless")
+        options.add_argument("--disable-gpu")
+        options.add_argument("--window-size=1280,1024")
+        driver = webdriver.Chrome("chromedriver", options=options)
+        # driver.implicitly_wait(5)  # seconds
+        # driver.set_page_load_timeout(5)
+
+        url = f"https://{domain}"
+        driver.get(url)
+
+        png_file = url.replace("https://", "") + ".png"
+        driver.save_screenshot(png_file)
+
+        jpg_file = png_file.replace(".png", ".jpg")
+        img_file = Image.open(png_file)
+        img_file = img_file.convert("RGB")
+        img_file.save(jpg_file)
+        img = Image.open(jpg_file)
+        img_tensor = tf.convert_to_tensor(np.array(img))
+        img_tensor = tf.image.resize(img_tensor, [cls.img_width, cls.img_height])
+        os.unlink(png_file)
+        os.unlink(jpg_file)
+        return img_tensor
+
+    @classmethod
     def pred_shalla_cat(cls, input, latest=False):
         """
         Predict category based on domain
@@ -151,10 +186,11 @@ class Pydomain(Base):
         Returns:
             output (str): category
         """
-        model_file_name = "shallalist_v3_model.tar.gz"
+        model_file_name = "shallalist_v4_model.tar.gz"
         if not cls.weights_loaded:
             cls.model_path = cls.load_model_data(model_file_name, latest)
             cls.model = tf.keras.models.load_model(f"{cls.model_path}/saved_model/piedomains")
+            cls.model_cv = tf.keras.models.load_model(f"{cls.model_path}/saved_model/pydomains_images")
 
             # load calibrated models
             cls.calibrated_models = {}
@@ -165,6 +201,7 @@ class Pydomain(Base):
 
         input_content = input.copy()
         used_domain_content = []
+        # text extraction
         for i in range(len(input)):
             try:
                 page = requests.get(f"https://{input[i]}", timeout=3, headers={"Accept-Language": "en-US"})
@@ -176,6 +213,7 @@ class Pydomain(Base):
                 used_domain_content.append(False)
             input_content[i] = input[i].rsplit(".", 1)[0] + " " + text
 
+        # text prediction
         # print(input_content)
         results = cls.model.predict(input_content)
         probs = tf.nn.softmax(results)
@@ -188,12 +226,40 @@ class Pydomain(Base):
         label_probs = probs_df.max(axis=1)
         domain_probs = probs_df.to_dict(orient="records")
 
+        img_tensors = []
+        used_domain_screenshot = []
+        # image extraction
+        for i in range(len(input)):
+            try:
+                img_tensor = cls.get_image_tensor(input[i])
+                img_tensor = tf.cast(img_tensor, tf.float32)
+                img_tensors.append(img_tensor)
+                used_domain_screenshot.append(True)
+            except Exception as e:
+                print(e)
+                img_tensors.append(tf.zeros((cls.img_width, cls.img_height, 3)))
+                used_domain_screenshot.append(False)
+
+        # image prediction
+        img_tensors = tf.stack(img_tensors)
+        img_results = cls.model_cv.predict(img_tensors)
+        img_probs = tf.nn.softmax(img_results)
+        img_probs_df = pd.DataFrame(img_probs.numpy(), columns=cls.classes)
+
+        img_labels = img_probs_df.idxmax(axis=1)
+        img_label_probs = img_probs_df.max(axis=1)
+        img_domain_probs = img_probs_df.to_dict(orient="records")
+
         return pd.DataFrame(
             data={
                 "name": input,
-                "pred_label": labels,
-                "label_prob": label_probs,
+                "text_pred_label": labels,
+                "text_label_prob": label_probs,
+                "img_pred_label": img_labels,
+                "img_label_prob": img_label_probs,
                 "used_domain_content": used_domain_content,
-                "all_domain_probs": domain_probs,
+                "used_domain_screenshot": used_domain_screenshot,
+                "text_domain_probs": domain_probs,
+                "img_domain_probs": img_domain_probs,
             }
         )
