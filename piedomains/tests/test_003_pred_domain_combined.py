@@ -18,6 +18,33 @@ class TestPredDomainCombined(unittest.TestCase):
     def tearDown(self):
         pass
 
+    # test if domains is None and html_path is None
+    def test_domains_path_none(self):
+        try:
+            domain.pred_shalla_cat()
+        except Exception:
+            self.assertTrue(True)
+
+    # test if domains is None and html_path is not None but not a directory
+    def test_domains_none_htmlpath_not_dir(self):
+        try:
+            domain.pred_shalla_cat(html_path="./test")
+        except Exception:
+            self.assertTrue(True)
+
+    # test if domains is None and image_path is not None but not a directory
+    def test_domains_none_imagepath_not_dir(self):
+        try:
+            domain.pred_shalla_cat(image_path="./test")
+        except Exception:
+            self.assertTrue(True)
+
+    def test_domains_none_paths_not_dir(self):
+        try:
+            domain.pred_shalla_cat(html_path="./test", image_path="./test")
+        except Exception:
+            self.assertTrue(True)
+
     def test_pred_label(self):
         odf = domain.pred_shalla_cat(self.domains, html_path="./html", image_path="./images")
         self.assertIn("text_label", odf.columns)

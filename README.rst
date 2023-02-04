@@ -35,11 +35,9 @@ General API
 
   - Input
 
-    - list of domains
+    - list of domains (optional, if not provided, html_path is required)
 
-    - path where htmls are stored (optional)
-
-    - use offline html (optional)
+    - path where htmls are stored (optional, if not provided, domains is required)
 
     - use latest model (optional)
 
@@ -47,49 +45,100 @@ General API
 
     - Returns panda dataframe with label and probabilities
 
+::
+  
+    from piedomains import domain
+    domains = [
+        "forbes.com",
+        "xvideos.com",
+        "last.fm",
+        "facebook.com",
+        "bellesa.co",
+        "marketwatch.com"
+    ]
+    # with only domains
+    result = domain.pred_shalla_cat_with_text(domains)
+    # with html path where htmls are stored (offline mode)
+    result = domain.pred_shalla_cat_with_text(html_path="path/to/htmls")
+    # with domains and html path, html_path will be used to store htmls
+    result = domain.pred_shalla_cat_with_text(domains, html_path="path/to/htmls")
+    print(result)
+
 2. domain.pred_shalla_cat_with_images(input)
   
-    - What it does:
-  
-      - predicts category based on domain name and domain screenshot
+  - What it does:
 
-    - Input
-    
-        - list of domains
+    - predicts category based on domain name and domain screenshot
 
-        - path where images are stored (optional)
+  - Input
+  
+      - list of domains (optional, if not provided, image_path is required)
 
-        - use offline images (optional)
-    
-        - use latest model (optional)
+      - path where images are stored (optional, if not provided, domains is required)
+
+      - use latest model (optional)
+
+  - Output
+
+    - Returns panda dataframe with label and probabilities
+
+::
   
-    - Output
-  
-      - Returns panda dataframe with label and probabilities
+    from piedomains import domain
+    domains = [
+        "forbes.com",
+        "xvideos.com",
+        "last.fm",
+        "facebook.com",
+        "bellesa.co",
+        "marketwatch.com"
+    ]
+    # with only domains
+    result = domain.pred_shalla_cat_with_images(domains)
+    # with image path where images are stored (offline mode)
+    result = domain.pred_shalla_cat_with_images(image_path="path/to/images")
+    # with domains and image path, image_path will be used to store images
+    result = domain.pred_shalla_cat_with_images(domains, image_path="path/to/images")
+    print(result)
 
 3. domain.pred_shalla_cat(input)
   
-    - What it does:
+  - What it does:
+
+    - predicts category based on domain name, text content and domain screenshot
+
+  - Input
   
-      - predicts category based on domain name, text content and domain screenshot
+      - list of domains (optional, if not provided, html_path and image_path is required)
 
-    - Input
-    
-        - list of domains
+      - path where htmls are stored (optional, if not provided, domains is required)
 
-        - path where htmls are stored (optional)
+      - path where images are stored (optional, if not provided, domains is required)
 
-        - use offline html (optional)
+      - use latest model (optional)
 
-        - path where images are stored (optional)
+  - Output
 
-        - use offline images (optional)
-    
-        - use latest model (optional)
+    - Returns panda dataframe with label and probabilities
+
+::
   
-    - Output
-  
-      - Returns panda dataframe with label and probabilities
+    from piedomains import domain
+    domains = [
+        "forbes.com",
+        "xvideos.com",
+        "last.fm",
+        "facebook.com",
+        "bellesa.co",
+        "marketwatch.com"
+    ]
+    # with only domains
+    result = domain.pred_shalla_cat(domains)
+    # with html path where htmls are stored (offline mode)
+    result = domain.pred_shalla_cat(html_path="path/to/htmls")
+    # with image path where images are stored (offline mode)
+    result = domain.pred_shalla_cat(image_path="path/to/images")
+    print(result)
 
 Examples
 --------

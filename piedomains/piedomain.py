@@ -257,17 +257,57 @@ class Piedomain(Base):
 
     """
     @classmethod
-    pred_shalla_cat_with_text(input, html_path, offline_htmls, latest)
+    validate_input(input, path, type)
+    @param input: list of domains
+    @param path: path to html/image files
+    @param type: type of input, html or image
+    @return: bool
+    This function is used to validate the input
+    """
+
+    @classmethod
+    def validate_input(cls, input, path, type):
+        if type == "html":
+            pth = "html_path"
+        else:
+            pth = "image_path"
+
+        offline = False
+        # if input is empty
+        if len(input) == 0:
+            # if path is None, raise exception
+            if path is None:
+                raise Exception(f"Provide list of Domains, or for offline provide {pth}")
+            else:
+                # if path is not None, check if it exists and is not empty
+                if not os.path.exists(path):
+                    raise Exception(f"{pth} does not exist")
+                if len(os.listdir(path)) == 0:
+                    raise Exception("{pth} is empty")
+                else:
+                    offline = True
+        else:
+            # if input is not empty, if html_path exists and is not empty, then empty html_path dir
+            if path is not None:
+                if os.path.exists(path):
+                    if len(os.listdir(path)) > 0:
+                        for file in os.listdir(path):
+                            os.remove(f"{path}/{file}")
+        return offline
+
+    """
+    @classmethod
+    pred_shalla_cat_with_text(input, html_path, latest)
     @param input: list of domains
     @param html_path: path to html files
-    @param offline_htmls: if True, use html files in html_path
     @param latest: if True, load the latest model
     @return dataframe with columns: domain, label, label_prob
     This function is used to predict the Shalla category of a domain
     """
 
     @classmethod
-    def pred_shalla_cat_with_text(cls, input, html_path=None, offline_htmls=False, latest=False):
+    def pred_shalla_cat_with_text(cls, input=[], html_path=None, latest=False):
+        offline_htmls = cls.validate_input(input, html_path, "html")
         cls.load_model(cls.model_file_name, latest)
         # if html_path is None then use the default path
         if html_path is None:
@@ -301,22 +341,23 @@ class Piedomain(Base):
                 "text_prob": label_probs,
                 "text_domain_probs": domain_probs,
                 "used_domain_text": used_domain_content,
+                "extracted_text": domains,
             }
         )
 
     """
     @classmethod
-    pred_shalla_cat_with_images(input, image_path, offline_images, latest)
+    pred_shalla_cat_with_images(input, image_path, latest)
     @param input: list of domains
     @param image_path: path to save images
-    @param offline_images: if True, use images in image_path
     @param latest: if True, load the latest model
     @return dataframe with columns: domain, label, label_prob
     This function is used to predict the Shalla category of a domain
     """
 
     @classmethod
-    def pred_shalla_cat_with_images(cls, input, image_path=None, offline_images=False, latest=False):
+    def pred_shalla_cat_with_images(cls, input=[], image_path=None, latest=False):
+        offline_images = cls.validate_input(input, image_path, "image")
         cls.load_model(cls.model_file_name, latest)
         # if image_path is None then use the default path
         if image_path is None:
@@ -352,18 +393,18 @@ class Piedomain(Base):
     @classmethod
     pred_shalla_cat(input, latest=False)
     @param input: list of domain names
+    @param html_path: path to html files
+    @param image_path: path to image files
     @param latest: if True, load latest model
     @return output: data frame with domain, category, and probability
     """
 
     @classmethod
-    def pred_shalla_cat(
-        cls, input, html_path=None, offline_htmls=False, image_path=None, offline_images=False, latest=False
-    ):
+    def pred_shalla_cat(cls, input=[], html_path=None, image_path=None, latest=False):
         # text prediction
-        pred_df = cls.pred_shalla_cat_with_text(input, html_path, offline_htmls, latest)
+        pred_df = cls.pred_shalla_cat_with_text(input, html_path, latest)
         # image prediction
-        img_pred_df = cls.pred_shalla_cat_with_images(input, image_path, offline_images, latest)
+        img_pred_df = cls.pred_shalla_cat_with_images(input, image_path, latest)
         # merge predictions
         final_df = pred_df.merge(img_pred_df, on="domain", how="outer")
         # calculate final probabilities
