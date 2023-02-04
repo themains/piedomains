@@ -14,7 +14,7 @@ piedomains: Predict the kind of content hosted by a domain based on domain name 
 
 
 This package used `Shallalist dataset <https://dataverse.harvard.edu/dataset.xhtml?persistentId=doi:10.7910/DVN/ZXTQ7V>`__ to train the model.
-Scrapped homepages of the domains mentioned in above dataset. This package predicts the category based on the domain name and its content.
+Scrapped homepages of the domains mentioned in above dataset. This package predicts the category based on the domain name, text content and domain screenshot.
 
 Install
 -------
@@ -27,7 +27,69 @@ We strongly recommend installing `piedomains` inside a Python virtual environmen
 
 General API
 -----------
-1. domain.pred_shalla_cat will take array of domains and predicts category.
+1. domain.pred_shalla_cat_with_text(input)
+
+  - What it does:
+
+    - predicts category based on domain name and text content
+
+  - Input
+
+    - list of domains
+
+    - path where htmls are stored (optional)
+
+    - use offline html (optional)
+
+    - use latest model (optional)
+
+  - Output
+
+    - Returns panda dataframe with label and probabilities
+
+2. domain.pred_shalla_cat_with_images(input)
+  
+    - What it does:
+  
+      - predicts category based on domain name and domain screenshot
+
+    - Input
+    
+        - list of domains
+
+        - path where images are stored (optional)
+
+        - use offline images (optional)
+    
+        - use latest model (optional)
+  
+    - Output
+  
+      - Returns panda dataframe with label and probabilities
+
+3. domain.pred_shalla_cat(input)
+  
+    - What it does:
+  
+      - predicts category based on domain name, text content and domain screenshot
+
+    - Input
+    
+        - list of domains
+
+        - path where htmls are stored (optional)
+
+        - use offline html (optional)
+
+        - path where images are stored (optional)
+
+        - use offline images (optional)
+    
+        - use latest model (optional)
+  
+    - Output
+  
+      - Returns panda dataframe with label and probabilities
 
 Examples
 --------
@@ -80,19 +142,6 @@ Output -
   4  {'adv': 0.0008953566430136561, 'aggressive': 3...  
   5  {'adv': 0.007870808243751526, 'aggressive': 0....
 
-Functions
-----------
-We expose 1 function, which will take array of domains and predicts category.
-
-- **domain.pred_shalla_cat(input)**
-
-  - What it does:
-
-    - predicts category based on domain and its content
-
-  - Output
-
-    - Returns panda dataframe with label and probabilities
 
 Authors
 -------

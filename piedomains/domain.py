@@ -1,9 +1,15 @@
 import sys
 import argparse
 
-from .pydomain import Pydomain
+from .piedomain import Piedomain
 
-pred_shalla_cat = Pydomain.pred_shalla_cat
+pred_shalla_cat = Piedomain.pred_shalla_cat
+pred_shalla_cat_with_text = Piedomain.pred_shalla_cat_with_text
+pred_shalla_cat_with_images = Piedomain.pred_shalla_cat_with_images
+
+"""
+Console script for piedomains.
+"""
 
 
 def main(argv=sys.argv[1:]):

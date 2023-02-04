@@ -5,9 +5,17 @@ from .logging import get_logger
 
 logger = get_logger()
 
+"""
+Base class for all models
+"""
+
 
 class Base(object):
     MODELFN = None
+
+    """
+    Load model data from the server
+    """
 
     @classmethod
     def load_model_data(cls, file_name, latest=False):
