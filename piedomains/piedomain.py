@@ -1,6 +1,3 @@
-from .logging import get_logger
-from .base import Base
-
 import re
 import os
 import time
@@ -19,7 +16,8 @@ import joblib
 from nltk.corpus import stopwords
 
 from .constants import classes, most_common_words
-
+from .logging import get_logger
+from .base import Base
 
 logger = get_logger()
 nltk.download("stopwords")
