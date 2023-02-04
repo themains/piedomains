@@ -13,7 +13,7 @@ Console script for piedomains.
 
 
 def main(argv=sys.argv[1:]):
-    title = "Predict religion based on name"
+    title = "Predict the category of the domain using the contet of the domain and the screenshot of the homepage"
     parser = argparse.ArgumentParser(description=title)
     parser.add_argument("--input", default=None, help="name")
     args = parser.parse_args(argv)
