@@ -46,7 +46,7 @@ class TestPredDomainCombined(unittest.TestCase):
             self.assertTrue(True)
 
     def test_pred_label(self):
-        odf = domain.pred_shalla_cat(self.domains, html_path="./html", image_path="./images")
+        odf = domain.pred_shalla_cat(html_path="./html", image_path="./images")
         self.assertIn("text_label", odf.columns)
         self.assertIn("text_prob", odf.columns)
         self.assertIn("text_domain_probs", odf.columns)
@@ -58,6 +58,10 @@ class TestPredDomainCombined(unittest.TestCase):
         self.assertIn("label", odf.columns)
         self.assertIn("label_prob", odf.columns)
         self.assertIn("combined_domain_probs", odf.columns)
+        self.assertTrue(odf.iloc[0]["used_domain_screenshot"])
+        self.assertTrue(odf.iloc[1]["used_domain_screenshot"])
+        self.assertTrue(odf.iloc[0]["used_domain_text"])
+        self.assertTrue(odf.iloc[1]["used_domain_text"])
 
 
 if __name__ == "__main__":

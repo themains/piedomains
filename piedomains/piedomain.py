@@ -215,22 +215,24 @@ class Piedomain(Base):
     @classmethod
     extract_html_text(html_path)
     @param html_path: path to html files
-    @return domains: list of domains with text
-    @return used_domain_content: list of bools, True if domain has text
+    @return domains: list of domains
+    @return content: list of content
     """
 
     @classmethod
     def extract_html_text(cls, html_path):
+        content = []
         domains = []
         for file in os.listdir(html_path):
+            domains.append(file.replace(".html", ""))
             if file.endswith(".html"):
-                domains.append(file.replace(".html", ""))
+                content.append(file.replace(".html", ""))
                 f = open(f"{html_path}/{file}", "r")
                 text = cls.text_from_html(f.read())
                 text = cls.data_cleanup(text)
-                domains[-1] = domains[-1].rsplit(".", 1)[0] + " " + text
+                content[-1] = content[-1].rsplit(".", 1)[0] + " " + text
                 f.close()
-        return domains
+        return domains, content
 
     """
     @classmethod
@@ -283,7 +285,7 @@ class Piedomain(Base):
                 if not os.path.exists(path):
                     raise Exception(f"{pth} does not exist")
                 if len(os.listdir(path)) == 0:
-                    raise Exception("{pth} is empty")
+                    raise Exception(f"{pth} is empty")
                 else:
                     offline = True
         else:
@@ -323,8 +325,10 @@ class Piedomain(Base):
                     used_domain_content[domain] = False
                     print(f"Error: {domain} - {errors[domain]}")
 
-        domains = cls.extract_html_text(html_path)
-        results = cls.model.predict(domains)
+        domains, content = cls.extract_html_text(html_path)
+        if offline_htmls:
+            used_domain_content = [True] * len(domains)
+        results = cls.model.predict(content)
         probs = tf.nn.softmax(results)
         probs_df = pd.DataFrame(probs.numpy(), columns=classes)
 
@@ -336,12 +340,12 @@ class Piedomain(Base):
         domain_probs = probs_df.to_dict(orient="records")
         return pd.DataFrame(
             {
-                "domain": input,
+                "domain": domains,
                 "text_label": labels,
                 "text_prob": label_probs,
                 "text_domain_probs": domain_probs,
                 "used_domain_text": used_domain_content,
-                "extracted_text": domains,
+                "extracted_text": content,
             }
         )
 
@@ -367,11 +371,11 @@ class Piedomain(Base):
         domains = input.copy()
         if not offline_images:
             used_domain_screenshot = cls.extract_images(domains, image_path)
-        else:
-            used_domain_screenshot = [True] * len(domains)
         images = cls.extract_image_tensor(image_path)
         img_domains = list(images.keys())
         img_tensors = tf.stack(list(images.values()))
+        if offline_images:
+            used_domain_screenshot = [True] * len(img_domains)
         results = cls.model_cv.predict(img_tensors)
         probs = tf.nn.softmax(results)
         probs_df = pd.DataFrame(probs.numpy(), columns=classes)

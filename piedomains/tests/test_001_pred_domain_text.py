@@ -38,6 +38,8 @@ class TestPredDomainText(unittest.TestCase):
         self.assertIn("text_prob", odf.columns)
         self.assertIn("text_domain_probs", odf.columns)
         self.assertIn("used_domain_text", odf.columns)
+        self.assertTrue(odf.iloc[0]["used_domain_text"])
+        self.assertTrue(odf.iloc[1]["used_domain_text"])
 
 
 if __name__ == "__main__":

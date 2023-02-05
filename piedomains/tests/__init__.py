@@ -3,7 +3,7 @@ from contextlib import contextmanager
 
 try:
     from StringIO import StringIO
-except Exception as e:
+except Exception:
     from io import StringIO
 
 

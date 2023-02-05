@@ -33,14 +33,13 @@ class TestPredDomainImages(unittest.TestCase):
             self.assertTrue(True)
 
     def test_pred_label(self):
-        odf = domain.pred_shalla_cat_with_images(self.domains, image_path="./images")
+        odf = domain.pred_shalla_cat_with_images(image_path="./images")
         self.assertIn("image_label", odf.columns)
         self.assertIn("image_prob", odf.columns)
         self.assertIn("image_domain_probs", odf.columns)
         self.assertIn("used_domain_screenshot", odf.columns)
-        # self.assertTrue(odf.iloc[0]["pred_label"] == self.true_labels[0])
-        # self.assertTrue(odf.iloc[1]["pred_label"] == self.true_labels[1])
-        # self.assertTrue(odf.iloc[2]["used_domain_content"] == False)
+        self.assertTrue(odf.iloc[0]["used_domain_screenshot"])
+        self.assertTrue(odf.iloc[1]["used_domain_screenshot"])
 
 
 if __name__ == "__main__":
