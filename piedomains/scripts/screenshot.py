@@ -11,7 +11,7 @@ driver = None
 df = pd.read_csv("fulldomain_min_greater_than_5_words_v3.csv.gz", usecols=["full_domain"])
 
 for i, r in df.iterrows():
-    fn = "png/%d.png" % i
+    fn = f"png/{i}.png"
     # url = 'http://www.' + r.domain
     url = "http://" + r.full_domain
     if not os.path.exists(fn):
