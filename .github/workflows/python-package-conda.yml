@@ -22,6 +22,7 @@ jobs:
       run: |
         conda update -n base --all -y
         conda update --all -y
+        conda install --yes --file requirements.txt
     - name: Lint with flake8
       run: |
         conda install flake8

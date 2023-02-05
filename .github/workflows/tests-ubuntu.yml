@@ -58,6 +58,8 @@ jobs:
       env: ${{ matrix.env }}
       run: |
         pip install -U tox
+        pwd
+        ls -ltr
         tox
     - name: Upload coverage report
       run: bash <(curl -s https://codecov.io/bash)
