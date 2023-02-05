@@ -281,9 +281,9 @@ class Piedomain(Base):
             else:
                 # if path is not None, check if it exists and is not empty
                 if not os.path.exists(path):
-                    raise Exception(f"{pth} does not exist")
+                    raise Exception(f"{path} does not exist")
                 if len(os.listdir(path)) == 0:
-                    raise Exception(f"{pth} is empty")
+                    raise Exception(f"{path} is empty")
                 else:
                     offline = True
         else:

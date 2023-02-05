@@ -22,15 +22,15 @@ class TestPredDomainImages(unittest.TestCase):
     def test_domains_path_none(self):
         try:
             domain.pred_shalla_cat_with_images()
-        except Exception:
-            self.assertTrue(True)
+        except Exception as e:
+            self.assertTrue(str(e) == "Provide list of Domains, or for offline provide image_path")
 
     # test if domains is None and image_path is not None but not a directory
     def test_domains_none_path_not_dir(self):
         try:
             domain.pred_shalla_cat_with_images(image_path="./test")
-        except Exception:
-            self.assertTrue(True)
+        except Exception as e:
+            self.assertTrue(str(e) == "./test does not exist")
 
     def test_pred_label(self):
         odf = domain.pred_shalla_cat_with_images(image_path="./images")

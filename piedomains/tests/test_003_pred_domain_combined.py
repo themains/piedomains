@@ -22,22 +22,22 @@ class TestPredDomainCombined(unittest.TestCase):
     def test_domains_path_none(self):
         try:
             domain.pred_shalla_cat()
-        except Exception:
-            self.assertTrue(True)
+        except Exception as e:
+            self.assertTrue(str(e) == "Provide list of Domains, or for offline provide html_path")
 
     # test if domains is None and html_path is not None but not a directory
     def test_domains_none_htmlpath_not_dir(self):
         try:
             domain.pred_shalla_cat(html_path="./test")
-        except Exception:
-            self.assertTrue(True)
+        except Exception as e:
+            self.assertTrue(str(e) == "./test does not exist")
 
     # test if domains is None and image_path is not None but not a directory
     def test_domains_none_imagepath_not_dir(self):
         try:
             domain.pred_shalla_cat(image_path="./test")
-        except Exception:
-            self.assertTrue(True)
+        except Exception as e:
+            self.assertTrue(str(e) == "Provide list of Domains, or for offline provide html_path")
 
     def test_domains_none_paths_not_dir(self):
         try:
