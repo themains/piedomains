@@ -1,9 +1,10 @@
 import sys
 from contextlib import contextmanager
+import pandas
 
 try:
     from StringIO import StringIO
-except Exception as e:
+except Exception:
     from io import StringIO
 
 

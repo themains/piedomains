@@ -57,7 +57,7 @@ class Tox(TestCommand):
 
 setup(
     name="piedomains",
-    version="0.0.8",
+    version="0.0.11",
     description="Predict categories based domain names and it's content",
     long_description_content_type="text/x-rst",
     long_description=long_description,
@@ -136,7 +136,7 @@ setup(
     # "scripts" keyword. Entry points provide cross-platform support and allow
     # pip to create the appropriate form of executable for the target platform.
     entry_points={
-        "console_scripts": ["classify_domains=newpydomain:main"],
+        "console_scripts": ["classify_domains=piedomain:main"],
     },
     cmdclass={
         "develop": PostDevelopCommand,

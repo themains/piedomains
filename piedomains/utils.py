@@ -6,6 +6,11 @@ import requests
 REPO_BASE_URL = os.environ.get("PIEDOMAINS_MODEL_URL") or "https://dataverse.harvard.edu/api/access/datafile/6908064"
 
 
+"""
+Download file from the server
+"""
+
+
 def download_file(url, target, file_name):
     status = True
     try:
