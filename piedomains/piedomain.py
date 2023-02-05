@@ -1,6 +1,3 @@
-from .logging import get_logger
-from .base import Base
-
 import re
 import os
 import time
@@ -19,7 +16,8 @@ import joblib
 from nltk.corpus import stopwords
 
 from .constants import classes, most_common_words
-
+from .logging import get_logger
+from .base import Base
 
 logger = get_logger()
 nltk.download("stopwords")
@@ -308,7 +306,7 @@ class Piedomain(Base):
     """
 
     @classmethod
-    def pred_shalla_cat_with_text(cls, input=[], html_path=None, latest=False):
+    def pred_shalla_cat_with_text(cls, input=[], html_path=None, latest=True):
         offline_htmls = cls.validate_input(input, html_path, "html")
         cls.load_model(cls.model_file_name, latest)
         # if html_path is None then use the default path
@@ -360,7 +358,7 @@ class Piedomain(Base):
     """
 
     @classmethod
-    def pred_shalla_cat_with_images(cls, input=[], image_path=None, latest=False):
+    def pred_shalla_cat_with_images(cls, input=[], image_path=None, latest=True):
         offline_images = cls.validate_input(input, image_path, "image")
         cls.load_model(cls.model_file_name, latest)
         # if image_path is None then use the default path

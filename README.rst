@@ -1,5 +1,5 @@
 ===========================================================================================
-piedomains: Predict the kind of content hosted by a domain based on domain name and content
+piedomains: predict the kind of content hosted by a domain based on domain name and content
 ===========================================================================================
 
 .. image:: https://ci.appveyor.com/api/projects/status/k0b72xay9i4ufxff?svg=true
@@ -13,11 +13,12 @@ piedomains: Predict the kind of content hosted by a domain based on domain name 
     :target: https://pepy.tech/project/piedomains
 
 
-This package used `Shallalist dataset <https://dataverse.harvard.edu/dataset.xhtml?persistentId=doi:10.7910/DVN/ZXTQ7V>`__ to train the model.
-Scrapped homepages of the domains mentioned in above dataset. This package predicts the category based on the domain name, text content and domain screenshot.
+The package infers the kind of content hosted by domain using the domain name, and the content, and screenshot from the homepage. 
 
-Install
--------
+We use domain category labels from `Shallalist  <https://dataverse.harvard.edu/dataset.xhtml?persistentId=doi:10.7910/DVN/ZXTQ7V>`__ and build our own training dataset by scraping and taking screenshots of the homepage. The final dataset used to train the model is posted on the `Harvard Dataverse <https://dataverse.harvard.edu/dataset.xhtml?persistentId=doi:10.7910/DVN/ZXTQ7V>`__.  Python notebooks used to build the models can be found `here <https://github.com/themains/piedomains/tree/55cd5ea68ccec58ab2152c5f1d6fb9e6cf5df363/piedomains/notebooks>`__ and the model files can be found `here <https://dataverse.harvard.edu/dataset.xhtml?persistentId=doi:10.7910/DVN/YHWCDC>`__
+
+Installation
+--------------
 We strongly recommend installing `piedomains` inside a Python virtual environment
 (see `venv documentation <https://docs.python.org/3/library/venv.html#creating-virtual-environments>`__)
 
@@ -30,20 +31,20 @@ General API
 1. **domain.pred_shalla_cat_with_text(input)**
 
   - What it does:
+    - Predicts the kind of content hosted by a domain based on domain name and HTML of the homepage. 
+      The function can use locally stored HTML files or fetch fresh HTML files. If you specify a local folder, 
+      the function will look for HTML files corresponding to the domain. The HTML files must be stored as 
+      `domainname.html`. The function returns a pandas dataframe with label and corresponding probabilities.
 
-    - predicts category based on domain name and text content
+ - Inputs:
+    - `input`: list of domains. Either `input` or `html_path` must be specified.
+    - `html_path`: path to the folder where the HTMLs are stored. 
+       Either `input` or `html_path` must be specified. The function will 
+       by default look for a `html' folder on the same level as model files.
+    - `latest`: use the latest model. Default is `True.`
 
-  - Input
-
-    - list of domains (optional, if not provided, html_path is required)
-
-    - path where htmls are stored (optional, if not provided, domains is required)
-
-    - use latest model (optional)
-
-  - Output
-
-    - Returns panda dataframe with label and probabilities
+  - Output:
+    - Returns a pandas dataframe with label and probabilities
 
 Example - 
 ::
@@ -94,19 +95,19 @@ Output -
 2. **domain.pred_shalla_cat_with_images(input)**
   
   - What it does:
+    - Predicts the kind of content hosted by a domain based on screenshot of the homepage. 
+      The function can use locally stored screenshots files or fetch fresh screenshots of the homepage. 
+      If you specify a local folder, the function will look for jpegs corresponding to the domain. The screenshots
+      must be stored as `domainname.jpg`. The function returns a pandas dataframe with label and corresponding probabilities.
 
-    - predicts category based on domain name and domain screenshot
-
-  - Input
-  
-      - list of domains (optional, if not provided, image_path is required)
-
-      - path where images are stored (optional, if not provided, domains is required)
-
-      - use latest model (optional)
+ - Inputs:
+    - `input`: list of domains. Either `input` or `image_path` must be specified.
+    - `image_path`: path to the folder where the screenshots are stored. 
+       Either `input` or `image_path` must be specified. The function will 
+       by default look for a `images' folder on the same level as model files.
+    - `latest`: use the latest model. Default is `True.`
 
   - Output
-
     - Returns panda dataframe with label and probabilities
 
 Example - 
@@ -150,21 +151,22 @@ Output -
 3. **domain.pred_shalla_cat(input)**
   
   - What it does:
+    - Predicts the kind of content hosted by a domain based on screenshot of the homepage. 
+      The function can use locally stored screenshots and HTMLs or fetch fresh data. 
+      If you specify local folders, the function will look for jpegs corresponding to the domain. The screenshots
+      must be stored as `domainname.jpg`. The function returns a pandas dataframe with label and corresponding probabilities.
 
-    - predicts category based on domain name, text content and domain screenshot
-
-  - Input
-  
-      - list of domains (optional, if not provided, html_path and image_path is required)
-
-      - path where htmls are stored (optional, if not provided, domains is required)
-
-      - path where images are stored (optional, if not provided, domains is required)
-
-      - use latest model (optional)
+ - Inputs:
+    - `input`: list of domains. Either `input` or `html_path` must be specified.
+    - `html_path`: path to the folder where the screenshots are stored. 
+       Either `input`, `image_path`, or `html_path` must be specified. The function will 
+       by default look for a `html' folder on the same level as model files.
+    - `image_path`: path to the folder where the screenshots are stored. 
+       Either `input`, `image_path`, or `html_path` must be specified. The function will 
+       by default look for a `images' folder on the same level as model files.
+   - `latest`: use the latest model. Default is `True.`
 
   - Output
-
     - Returns panda dataframe with label and probabilities
 
 Example - 
