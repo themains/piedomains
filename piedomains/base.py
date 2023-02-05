@@ -27,13 +27,11 @@ class Base(object):
             if not os.path.exists(model_fn):
                 os.makedirs(model_fn)
             if not os.path.exists(f"{model_fn}/saved_model") or latest:
-                print(
-                    "Downloading model data from the server (this is done only first time) ({0!s})...".format(model_fn)
-                )
+                print(f"Downloading model data from the server (this is done only first time) ({model_fn})...")
                 if not download_file(REPO_BASE_URL, f"{model_fn}", file_name):
                     logger.error("ERROR: Cannot download model data file")
             else:
-                logger.debug("Using model data from {0!s}...".format(model_fn))
+                logger.debug(f"Using model data from {model_fn}...")
             model_path = model_fn
 
         return model_path

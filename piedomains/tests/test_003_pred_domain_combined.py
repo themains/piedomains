@@ -42,8 +42,8 @@ class TestPredDomainCombined(unittest.TestCase):
     def test_domains_none_paths_not_dir(self):
         try:
             domain.pred_shalla_cat(html_path="./test", image_path="./test")
-        except Exception:
-            self.assertTrue(True)
+        except Exception as e:
+            self.assertTrue(str(e) == "./test does not exist")
 
     def test_pred_label(self):
         odf = domain.pred_shalla_cat(html_path="./html", image_path="./images")

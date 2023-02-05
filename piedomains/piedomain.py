@@ -199,14 +199,14 @@ class Piedomain(Base):
             os.mkdir(html_path)
 
         errors = {}
-        for i in range(len(domains)):
+        for domain in domains:
             try:
-                page = requests.get(f"https://{domains[i]}", timeout=3, headers={"Accept-Language": "en-US"})
-                f = open(f"{html_path}/{domains[i]}.html", "w")
+                page = requests.get(f"https://{domain}", timeout=3, headers={"Accept-Language": "en-US"})
+                f = open(f"{html_path}/{domain}.html", "w", encoding="utf-8")
                 f.write(page.text)
                 f.close()
             except Exception as e:
-                errors[domains[i]] = e
+                errors[domain] = e
         return errors
 
     """
@@ -225,7 +225,7 @@ class Piedomain(Base):
             domains.append(file.replace(".html", ""))
             if file.endswith(".html"):
                 content.append(file.replace(".html", ""))
-                f = open(f"{html_path}/{file}", "r")
+                f = open(f"{html_path}/{file}", "r", encoding="utf-8")
                 text = cls.text_from_html(f.read())
                 text = cls.data_cleanup(text)
                 content[-1] = content[-1].rsplit(".", 1)[0] + " " + text
