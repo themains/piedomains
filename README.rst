@@ -31,20 +31,24 @@ General API
 1. **domain.pred_shalla_cat_with_text(input)**
 
  - What it does:
-   - Predicts the kind of content hosted by a domain based on domain name and HTML of the homepage. 
-   - The function can use locally stored HTML files or fetch fresh HTML files. 
-   - If you specify a local folder, the function will look for HTML files corresponding to the domain. 
-   - The HTML files must be stored as `domainname.html`. 
-   - The function returns a pandas dataframe with label and corresponding probabilities.
+
+  - Predicts the kind of content hosted by a domain based on domain name and HTML of the homepage. 
+  - The function can use locally stored HTML files or fetch fresh HTML files. 
+  - If you specify a local folder, the function will look for HTML files corresponding to the domain. 
+  - The HTML files must be stored as `domainname.html`. 
+  - The function returns a pandas dataframe with label and corresponding probabilities.
 
  - Inputs:
-    - `input`: list of domains. Either `input` or `html_path` must be specified.
-    - `html_path`: path to the folder where the HTMLs are stored.  Either `input` or `html_path` must be specified. 
-    - `latest`: use the latest model. Default is `True.`
-    - Note: The function will by default look for a `html` folder on the same level as model files.
+
+  - `input`: list of domains. Either `input` or `html_path` must be specified.
+  - `html_path`: path to the folder where the HTMLs are stored.  Either `input` or `html_path` must be specified. 
+  - `latest`: use the latest model. Default is `True.`
+  - Note: The function will by default look for a `html` folder on the same level as model files.
 
  - Output:
-   - Returns a pandas dataframe with label and probabilities
+
+  - Returns a pandas dataframe with label and probabilities
+
  - Sample usage:
    ::
      
@@ -94,20 +98,24 @@ General API
 2. **domain.pred_shalla_cat_with_images(input)**
 
  - What it does:
-   - Predicts the kind of content hosted by a domain based on screenshot of the homepage.  
-   - The function can use locally stored screenshots files or fetch fresh screenshots of the homepage.  
-   - If you specify a local folder, the function will look for jpegs corresponding to the domain. 
-   - The screenshots must be stored as `domainname.jpg`. 
-   - The function returns a pandas dataframe with label and corresponding probabilities.
+
+  - Predicts the kind of content hosted by a domain based on screenshot of the homepage.  
+  - The function can use locally stored screenshots files or fetch fresh screenshots of the homepage.  
+  - If you specify a local folder, the function will look for jpegs corresponding to the domain. 
+  - The screenshots must be stored as `domainname.jpg`. 
+  - The function returns a pandas dataframe with label and corresponding probabilities.
 
  - Inputs:
-    - `input`: list of domains. Either `input` or `image_path` must be specified.
-    - `image_path`: path to the folder where the screenshots are stored.  Either `input` or `image_path` must be specified. 
-    - `latest`: use the latest model. Default is `True.`
-    - Note: The function will by default look for a `images`` folder on the same level as model files.
+
+  - `input`: list of domains. Either `input` or `image_path` must be specified.
+  - `image_path`: path to the folder where the screenshots are stored.  Either `input` or `image_path` must be specified. 
+  - `latest`: use the latest model. Default is `True.`
+  - Note: The function will by default look for a `images`` folder on the same level as model files.
 
  - Output:
-   - Returns panda dataframe with label and probabilities
+
+  - Returns panda dataframe with label and probabilities
+
  - Sample usage:
    ::
      
@@ -149,21 +157,27 @@ General API
 3. **domain.pred_shalla_cat(input)**
 
  - What it does:
-   - Predicts the kind of content hosted by a domain based on screenshot of the homepage.  
-   - The function can use locally stored screenshots and HTMLs or fetch fresh data.  
-   - If you specify local folders, the function will look for jpegs corresponding to the domain. 
-   - The screenshots must be stored as `domainname.jpg`. 
-   - The HTML files must be stored as `domainname.html`. 
-   - The function returns a pandas dataframe with label and corresponding probabilities.
+
+  - Predicts the kind of content hosted by a domain based on screenshot of the homepage.  
+  - The function can use locally stored screenshots and HTMLs or fetch fresh data.  
+  - If you specify local folders, the function will look for jpegs corresponding to the domain. 
+  - The screenshots must be stored as `domainname.jpg`. 
+  - The HTML files must be stored as `domainname.html`. 
+  - The function returns a pandas dataframe with label and corresponding probabilities.
+
  - Inputs:
-   - `input`: list of domains. Either `input` or `html_path` must be specified.
-   - `html_path`: path to the folder where the screenshots are stored.  Either `input`, `image_path`, or `html_path` must be specified. 
-   - `image_path`: path to the folder where the screenshots are stored.  Either `input`, `image_path`, or `html_path` must be specified. 
-   - `latest`: use the latest model. Default is `True.`
-   - Note: The function will by default look for a `html` folder on the same level as model files.
-   - Note: The function will by default look for a `images` folder on the same level as model files.
+
+  - `input`: list of domains. Either `input` or `html_path` must be specified.
+  - `html_path`: path to the folder where the screenshots are stored.  Either `input`, `image_path`, or `html_path` must be specified. 
+  - `image_path`: path to the folder where the screenshots are stored.  Either `input`, `image_path`, or `html_path` must be specified. 
+  - `latest`: use the latest model. Default is `True.`
+  - Note: The function will by default look for a `html` folder on the same level as model files.
+  - Note: The function will by default look for a `images` folder on the same level as model files.
+
  - Output
-   - Returns panda dataframe with label and probabilities
+
+  - Returns panda dataframe with label and probabilities
+
  - Sample usage:
    ::
      
