@@ -39,13 +39,11 @@ def is_within_directory(directory: str, target: str) -> bool:
     prefix = os.path.commonprefix([abs_directory, abs_target])
     return prefix == abs_directory
 
-def safe_extract(tar, path: str=".", members=None, *, numeric_owner: bool=False):
+def safe_extract(tar, path: str=".", members=None, *, numeric_owner: bool=False) -> None:
     for member in tar.getmembers():
         member_path = os.path.join(path, member.name)
         if not is_within_directory(path, member_path):
-            raise Exception("Attempted Path Traversal in Tar File")
+            raise Exception("Failed Path Traversal in Tar File")
 
         tar.extractall(path, members, numeric_owner=numeric_owner)
         return None
-
-
