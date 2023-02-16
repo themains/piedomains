@@ -48,7 +48,7 @@ class Piedomain(Base):
     """
 
     @classmethod
-    def tag_visible(cls, element):
+    def tag_visible(cls, element) -> bool:
         if element.parent.name in ["style", "script", "head", "title", "meta", "[document]"]:
             return False
         if isinstance(element, Comment):
@@ -64,7 +64,7 @@ class Piedomain(Base):
     """
 
     @classmethod
-    def text_from_html(cls, text):
+    def text_from_html(cls, text) -> str:
         soup = BeautifulSoup(text, "html.parser")
         texts = soup.findAll(text=True)
         visible_texts = filter(cls.tag_visible, texts)
@@ -80,7 +80,7 @@ class Piedomain(Base):
     """
 
     @classmethod
-    def data_cleanup(cls, s):
+    def data_cleanup(cls, s) -> str:
         # remove numbers
         s = re.sub(r"\d+", "", s)
         # remove duplicates
@@ -129,7 +129,7 @@ class Piedomain(Base):
     """
 
     @classmethod
-    def save_image(cls, domain, image_dir):
+    def save_image(cls, domain, image_dir) -> bool:
         saved_screenshot = False
         driver = cls.get_driver()
         url = f"https://{domain}"
