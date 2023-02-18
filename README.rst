@@ -2,8 +2,7 @@
 piedomains: predict the kind of content hosted by a domain based on domain name and content
 ===========================================================================================
 
-.. image:: https://ci.appveyor.com/api/projects/status/k0b72xay9i4ufxff?svg=true
-    :target: https://ci.appveyor.com/project/soodoku/piedomains
+
 .. image:: https://img.shields.io/pypi/v/piedomains.svg
     :target: https://pypi.python.org/pypi/piedomains
 .. image:: https://readthedocs.org/projects/piedomains/badge/?version=latest
