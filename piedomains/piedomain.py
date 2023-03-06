@@ -242,7 +242,7 @@ class Piedomain(Base):
     """
 
     @classmethod
-    def load_model(cls, model_file_name, latest=False):
+    def load_model(cls, model_file_name, latest: bool=False):
         if not cls.weights_loaded:
             cls.model_path = cls.load_model_data(model_file_name, latest)
             cls.model = tf.keras.models.load_model(f"{cls.model_path}/saved_model/piedomains")
