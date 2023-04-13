@@ -57,7 +57,7 @@ class Tox(TestCommand):
 
 setup(
     name="piedomains",
-    version="0.0.13",
+    version="0.0.14",
     description="Predict categories based domain names and it's content",
     long_description_content_type="text/x-rst",
     long_description=long_description,
@@ -105,7 +105,7 @@ setup(
         "bs4==0.0.1",
         "pandas==1.4.2",
         "nltk==3.7",
-        "tensorflow==2.11.1",
+        "tensorflow>=2.11.1",
         "scikit-learn==1.2.1",
         "joblib==1.2.0",
         "selenium==4.8.0",
