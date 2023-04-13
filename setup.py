@@ -105,7 +105,7 @@ setup(
         "bs4==0.0.1",
         "pandas==1.4.2",
         "nltk==3.7",
-        "tensorflow==2.9.3",
+        "tensorflow==2.11.1",
         "scikit-learn==1.2.1",
         "joblib==1.2.0",
         "selenium==4.8.0",
