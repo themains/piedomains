@@ -57,7 +57,7 @@ class Tox(TestCommand):
 
 setup(
     name="piedomains",
-    version="0.0.11",
+    version="0.0.12",
     description="Predict categories based domain names and it's content",
     long_description_content_type="text/x-rst",
     long_description=long_description,
@@ -101,16 +101,16 @@ setup(
     # requirements files see:
     # https://packaging.python.org/en/latest/requirements.html
     install_requires=[
-        "tqdm",
-        "bs4",
-        "pandas",
-        "nltk",
-        "tensorflow",
-        "scikit-learn",
+        "tqdm==4.64.0",
+        "bs4==0.0.1",
+        "pandas==1.4.2",
+        "nltk==3.7",
+        "tensorflow==2.9.3",
+        "scikit-learn==1.2.1",
         "joblib==1.2.0",
-        "selenium",
-        "webdriver_manager",
-        "pillow",
+        "selenium==4.8.0",
+        "webdriver_manager==3.8.5",
+        "pillow==9.4.0",
     ],
     # List additional groups of dependencies here (e.g. development
     # dependencies). You can install these using the following syntax,
