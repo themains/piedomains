@@ -1,5 +1,5 @@
 .. piedomains documentation master file, created by
-   sphinx-quickstart on Tue May  3 16:33:53 2022.
+   sphinx-quickstart on Tue Feb 14 13:19:55 2023.
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
@@ -10,7 +10,9 @@ Welcome to piedomains's documentation!
    :maxdepth: 2
    :caption: Contents:
 
+   modules
 
+.. include:: ../../README.rst
 
 Indices and tables
 ==================

@@ -18,8 +18,8 @@ class Base(object):
     """
 
     @classmethod
-    def load_model_data(cls, file_name, latest=False):
-        model_path = None
+    def load_model_data(cls, file_name: str, latest: bool = False) -> str:
+        model_path = ""
         if cls.MODELFN:
             print(f"model fn {cls.MODELFN}")
             model_fn = resource_filename(__name__, cls.MODELFN)

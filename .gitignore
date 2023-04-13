@@ -3,6 +3,10 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+# Docs
+docs/build
+docs/source/_build
+
 # C extensions
 *.so
 
@@ -124,3 +128,4 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+.DS_Store
