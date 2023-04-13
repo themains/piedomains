@@ -28,7 +28,6 @@ stop_words = set(stopwords.words("english"))
 """
     Piedomain class
     This class is used to predict the category of a given url
-    It uses the model trained on the shallalist dataset
 """
 
 
@@ -48,7 +47,7 @@ class Piedomain(Base):
     """
 
     @classmethod
-    def tag_visible(cls, element):
+    def tag_visible(cls, element) -> bool:
         if element.parent.name in ["style", "script", "head", "title", "meta", "[document]"]:
             return False
         if isinstance(element, Comment):
@@ -64,7 +63,7 @@ class Piedomain(Base):
     """
 
     @classmethod
-    def text_from_html(cls, text):
+    def text_from_html(cls, text) -> str:
         soup = BeautifulSoup(text, "html.parser")
         texts = soup.findAll(text=True)
         visible_texts = filter(cls.tag_visible, texts)
@@ -80,7 +79,7 @@ class Piedomain(Base):
     """
 
     @classmethod
-    def data_cleanup(cls, s):
+    def data_cleanup(cls, s: str) -> str:
         # remove numbers
         s = re.sub(r"\d+", "", s)
         # remove duplicates
@@ -129,7 +128,7 @@ class Piedomain(Base):
     """
 
     @classmethod
-    def save_image(cls, domain, image_dir):
+    def save_image(cls, domain: str, image_dir: str) -> bool:
         saved_screenshot = False
         driver = cls.get_driver()
         url = f"https://{domain}"
@@ -154,7 +153,7 @@ class Piedomain(Base):
     """
 
     @classmethod
-    def extract_images(cls, input, image_dir):
+    def extract_images(cls, input: list, image_dir: str) -> list:
         domains = input.copy()
         used_domain_screenshot = []
         if not os.path.exists(image_dir):
@@ -174,7 +173,7 @@ class Piedomain(Base):
     """
 
     @classmethod
-    def extract_image_tensor(cls, image_dir):
+    def extract_image_tensor(cls, image_dir: str) -> dict:
         images = {}
         for image in os.listdir(image_dir):
             img_file = Image.open(f"{image_dir}/{image}")
@@ -243,7 +242,7 @@ class Piedomain(Base):
     """
 
     @classmethod
-    def load_model(cls, model_file_name, latest=False):
+    def load_model(cls, model_file_name, latest: bool=False):
         if not cls.weights_loaded:
             cls.model_path = cls.load_model_data(model_file_name, latest)
             cls.model = tf.keras.models.load_model(f"{cls.model_path}/saved_model/piedomains")
@@ -371,7 +370,7 @@ class Piedomain(Base):
     """
 
     @classmethod
-    def pred_shalla_cat_with_images(cls, input=[], image_path=None, latest=True):
+    def pred_shalla_cat_with_images(cls, input:list=[], image_path=None, latest:bool=True) -> pd.DataFrame:
         offline_images = cls.validate_input(input, image_path, "image")
         cls.load_model(cls.model_file_name, latest)
         # if image_path is None then use the default path
@@ -425,7 +424,7 @@ class Piedomain(Base):
     """
 
     @classmethod
-    def pred_shalla_cat(cls, input=[], html_path=None, image_path=None, latest=False):
+    def pred_shalla_cat(cls, input:list=[], html_path=None, image_path=None, latest:bool=False):
         # text prediction
         pred_df = cls.pred_shalla_cat_with_text(input, html_path, latest)
         # image prediction
