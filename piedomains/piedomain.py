@@ -133,8 +133,8 @@ class Piedomain(Base):
         saved_screenshot = False
         driver = cls.get_driver()
         url = f"https://{domain}"
-        driver.get(url)
         try:
+            driver.get(url)
             time.sleep(5)
             driver.save_screenshot(f"{image_dir}/{domain}.png")
             saved_screenshot = True
@@ -161,7 +161,8 @@ class Piedomain(Base):
             os.makedirs(image_dir)
         for domain in domains:
             saved_screenshot = cls.save_image(domain, image_dir)
-            used_domain_screenshot.append(saved_screenshot)
+            if saved_screenshot:
+                used_domain_screenshot.append(saved_screenshot)
         return used_domain_screenshot
 
     """
@@ -314,18 +315,14 @@ class Piedomain(Base):
             html_path = f"{cls.model_path}/../html"
             print(f"html_path not provided using default path: {html_path}")
         domains = input.copy()
-        used_domain_content = [True] * len(domains)
 
         if not offline_htmls:
             errors = cls.extract_htmls(domains, html_path)
             if len(errors) > 0:
                 for domain in errors:
-                    used_domain_content[domain] = False
                     print(f"Error: {domain} - {errors[domain]}")
 
         domains, content = cls.extract_html_text(html_path)
-        if offline_htmls:
-            used_domain_content = [True] * len(domains)
         results = cls.model.predict(content)
         probs = tf.nn.softmax(results)
         probs_df = pd.DataFrame(probs.numpy(), columns=classes)
@@ -333,9 +330,24 @@ class Piedomain(Base):
         for c in classes:
             probs_df[c] = cls.calibrated_models[c].transform(probs_df[c].to_numpy())
 
-        labels = probs_df.idxmax(axis=1)
-        label_probs = probs_df.max(axis=1)
+        labels = probs_df.idxmax(axis=1).tolist()
+        label_probs = probs_df.max(axis=1).tolist()
         domain_probs = probs_df.to_dict(orient="records")
+
+        used_domain_content = [True] * len(domains)
+        text_extract_errors = [""] * len(domains)
+
+        if len(domains) != len(input):
+            for domain in input:
+                if domain not in domains:
+                    domains.append(domain)
+                    labels.append("None")
+                    label_probs.append(0)
+                    domain_probs.append({c: 0 for c in classes})
+                    used_domain_content.append(False)
+                    content.append("")
+                    text_extract_errors.append(errors[domain])
+
         return pd.DataFrame(
             {
                 "domain": domains,
@@ -344,6 +356,7 @@ class Piedomain(Base):
                 "text_domain_probs": domain_probs,
                 "used_domain_text": used_domain_content,
                 "extracted_text": content,
+                "text_extract_errors": text_extract_errors,
             }
         )
 
@@ -378,9 +391,19 @@ class Piedomain(Base):
         probs = tf.nn.softmax(results)
         probs_df = pd.DataFrame(probs.numpy(), columns=classes)
 
-        labels = probs_df.idxmax(axis=1)
-        label_probs = probs_df.max(axis=1)
+        labels = probs_df.idxmax(axis=1).tolist()
+        label_probs = probs_df.max(axis=1).tolist()
         domain_probs = probs_df.to_dict(orient="records")
+
+        if len(img_domains) != len(input):
+            for domain in input:
+                if domain not in img_domains:
+                    img_domains.append(domain)
+                    labels.append("None")
+                    label_probs.append(0)
+                    domain_probs.append({c: 0 for c in classes})
+                    used_domain_screenshot.append(False)
+
         return pd.DataFrame(
             {
                 "domain": img_domains,
