@@ -220,7 +220,7 @@ class Piedomain(Base):
     """
 
     @classmethod
-    def extract_html_text(cls, offline: bool, input: string, html_path: string) -> tuple[list, list]:
+    def extract_html_text(cls, offline: bool, input: string, html_path: string):
         content = []
         domains = []
         for file in os.listdir(html_path):
