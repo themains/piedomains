@@ -20,7 +20,7 @@ def download_file(url: str, target: str, file_name: str) -> bool:
     status = True
     try:
         # download the file
-        r = requests.get(url, allow_redirects=True)
+        r = requests.get(url, allow_redirects=True, timeout=10)
         open(f"{target}/{file_name}", "wb").write(r.content)
         # untar
         with tarfile.open(f"{target}/{file_name}", "r:gz") as tar_ref:
@@ -32,6 +32,7 @@ def download_file(url: str, target: str, file_name: str) -> bool:
         status = False
     return status
 
+
 def is_within_directory(directory: str, target: str) -> bool:
     abs_directory = os.path.abspath(directory)
     abs_target = os.path.abspath(target)
@@ -39,7 +40,8 @@ def is_within_directory(directory: str, target: str) -> bool:
     prefix = os.path.commonprefix([abs_directory, abs_target])
     return prefix == abs_directory
 
-def safe_extract(tar, path: str=".", members=None, *, numeric_owner: bool=False) -> None:
+
+def safe_extract(tar, path: str = ".", members=None, *, numeric_owner: bool = False) -> None:
     for member in tar.getmembers():
         member_path = os.path.join(path, member.name)
         if not is_within_directory(path, member_path):

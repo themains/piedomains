@@ -63,7 +63,7 @@ class Piedomain(Base):
     """
 
     @classmethod
-    def text_from_html(cls, text) -> str:
+    def text_from_html(cls, text: str) -> str:
         soup = BeautifulSoup(text, "html.parser")
         texts = soup.findAll(text=True)
         visible_texts = filter(cls.tag_visible, texts)
@@ -94,11 +94,11 @@ class Piedomain(Base):
         # remove non ascii
         tokens = [w.lower() for w in tokens if w.isascii()]
         # filter out stop words
-        tokens = [w for w in tokens if not w in stop_words]
+        tokens = [w for w in tokens if w not in stop_words]
         # filter out short tokens
         tokens = [word for word in tokens if len(word) > 1]
         # remove most common words
-        tokens = [w for w in tokens if not w in most_common_words]
+        tokens = [w for w in tokens if w not in most_common_words]
         return " ".join(w for w in tokens)
 
     """
@@ -173,11 +173,11 @@ class Piedomain(Base):
     """
 
     @classmethod
-    def extract_image_tensor(cls, domains, image_dir: str) -> dict:
+    def extract_image_tensor(cls, offline: bool, domains: list, image_dir: str) -> dict:
         images = {}
         for image in os.listdir(image_dir):
             domain_name = image.replace(".png", "")
-            if domain_name in domains:
+            if (domain_name in domains) or offline:
                 img_file = Image.open(f"{image_dir}/{image}")
                 img_file = img_file.convert("RGB")
                 img_tensor = tf.convert_to_tensor(np.array(img_file))
@@ -195,7 +195,7 @@ class Piedomain(Base):
     """
 
     @classmethod
-    def extract_htmls(cls, domains, html_path):
+    def extract_htmls(cls, domains: list, html_path: string) -> dict:
         # check if html_path exists
         if not os.path.exists(html_path):
             os.mkdir(html_path)
@@ -220,12 +220,12 @@ class Piedomain(Base):
     """
 
     @classmethod
-    def extract_html_text(cls, input, html_path):
+    def extract_html_text(cls, offline: bool, input: string, html_path: string) -> tuple[list, list]:
         content = []
         domains = []
         for file in os.listdir(html_path):
             domain_name = file.replace(".html", "")
-            if domain_name in input:
+            if (domain_name in input) or offline:
                 domains.append(domain_name)
                 if file.endswith(".html"):
                     content.append(domain_name)
@@ -246,7 +246,7 @@ class Piedomain(Base):
     """
 
     @classmethod
-    def load_model(cls, model_file_name, latest: bool = False):
+    def load_model(cls, model_file_name: string, latest: bool = False):
         if not cls.weights_loaded:
             cls.model_path = cls.load_model_data(model_file_name, latest)
             cls.model = tf.keras.models.load_model(f"{cls.model_path}/saved_model/piedomains")
@@ -270,7 +270,7 @@ class Piedomain(Base):
     """
 
     @classmethod
-    def validate_input(cls, input, path, type):
+    def validate_input(cls, input: list, path: string, type: string) -> bool:
         if type == "html":
             pth = "html_path"
         else:
@@ -310,7 +310,7 @@ class Piedomain(Base):
     """
 
     @classmethod
-    def pred_shalla_cat_with_text(cls, input=[], html_path=None, latest=True):
+    def pred_shalla_cat_with_text(cls, input: list = [], html_path: string = None, latest: bool = True) -> pd.DataFrame:
         offline_htmls = cls.validate_input(input, html_path, "html")
         cls.load_model(cls.model_file_name, latest)
         # if html_path is None then use the default path
@@ -325,7 +325,8 @@ class Piedomain(Base):
                 for domain in errors:
                     print(f"Error: {domain} - {errors[domain]}")
 
-        domains, content = cls.extract_html_text(domains, html_path)
+        domains, content = cls.extract_html_text(offline_htmls, domains, html_path)
+        print(content)
         results = cls.model.predict(content)
         probs = tf.nn.softmax(results)
         probs_df = pd.DataFrame(probs.numpy(), columns=classes)
@@ -385,7 +386,7 @@ class Piedomain(Base):
         domains = input.copy()
         if not offline_images:
             used_domain_screenshot = cls.extract_images(domains, image_path)
-        images = cls.extract_image_tensor(domains, image_path)
+        images = cls.extract_image_tensor(offline_images, domains, image_path)
         img_domains = list(images.keys())
         img_tensors = tf.stack(list(images.values()))
         if offline_images:
@@ -428,7 +429,7 @@ class Piedomain(Base):
     """
 
     @classmethod
-    def pred_shalla_cat(cls, input: list = [], html_path=None, image_path=None, latest: bool = False):
+    def pred_shalla_cat(cls, input: list = [], html_path=None, image_path=None, latest: bool = False) -> pd.DataFrame:
         # text prediction
         pred_df = cls.pred_shalla_cat_with_text(input, html_path, latest)
         # image prediction
