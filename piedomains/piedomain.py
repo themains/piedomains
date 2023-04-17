@@ -153,12 +153,15 @@ class Piedomain(Base):
     """
 
     @classmethod
-    def extract_images(cls, input: list, image_dir: str) -> list:
+    def extract_images(cls, input: list, use_cache: bool, image_dir: str) -> list:
         domains = input.copy()
         used_domain_screenshot = []
         if not os.path.exists(image_dir):
             os.makedirs(image_dir)
         for domain in domains:
+            if use_cache and os.path.exists(f"{image_dir}/{domain}.png"):
+                used_domain_screenshot.append(True)
+                continue
             saved_screenshot = cls.save_image(domain, image_dir)
             if saved_screenshot:
                 used_domain_screenshot.append(saved_screenshot)
@@ -195,7 +198,7 @@ class Piedomain(Base):
     """
 
     @classmethod
-    def extract_htmls(cls, domains: list, html_path: string) -> dict:
+    def extract_htmls(cls, domains: list, use_cache: bool, html_path: string) -> dict:
         # check if html_path exists
         if not os.path.exists(html_path):
             os.mkdir(html_path)
@@ -203,6 +206,9 @@ class Piedomain(Base):
         errors = {}
         for domain in domains:
             try:
+                if use_cache:
+                    if os.path.exists(f"{html_path}/{domain}.html"):
+                        continue
                 page = requests.get(f"https://{domain}", timeout=3, headers={"Accept-Language": "en-US"})
                 f = open(f"{html_path}/{domain}.html", "w", encoding="utf-8")
                 f.write(page.text)
@@ -290,13 +296,6 @@ class Piedomain(Base):
                     raise Exception(f"{path} is empty")
                 else:
                     offline = True
-        else:
-            # if input is not empty, if html_path exists and is not empty, then empty html_path dir
-            if path is not None:
-                if os.path.exists(path):
-                    if len(os.listdir(path)) > 0:
-                        for file in os.listdir(path):
-                            os.remove(f"{path}/{file}")
         return offline
 
     """
@@ -310,7 +309,9 @@ class Piedomain(Base):
     """
 
     @classmethod
-    def pred_shalla_cat_with_text(cls, input: list = [], html_path: string = None, latest: bool = True) -> pd.DataFrame:
+    def pred_shalla_cat_with_text(
+        cls, input: list = [], html_path: string = None, use_cache: bool = True, latest: bool = True
+    ) -> pd.DataFrame:
         offline_htmls = cls.validate_input(input, html_path, "html")
         cls.load_model(cls.model_file_name, latest)
         # if html_path is None then use the default path
@@ -320,7 +321,7 @@ class Piedomain(Base):
         domains = input.copy()
 
         if not offline_htmls:
-            errors = cls.extract_htmls(domains, html_path)
+            errors = cls.extract_htmls(domains, use_cache, html_path)
             if len(errors) > 0:
                 for domain in errors:
                     print(f"Error: {domain} - {errors[domain]}")
@@ -375,7 +376,9 @@ class Piedomain(Base):
     """
 
     @classmethod
-    def pred_shalla_cat_with_images(cls, input: list = [], image_path=None, latest: bool = True) -> pd.DataFrame:
+    def pred_shalla_cat_with_images(
+        cls, input: list = [], image_path=None, use_cache: bool = True, latest: bool = True
+    ) -> pd.DataFrame:
         offline_images = cls.validate_input(input, image_path, "image")
         cls.load_model(cls.model_file_name, latest)
         # if image_path is None then use the default path
@@ -385,7 +388,7 @@ class Piedomain(Base):
 
         domains = input.copy()
         if not offline_images:
-            used_domain_screenshot = cls.extract_images(domains, image_path)
+            used_domain_screenshot = cls.extract_images(domains, use_cache, image_path)
         images = cls.extract_image_tensor(offline_images, domains, image_path)
         img_domains = list(images.keys())
         img_tensors = tf.stack(list(images.values()))
@@ -429,11 +432,13 @@ class Piedomain(Base):
     """
 
     @classmethod
-    def pred_shalla_cat(cls, input: list = [], html_path=None, image_path=None, latest: bool = False) -> pd.DataFrame:
+    def pred_shalla_cat(
+        cls, input: list = [], html_path=None, image_path=None, use_cache: bool = True, latest: bool = False
+    ) -> pd.DataFrame:
         # text prediction
-        pred_df = cls.pred_shalla_cat_with_text(input, html_path, latest)
+        pred_df = cls.pred_shalla_cat_with_text(input, html_path, use_cache, latest)
         # image prediction
-        img_pred_df = cls.pred_shalla_cat_with_images(input, image_path, latest)
+        img_pred_df = cls.pred_shalla_cat_with_images(input, image_path, use_cache, latest)
         # merge predictions
         final_df = pred_df.merge(img_pred_df, on="domain", how="outer")
         # calculate final probabilities
