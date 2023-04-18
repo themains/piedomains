@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-import ethnicolr
+import piedomains
 from piedomains import domain
 import base64
 
