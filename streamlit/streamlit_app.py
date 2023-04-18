@@ -4,13 +4,6 @@ import piedomains
 from piedomains import domain
 import base64
 
-
-# Define your sidebar options
-sidebar_options = {
-    'Append Census Data to Last Name': census_ln,
-    'Florida VR Last Name Model': pred_census_ln
-}
-
 def download_file(df):
     csv = df.to_csv(index=False)
     b64 = base64.b64encode(csv.encode()).decode()
