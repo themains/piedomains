@@ -4,6 +4,13 @@ import piedomains
 from piedomains import domain
 import base64
 
+
+# Define your sidebar options
+sidebar_options = {
+    'Predict with Text': domain.pred_shalla_cat_with_text,
+    'Predict with Text and Image': domain.pred_shalla_cat_with_images
+}
+
 def download_file(df):
     csv = df.to_csv(index=False)
     b64 = base64.b64encode(csv.encode()).decode()
