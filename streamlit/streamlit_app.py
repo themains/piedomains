@@ -29,10 +29,12 @@ def app():
     st.sidebar.title('Select Function')
     selected_function = st.sidebar.selectbox('', list(sidebar_options.keys()))
 
-    lst_input = st.text_input("Enter a list of domains separated by commas (e.g. google.com, yahoo.com)")
+    # Create a form to enter the list of numbers
+    with st.form("number_form"):
+        lst_input = st.text_input("Enter a list of domains separated by commas (e.g. google.com, yahoo.com)")
 
-    # Add a submit button
-    submitted = st.form_submit_button("Submit")
+        # Add a submit button
+        submitted = st.form_submit_button("Submit")
 
     if submitted:  
         lst = [int(s.strip()) for s in lst_input.split(',')]
