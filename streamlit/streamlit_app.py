@@ -37,7 +37,7 @@ def app():
         submitted = st.form_submit_button("Submit")
 
     if submitted:  
-        lst = [int(s.strip()) for s in lst_input.split(',')]
+        lst = [s.strip() for s in lst_input.split(',')]
 
         if selected_function == "Predict with Text": 
             if st.button('Run'):
