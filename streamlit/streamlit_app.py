@@ -40,13 +40,11 @@ def app():
         lst = [s.strip() for s in lst_input.split(',')]
 
         if selected_function == "Predict with Text": 
-            if st.button('Run'):
                 transformed_df = domain.pred_shalla_cat_with_text(lst_input)
                 st.dataframe(transformed_df)
                 download_file(transformed_df)
 
         elif selected_function == "Predict with Text and Image":
-            if st.button('Run'):
                 transformed_df = domain.pred_shalla_cat_with_images(st_input)
                 st.dataframe(transformed_df)
                 download_file(transformed_df)
