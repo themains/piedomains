@@ -14,10 +14,7 @@ def get_urls_year(domain):
   
   return(urls)
 
-def download_from_archive_org(domain):
-  # Set the URL for the archive.org snapshot
-  url = 'https://web.archive.org/web/20220101000000/' + domain
-  
+def download_from_archive_org(url):
   # Send a GET request to the archive.org snapshot
   response = requests.get(url)
   
