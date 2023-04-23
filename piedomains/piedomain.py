@@ -327,7 +327,6 @@ class Piedomain(Base):
                     print(f"Error: {domain} - {errors[domain]}")
 
         domains, content = cls.extract_html_text(offline_htmls, domains, html_path)
-        print(content)
         results = cls.model.predict(content)
         probs = tf.nn.softmax(results)
         probs_df = pd.DataFrame(probs.numpy(), columns=classes)
