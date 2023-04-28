@@ -4,7 +4,6 @@ import time
 import string
 import requests
 from bs4 import BeautifulSoup
-from bs4.element import Comment
 from selenium import webdriver
 from PIL import Image
 
@@ -33,26 +32,10 @@ stop_words = set(stopwords.words("english"))
 
 class Piedomain(Base):
     MODELFN = "model/shallalist"
-    model_file_name = "shallalist_v4_model.tar.gz"
+    model_file_name = "shallalist_v5_model.tar.gz"
     weights_loaded = False
-    img_width = 160
-    img_height = 160
-
-    """
-    @classmethod
-    tag_visible(element)
-    @param element: html element
-    @return: boolean
-    This function is used to filter out the html tags
-    """
-
-    @classmethod
-    def tag_visible(cls, element) -> bool:
-        if element.parent.name in ["style", "script", "head", "title", "meta", "[document]"]:
-            return False
-        if isinstance(element, Comment):
-            return False
-        return True
+    img_width = 254
+    img_height = 254
 
     """
     @classmethod
@@ -65,10 +48,9 @@ class Piedomain(Base):
     @classmethod
     def text_from_html(cls, text: str) -> str:
         soup = BeautifulSoup(text, "html.parser")
-        texts = soup.findAll(text=True)
-        visible_texts = filter(cls.tag_visible, texts)
-        result = " ".join(t.strip().lower() for t in visible_texts if t.strip().isalpha())
-        return " ".join(result.split())
+        text = soup.get_text()
+        result = " ".join(list(set([t.lower().strip() for t in text.split() if t.strip().isalpha()])))
+        return result
 
     """
     @classmethod
