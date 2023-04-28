@@ -3,7 +3,7 @@ import tarfile
 import requests
 
 
-REPO_BASE_URL = os.environ.get("PIEDOMAINS_MODEL_URL") or "https://dataverse.harvard.edu/api/access/datafile/6908064"
+REPO_BASE_URL = os.environ.get("PIEDOMAINS_MODEL_URL") or "https://dataverse.harvard.edu/api/access/datafile/7081895"
 
 
 def download_file(url: str, target: str, file_name: str) -> bool:
