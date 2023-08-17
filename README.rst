@@ -2,13 +2,14 @@
 piedomains: predict the kind of content hosted by a domain based on domain name and content
 ===========================================================================================
 
-
+.. image:: https://github.com/themains/piedomains/workflows/test/badge.svg
+    :target: https://github.com/themains/piedomains/actions?query=workflow%3Atest
 .. image:: https://img.shields.io/pypi/v/piedomains.svg
     :target: https://pypi.python.org/pypi/piedomains
 .. image:: https://readthedocs.org/projects/piedomains/badge/?version=latest
     :target: http://piedomains.readthedocs.io/en/latest/?badge=latest
     :alt: Documentation Status
-.. image:: https://pepy.tech/badge/piedomains
+.. image:: https://static.pepy.tech/badge/piedomains
     :target: https://pepy.tech/project/piedomains
 
 
