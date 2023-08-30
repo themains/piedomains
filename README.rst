@@ -2,8 +2,8 @@
 piedomains: predict the kind of content hosted by a domain based on domain name and content
 ===========================================================================================
 
-.. image:: https://github.com/themains/piedomains/workflows/test/badge.svg
-    :target: https://github.com/themains/piedomains/actions?query=workflow%3Atest
+.. image:: https://github.com/themains/piedomains/actions/workflows/python-package.yml/badge.svg
+    :target: https://github.com/themains/piedomains/actions/workflows/python-package.yml
 .. image:: https://img.shields.io/pypi/v/piedomains.svg
     :target: https://pypi.python.org/pypi/piedomains
 .. image:: https://readthedocs.org/projects/piedomains/badge/?version=latest
@@ -12,8 +12,7 @@ piedomains: predict the kind of content hosted by a domain based on domain name 
 .. image:: https://static.pepy.tech/badge/piedomains
     :target: https://pepy.tech/project/piedomains
 
-
-The package infers the kind of content hosted by domain using the domain name, and the content, and screenshot from the homepage. 
+The package infers the kind of content hosted by a domain using the domain name, the textual content, and the screenshot of the homepage.
 
 We use domain category labels from `Shallalist  <https://dataverse.harvard.edu/dataset.xhtml?persistentId=doi:10.7910/DVN/ZXTQ7V>`__ and build our own training dataset by scraping and taking screenshots of the homepage. The final dataset used to train the model is posted on the `Harvard Dataverse <https://dataverse.harvard.edu/dataset.xhtml?persistentId=doi:10.7910/DVN/ZXTQ7V>`__.  Python notebooks used to build the models can be found `here <https://github.com/themains/piedomains/tree/55cd5ea68ccec58ab2152c5f1d6fb9e6cf5df363/piedomains/notebooks>`__ and the model files can be found `here <https://dataverse.harvard.edu/dataset.xhtml?persistentId=doi:10.7910/DVN/YHWCDC>`__
 
@@ -32,22 +31,22 @@ General API
 
  - What it does:
 
-  - Predicts the kind of content hosted by a domain based on domain name and HTML of the homepage. 
+  - Predicts the kind of content hosted by a domain based on the domain name and the HTML of the homepage. 
   - The function can use locally stored HTML files or fetch fresh HTML files. 
   - If you specify a local folder, the function will look for HTML files corresponding to the domain. 
   - The HTML files must be stored as `domainname.html`. 
-  - The function returns a pandas dataframe with label and corresponding probabilities.
+  - The function returns a pandas dataframe with predicted labels and corresponding probabilities.
 
  - Inputs:
 
   - `input`: list of domains. Either `input` or `html_path` must be specified.
   - `html_path`: path to the folder where the HTMLs are stored.  Either `input` or `html_path` must be specified. 
-  - `latest`: use the latest model. Default is `True.`
+  - `latest`: use the latest model. The default is `True.`
   - Note: The function will by default look for a `html` folder on the same level as model files.
 
  - Output:
 
-  - Returns a pandas dataframe with label and probabilities
+  - Returns a pandas dataframe with the predicted labels and probabilities
 
  - Sample usage:
    ::
@@ -158,12 +157,12 @@ General API
 
  - What it does:
 
-  - Predicts the kind of content hosted by a domain based on screenshot of the homepage.  
+  - Predicts the kind of content hosted by a domain based on a screenshot of the homepage.  
   - The function can use locally stored screenshots and HTMLs or fetch fresh data.  
   - If you specify local folders, the function will look for jpegs corresponding to the domain. 
   - The screenshots must be stored as `domainname.jpg`. 
   - The HTML files must be stored as `domainname.html`. 
-  - The function returns a pandas dataframe with label and corresponding probabilities.
+  - The function returns a pandas dataframe with the predicted labels and corresponding probabilities.
 
  - Inputs:
 
