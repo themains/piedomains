@@ -7,7 +7,7 @@ tensorflow>=2.11.1
 nltk==3.7
 bs4==0.0.1
 scikit-learn >=1.2.1
-Pillow==9.4.0
+Pillow==10.0.1
 selenium==4.8.0
 pandas==1.4.2
 setuptools>=65.5.1
