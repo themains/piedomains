@@ -109,7 +109,7 @@ setup(
         "joblib==1.2.0",
         "selenium==4.8.0",
         "webdriver_manager==3.8.5",
-        "pillow==9.4.0",
+        "pillow==10.0.1",
     ],
     # List additional groups of dependencies here (e.g. development
     # dependencies). You can install these using the following syntax,
