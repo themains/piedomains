@@ -100,7 +100,7 @@ setup(
     # requirements files see:
     # https://packaging.python.org/en/latest/requirements.html
     install_requires=[
-        "tqdm==4.64.0",
+        "tqdm==4.66.3",
         "bs4==0.0.1",
         "pandas==1.4.2",
         "nltk==3.7",
