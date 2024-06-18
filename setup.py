@@ -105,7 +105,7 @@ setup(
         "pandas==1.4.2",
         "nltk==3.7",
         "tensorflow>=2.11.1",
-        "scikit-learn==1.2.2",
+        "scikit-learn==1.5.0",
         "joblib==1.2.0",
         "selenium==4.8.0",
         "webdriver_manager==3.8.5",
