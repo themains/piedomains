@@ -103,7 +103,7 @@ setup(
         "tqdm==4.66.3",
         "bs4==0.0.1",
         "pandas==1.4.2",
-        "nltk==3.7",
+        "nltk==3.9",
         "tensorflow>=2.11.1",
         "scikit-learn==1.2.2",
         "joblib==1.2.0",
