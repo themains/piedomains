@@ -7,6 +7,7 @@ Tests for piedomain with text
 """
 
 import unittest
+import pytest
 from piedomains import domain
 
 
@@ -32,6 +33,7 @@ class TestPredDomainText(unittest.TestCase):
         except Exception as e:
             self.assertTrue(str(e) == "./test does not exist")
 
+    @pytest.mark.ml
     def test_pred_label(self):
         odf = domain.pred_shalla_cat_with_text(html_path="./html")
         self.assertIn("text_label", odf.columns)

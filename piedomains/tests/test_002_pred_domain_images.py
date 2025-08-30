@@ -7,6 +7,7 @@ Tests for piedomain with images
 """
 
 import unittest
+import pytest
 from piedomains import domain
 
 
@@ -32,6 +33,7 @@ class TestPredDomainImages(unittest.TestCase):
         except Exception as e:
             self.assertTrue(str(e) == "./test does not exist")
 
+    @pytest.mark.ml
     def test_pred_label(self):
         odf = domain.pred_shalla_cat_with_images(image_path="./images")
         self.assertIn("image_label", odf.columns)

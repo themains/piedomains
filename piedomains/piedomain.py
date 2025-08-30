@@ -10,7 +10,6 @@ from PIL import Image
 
 import numpy as np
 import pandas as pd
-import tensorflow as tf
 import joblib
 
 from .constants import classes, most_common_words
@@ -50,6 +49,16 @@ def _initialize_nltk():
         # Fallback to basic word sets if NLTK fails
         words = set()
         stop_words = set(['the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'is', 'are', 'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could', 'should'])
+
+def _get_tensorflow():
+    """Lazy import TensorFlow with error handling."""
+    try:
+        import tensorflow as tf
+        return tf
+    except ImportError as e:
+        raise ImportError(f"TensorFlow is required for ML prediction functionality: {e}")
+    except Exception as e:
+        raise RuntimeError(f"Failed to initialize TensorFlow: {e}")
 
 """
     Piedomain class
@@ -378,6 +387,7 @@ class Piedomain(Base):
             if (domain_name in domains) or offline:
                 img_file = Image.open(f"{image_dir}/{image}")
                 img_file = img_file.convert("RGB")
+                tf = _get_tensorflow()
                 img_tensor = tf.convert_to_tensor(np.array(img_file))
                 img_tensor = tf.image.resize(img_tensor, [cls.img_width, cls.img_height])
                 img_tensor = tf.cast(img_tensor, tf.float32)
@@ -510,6 +520,7 @@ class Piedomain(Base):
             logger.info(f"Loading models (latest={latest})")
             cls.model_path = cls.load_model_data(model_file_name, latest)
             
+            tf = _get_tensorflow()
             logger.info("Loading text-based TensorFlow model")
             cls.model = tf.keras.models.load_model(f"{cls.model_path}/saved_model/piedomains")
             
@@ -688,6 +699,7 @@ class Piedomain(Base):
         else:
             results = cls.model.predict(content)
             
+        tf = _get_tensorflow()
         probs = tf.nn.softmax(results)
         probs_df = pd.DataFrame(probs.numpy(), columns=classes)
         
@@ -801,6 +813,7 @@ class Piedomain(Base):
             logger.info(f"Running image prediction in batches of {config.batch_size}")
             all_results = []
             
+            tf = _get_tensorflow()
             for i in range(0, len(img_tensors_list), config.batch_size):
                 batch_tensors = img_tensors_list[i:i + config.batch_size]
                 batch_tensor_stack = tf.stack(batch_tensors)
@@ -813,6 +826,7 @@ class Piedomain(Base):
             results = np.concatenate(all_results, axis=0)
             del all_results  # Free memory
         else:
+            tf = _get_tensorflow()
             img_tensors = tf.stack(img_tensors_list)
             results = cls.model_cv.predict(img_tensors)
             del img_tensors  # Free memory
@@ -820,6 +834,7 @@ class Piedomain(Base):
         # Clear the images dict to free memory
         del images, img_tensors_list
         
+        tf = _get_tensorflow()
         probs = tf.nn.softmax(results)
         probs_df = pd.DataFrame(probs.numpy(), columns=classes)
         
