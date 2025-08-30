@@ -522,10 +522,26 @@ class Piedomain(Base):
             
             tf = _get_tensorflow()
             logger.info("Loading text-based TensorFlow model")
-            cls.model = tf.keras.models.load_model(f"{cls.model_path}/saved_model/piedomains")
+            try:
+                # Try loading with new Keras 3 format first
+                cls.model = tf.keras.models.load_model(f"{cls.model_path}/saved_model/piedomains")
+            except ValueError as e:
+                if "File format not supported" in str(e):
+                    logger.info("Loading legacy SavedModel format using TFSMLayer")
+                    # Use TFSMLayer for legacy SavedModel format
+                    cls.model = tf.keras.layers.TFSMLayer(f"{cls.model_path}/saved_model/piedomains", call_endpoint='serving_default')
+                else:
+                    raise e
             
             logger.info("Loading image-based TensorFlow model")
-            cls.model_cv = tf.keras.models.load_model(f"{cls.model_path}/saved_model/pydomains_images")
+            try:
+                cls.model_cv = tf.keras.models.load_model(f"{cls.model_path}/saved_model/pydomains_images")
+            except ValueError as e:
+                if "File format not supported" in str(e):
+                    logger.info("Loading legacy SavedModel format using TFSMLayer for images")
+                    cls.model_cv = tf.keras.layers.TFSMLayer(f"{cls.model_path}/saved_model/pydomains_images", call_endpoint='serving_default')
+                else:
+                    raise e
 
             # load calibrated models
             logger.info(f"Loading {len(classes)} calibration models")
