@@ -13,9 +13,9 @@ Console script for piedomains.
 
 
 def main(argv=sys.argv[1:]):
-    title = "Predict the category of the domain using the content of the domain and the screenshot of the homepage"
+    title = "Predict the category of URLs or domains using content and homepage screenshots"
     parser = argparse.ArgumentParser(description=title)
-    parser.add_argument("--input", default=None, help="Domain name to classify")
+    parser.add_argument("--input", default=None, help="URL or domain name to classify (e.g., 'example.com' or 'https://example.com/page')")
     args = parser.parse_args(argv)
     print(args)
     if not args.input:

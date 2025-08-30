@@ -12,7 +12,7 @@ piedomains: predict the kind of content hosted by a domain based on domain name 
 .. image:: https://static.pepy.tech/badge/piedomains
     :target: https://pepy.tech/project/piedomains
 
-The package infers the kind of content hosted by a domain using the domain name, the textual content, and the screenshot of the homepage.
+The package infers the kind of content hosted by a domain using the domain name or full URL, the textual content, and the screenshot of the homepage.
 
 We use domain category labels from `Shallalist  <https://dataverse.harvard.edu/dataset.xhtml?persistentId=doi:10.7910/DVN/ZXTQ7V>`__ and build our own training dataset by scraping and taking screenshots of the homepage. The final dataset used to train the model is posted on the `Harvard Dataverse <https://dataverse.harvard.edu/dataset.xhtml?persistentId=doi:10.7910/DVN/ZXTQ7V>`__.  Python notebooks used to build the models can be found `here <https://github.com/themains/piedomains/tree/55cd5ea68ccec58ab2152c5f1d6fb9e6cf5df363/piedomains/notebooks>`__ and the model files can be found `here <https://dataverse.harvard.edu/dataset.xhtml?persistentId=doi:10.7910/DVN/YHWCDC>`__
 
@@ -31,15 +31,15 @@ General API
 
  - What it does:
 
-  - Predicts the kind of content hosted by a domain based on the domain name and the HTML of the homepage. 
-  - The function can use locally stored HTML files or fetch fresh HTML files. 
-  - If you specify a local folder, the function will look for HTML files corresponding to the domain. 
+  - Predicts the kind of content hosted by a domain based on the domain name or full URL and the HTML content. 
+  - The function can use locally stored HTML files or fetch fresh HTML files from the specified URLs. 
+  - If you specify a local folder, the function will look for HTML files corresponding to the domain name. 
   - The HTML files must be stored as `domainname.html`. 
   - The function returns a pandas dataframe with predicted labels and corresponding probabilities.
 
  - Inputs:
 
-  - `input`: list of domains. Either `input` or `html_path` must be specified.
+  - `input`: list of URLs or domain names. Either `input` or `html_path` must be specified.
   - `html_path`: path to the folder where the HTMLs are stored.  Either `input` or `html_path` must be specified. 
   - `latest`: use the latest model. The default is `True.`
   - Note: The function will by default look for a `html` folder on the same level as model files.
@@ -52,20 +52,21 @@ General API
    ::
      
      from piedomains import domain
-     domains = [
+     # URLs and domains can be mixed
+     inputs = [
          "forbes.com",
-         "xvideos.com",
+         "https://xvideos.com",
          "last.fm",
-         "facebook.com",
+         "https://facebook.com/news",
          "bellesa.co",
-         "marketwatch.com"
+         "https://marketwatch.com/investing"
      ]
-     # with only domains
-     result = domain.pred_shalla_cat_with_text(domains)
+     # with URLs/domains
+     result = domain.pred_shalla_cat_with_text(inputs)
      # with html path where htmls are stored (offline mode)
      result = domain.pred_shalla_cat_with_text(html_path="path/to/htmls")
-     # with domains and html path, html_path will be used to store htmls
-     result = domain.pred_shalla_cat_with_text(domains, html_path="path/to/htmls")
+     # with URLs/domains and html path, html_path will be used to store htmls
+     result = domain.pred_shalla_cat_with_text(inputs, html_path="path/to/htmls")
      print(result)
  - Sample output:
    ::
