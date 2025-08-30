@@ -61,14 +61,35 @@ class Piedomain(Base):
         # Remove trailing slash and path
         domain = domain.split('/')[0]
         
-        # Basic domain format validation
-        domain_pattern = re.compile(
-            r'^[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?)*$'
-        )
-        
-        # Check length and pattern
-        if len(domain) > 253 or not domain_pattern.match(domain):
+        # Check for invalid characters (spaces, special chars except hyphen and dot)
+        if ' ' in domain or any(c in domain for c in '!@#$%^&*()+=[]{}|\\:";\'<>?/'):
             return False
+        
+        # Must contain at least one dot to be a valid domain
+        if '.' not in domain:
+            return False
+        
+        # Check for consecutive dots
+        if '..' in domain:
+            return False
+        
+        # Cannot start or end with dot or hyphen
+        if domain.startswith('.') or domain.endswith('.') or domain.startswith('-') or domain.endswith('-'):
+            return False
+        
+        # Check length
+        if len(domain) > 253:
+            return False
+        
+        # Validate each part of the domain
+        parts = domain.split('.')
+        for part in parts:
+            if not part or len(part) > 63:
+                return False
+            if part.startswith('-') or part.endswith('-'):
+                return False
+            if not re.match(r'^[a-zA-Z0-9\-]+$', part):
+                return False
             
         return True
 
@@ -126,6 +147,9 @@ class Piedomain(Base):
         Returns:
             str: Cleaned text with English words only, no stopwords or common terms
         """
+        if not isinstance(s, str):
+            raise AttributeError("Input must be a string")
+        
         # remove numbers
         s = re.sub(r"\d+", "", s)
         # remove duplicates
@@ -133,12 +157,12 @@ class Piedomain(Base):
         # remove punctuation from each token
         table = str.maketrans("", "", string.punctuation)
         tokens = [w.translate(table) for w in tokens]
-        # remove non english words
-        tokens = [w.lower() for w in tokens if w.lower() in words]
-        # remove non alpha
+        # remove non alpha first
         tokens = [w.lower() for w in tokens if w.isalpha()]
         # remove non ascii
         tokens = [w.lower() for w in tokens if w.isascii()]
+        # remove non english words
+        tokens = [w for w in tokens if w in words]
         # filter out stop words
         tokens = [w for w in tokens if w not in stop_words]
         # filter out short tokens

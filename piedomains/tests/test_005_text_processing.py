@@ -114,11 +114,11 @@ class TestTextProcessing(unittest.TestCase):
     def test_data_cleanup_filters_non_english(self):
         """Test that data cleanup attempts to filter non-English words."""
         # This test may be limited by the NLTK words corpus availability
-        text_mixed = "english test français deutsche invalid"
+        text_mixed = "computer test français deutsche invalid"
         result = Piedomain.data_cleanup(text_mixed)
         
-        # Should contain recognizable English words
-        self.assertIn("english", result)
+        # Should contain recognizable English words that aren't stopwords
+        self.assertIn("computer", result)
         self.assertIn("test", result)
 
     def test_data_cleanup_empty_input(self):
