@@ -72,12 +72,13 @@ class TestTextProcessing(unittest.TestCase):
 
     def test_data_cleanup_removes_stopwords(self):
         """Test that data cleanup removes English stopwords."""
-        text_with_stopwords = "the quick brown fox jumps over the lazy dog"
+        text_with_stopwords = "the quick brown fox and jumps in the lazy dog"
         result = Piedomain.data_cleanup(text_with_stopwords)
         
         # Common stopwords should be removed
         self.assertNotIn(" the ", " " + result + " ")
-        self.assertNotIn(" over ", " " + result + " ")
+        self.assertNotIn(" and ", " " + result + " ")
+        self.assertNotIn(" in ", " " + result + " ")
         # Content words should remain
         self.assertIn("quick", result)
         self.assertIn("brown", result)
