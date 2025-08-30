@@ -57,8 +57,8 @@ class Tox(TestCommand):
 
 setup(
     name="piedomains",
-    version="0.0.19",
-    description="Predict categories based domain names and it's content",
+    version="0.1.0",
+    description="Predict categories based on domain names and their content",
     long_description_content_type="text/x-rst",
     long_description=long_description,
     # The project's main homepage.
@@ -74,22 +74,25 @@ setup(
         #   3 - Alpha
         #   4 - Beta
         #   5 - Production/Stable
-        "Development Status :: 3 - Alpha",
+        "Development Status :: 4 - Beta",
         # Indicate who your project is intended for
         "Intended Audience :: Developers",
+        "Intended Audience :: Science/Research",
         # Pick your license as you wish (should match "license" above)
         "License :: OSI Approved :: MIT License",
         # Specify the Python versions you support here. In particular, ensure
         # that you indicate whether you support Python 2, Python 3 or both.
-        "Programming Language :: Python :: 3.6",
-        "Programming Language :: Python :: 3.7",
-        "Programming Language :: Python :: 3.8",
+        "Programming Language :: Python :: 3.9",
+        "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
+        "Topic :: Internet :: WWW/HTTP",
         "Topic :: Scientific/Engineering :: Information Analysis",
         "Topic :: Software Development :: Libraries :: Python Modules",
+        "Topic :: Text Processing :: Markup :: HTML",
         "Topic :: Utilities",
     ],
     # What does your project relate to?
-    keywords="predict category based on domain name and it's content",
+    keywords="domain classification, website categorization, machine learning, content analysis, web scraping, computer vision",
     # You can just specify the packages manually here if your project is
     # simple. Or you can use find_packages().
     packages=find_packages(exclude=["data", "docs", "tests", "scripts"]),
@@ -101,24 +104,24 @@ setup(
     # requirements files see:
     # https://packaging.python.org/en/latest/requirements.html
     install_requires=[
-        "tqdm==4.64.0",
+        "tqdm==4.66.3",
         "bs4==0.0.1",
         "pandas==1.4.2",
-        "nltk==3.7",
+        "nltk==3.9",
         "tensorflow>=2.11.1",
-        "scikit-learn==1.2.2",
+        "scikit-learn==1.5.0",
         "joblib==1.2.0",
         "selenium==4.8.0",
         "webdriver_manager==3.8.5",
-        "pillow==9.4.0",
+        "pillow==10.3.0",
     ],
     # List additional groups of dependencies here (e.g. development
     # dependencies). You can install these using the following syntax,
     # for example:
     # $ pip install -e .[dev,test]
     extras_require={
-        "dev": ["check-manifest"],
-        "test": ["coverage"],
+        "dev": ["check-manifest", "pytest", "flake8", "black", "isort"],
+        "test": ["coverage", "pytest", "pytest-cov", "pytest-mock"],
     },
     # If there are data files included in your packages that need to be
     # installed, specify them here.  If using Python 2.6 or less, then these
@@ -136,7 +139,7 @@ setup(
     # "scripts" keyword. Entry points provide cross-platform support and allow
     # pip to create the appropriate form of executable for the target platform.
     entry_points={
-        "console_scripts": ["classify_domains=piedomain:main"],
+        "console_scripts": ["classify_domains=piedomains.domain:main"],
     },
     cmdclass={
         "develop": PostDevelopCommand,
