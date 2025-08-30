@@ -57,8 +57,8 @@ class Tox(TestCommand):
 
 setup(
     name="piedomains",
-    version="0.0.19",
-    description="Predict categories based domain names and it's content",
+    version="0.1.0",
+    description="Predict categories based on domain names and their content",
     long_description_content_type="text/x-rst",
     long_description=long_description,
     # The project's main homepage.
@@ -74,21 +74,25 @@ setup(
         #   3 - Alpha
         #   4 - Beta
         #   5 - Production/Stable
-        "Development Status :: 3 - Alpha",
+        "Development Status :: 4 - Beta",
         # Indicate who your project is intended for
         "Intended Audience :: Developers",
+        "Intended Audience :: Science/Research",
         # Pick your license as you wish (should match "license" above)
         "License :: OSI Approved :: MIT License",
         # Specify the Python versions you support here. In particular, ensure
         # that you indicate whether you support Python 2, Python 3 or both.
+        "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
+        "Topic :: Internet :: WWW/HTTP",
         "Topic :: Scientific/Engineering :: Information Analysis",
         "Topic :: Software Development :: Libraries :: Python Modules",
+        "Topic :: Text Processing :: Markup :: HTML",
         "Topic :: Utilities",
     ],
     # What does your project relate to?
-    keywords="predict category based on domain name and it's content",
+    keywords="domain classification, website categorization, machine learning, content analysis, web scraping, computer vision",
     # You can just specify the packages manually here if your project is
     # simple. Or you can use find_packages().
     packages=find_packages(exclude=["data", "docs", "tests", "scripts"]),
@@ -116,8 +120,8 @@ setup(
     # for example:
     # $ pip install -e .[dev,test]
     extras_require={
-        "dev": ["check-manifest"],
-        "test": ["coverage"],
+        "dev": ["check-manifest", "pytest", "flake8", "black", "isort"],
+        "test": ["coverage", "pytest", "pytest-cov", "pytest-mock"],
     },
     # If there are data files included in your packages that need to be
     # installed, specify them here.  If using Python 2.6 or less, then these
@@ -135,7 +139,7 @@ setup(
     # "scripts" keyword. Entry points provide cross-platform support and allow
     # pip to create the appropriate form of executable for the target platform.
     entry_points={
-        "console_scripts": ["classify_domains=piedomain:main"],
+        "console_scripts": ["classify_domains=piedomains.domain:main"],
     },
     cmdclass={
         "develop": PostDevelopCommand,
