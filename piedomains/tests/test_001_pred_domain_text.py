@@ -35,7 +35,10 @@ class TestPredDomainText(unittest.TestCase):
 
     @pytest.mark.ml
     def test_pred_label(self):
-        odf = domain.pred_shalla_cat_with_text(html_path="./html")
+        import os
+        test_dir = os.path.dirname(__file__)
+        html_path = os.path.join(test_dir, "html")
+        odf = domain.pred_shalla_cat_with_text(html_path=html_path)
         self.assertIn("text_label", odf.columns)
         self.assertIn("text_prob", odf.columns)
         self.assertIn("text_domain_probs", odf.columns)
