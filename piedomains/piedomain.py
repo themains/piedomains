@@ -504,6 +504,40 @@ class Piedomain(Base):
         return domains, content
 
     @classmethod
+    def _predict_with_model(cls, model, input_data):
+        """
+        Universal prediction method that handles both Keras models and TFSMLayer.
+        
+        Args:
+            model: Either a Keras model or TFSMLayer instance
+            input_data: Input tensor for prediction
+            
+        Returns:
+            Prediction results
+        """
+        tf = _get_tensorflow()
+        if hasattr(model, 'predict'):
+            return model.predict(input_data)
+        else:
+            # Handle TFSMLayer which is callable but doesn't have predict method
+            # TFSMLayer expects keyword arguments and may return a dict
+            if isinstance(input_data, (list, str)):
+                # For text input (list of strings), convert to tensor and pass as keyword argument
+                tf = _get_tensorflow()
+                input_tensor = tf.constant(input_data)
+                results = model(input_tensor)
+            else:
+                # For tensor input (images), pass as positional argument
+                results = model(input_data)
+            
+            # TFSMLayer may return a dict, extract the tensor if needed
+            if isinstance(results, dict):
+                # Get the first (and likely only) tensor value from the dict
+                results = list(results.values())[0]
+            
+            return results
+
+    @classmethod
     def load_model(cls, model_file_name: str, latest: bool = False):
         """
         Load TensorFlow models and calibrators from local cache or download from server.
@@ -706,14 +740,14 @@ class Piedomain(Base):
             all_results = []
             for i in range(0, len(content), config.batch_size):
                 batch_content = content[i:i + config.batch_size]
-                batch_results = cls.model.predict(batch_content)
+                batch_results = cls._predict_with_model(cls.model, batch_content)
                 all_results.append(batch_results)
                 # Clear intermediate results to free memory
                 del batch_results
             results = np.concatenate(all_results, axis=0)
             del all_results  # Free memory
         else:
-            results = cls.model.predict(content)
+            results = cls._predict_with_model(cls.model, content)
             
         tf = _get_tensorflow()
         probs = tf.nn.softmax(results)
@@ -808,7 +842,11 @@ class Piedomain(Base):
         
         logger.info("Processing image tensors")
         # Extract domains for file lookups
-        domain_list = [cls.parse_url_to_domain(item) for item in urls_or_domains]
+        if offline_images and len(urls_or_domains) == 0:
+            # In offline mode with no input, process all images in directory
+            domain_list = []
+        else:
+            domain_list = [cls.parse_url_to_domain(item) for item in urls_or_domains]
         images = cls.extract_image_tensor(offline_images, domain_list, image_path)
         img_domains = list(images.keys())
         logger.info(f"Successfully processed images for {len(img_domains)} domains")
@@ -833,7 +871,7 @@ class Piedomain(Base):
             for i in range(0, len(img_tensors_list), config.batch_size):
                 batch_tensors = img_tensors_list[i:i + config.batch_size]
                 batch_tensor_stack = tf.stack(batch_tensors)
-                batch_results = cls.model_cv.predict(batch_tensor_stack)
+                batch_results = cls._predict_with_model(cls.model_cv, batch_tensor_stack)
                 all_results.append(batch_results)
                 
                 # Clear intermediate tensors to free memory
@@ -844,7 +882,7 @@ class Piedomain(Base):
         else:
             tf = _get_tensorflow()
             img_tensors = tf.stack(img_tensors_list)
-            results = cls.model_cv.predict(img_tensors)
+            results = cls._predict_with_model(cls.model_cv, img_tensors)
             del img_tensors  # Free memory
             
         # Clear the images dict to free memory
