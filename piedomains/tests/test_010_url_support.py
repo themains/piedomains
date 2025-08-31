@@ -23,7 +23,7 @@ class TestURLSupport(unittest.TestCase):
             ("sub.example.com/path", "sub.example.com"),
             ("just-a-domain.com", "just-a-domain.com"),
         ]
-        
+
         for url, expected_domain in test_cases:
             with self.subTest(url=url):
                 result = Piedomain.parse_url_to_domain(url)
@@ -37,7 +37,7 @@ class TestURLSupport(unittest.TestCase):
             ("https://", ""),
             ("just-text-no-domain", "just-text-no-domain"),
         ]
-        
+
         for url, expected in edge_cases:
             with self.subTest(url=url):
                 result = Piedomain.parse_url_to_domain(url)
@@ -52,7 +52,7 @@ class TestURLSupport(unittest.TestCase):
             "https://test.co.uk/path/to/page",
             "example.net/",
         ]
-        
+
         for input_item in valid_inputs:
             with self.subTest(input=input_item):
                 self.assertTrue(Piedomain.validate_url_or_domain(input_item))
@@ -67,7 +67,7 @@ class TestURLSupport(unittest.TestCase):
             "just-text-without-dot",
             "https://special!chars@domain.com",
         ]
-        
+
         for input_item in invalid_inputs:
             with self.subTest(input=input_item):
                 self.assertFalse(Piedomain.validate_url_or_domain(input_item))
@@ -82,9 +82,9 @@ class TestURLSupport(unittest.TestCase):
             "",
             "http://twitter.com/user"
         ]
-        
+
         valid, invalid, url_map = Piedomain.validate_urls_or_domains(mixed_inputs)
-        
+
         self.assertEqual(len(valid), 4)
         self.assertEqual(len(invalid), 2)
         self.assertIn("google.com", valid)
@@ -93,7 +93,7 @@ class TestURLSupport(unittest.TestCase):
         self.assertIn("http://twitter.com/user", valid)
         self.assertIn("invalid..domain", invalid)
         self.assertIn("", invalid)
-        
+
         # Check URL to domain mapping
         self.assertEqual(url_map["google.com"], "google.com")
         self.assertEqual(url_map["https://example.org/path"], "example.org")
@@ -103,3 +103,4 @@ class TestURLSupport(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
