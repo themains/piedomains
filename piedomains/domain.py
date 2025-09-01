@@ -2,6 +2,11 @@ import sys
 import argparse
 
 from .piedomain import Piedomain
+from .archive_support import (
+    pred_shalla_cat_archive,
+    pred_shalla_cat_with_text_archive, 
+    pred_shalla_cat_with_images_archive
+)
 
 pred_shalla_cat = Piedomain.pred_shalla_cat
 pred_shalla_cat_with_text = Piedomain.pred_shalla_cat_with_text

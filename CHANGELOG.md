@@ -5,6 +5,36 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2025-09-01
+
+### Added
+- **Archive.org Historical Classification**: New functionality for analyzing historical website content
+  - `pred_shalla_cat_archive()`: Combined text+image classification using archive.org snapshots
+  - `pred_shalla_cat_with_text_archive()`: Text-only classification from historical content
+  - `pred_shalla_cat_with_images_archive()`: Image-only classification from historical screenshots
+  - Support for point-in-time analysis using 'YYYYMMDD' date format
+  - Automatic discovery of closest available snapshots to target dates
+  - Modular fetcher architecture with `BaseFetcher`, `LiveFetcher`, and `ArchiveFetcher` classes
+- **Enhanced URL Support**: Improved handling of full URLs vs domain names
+  - Better URL parsing and domain extraction
+  - Support for URLs with paths, ports, and protocols
+  - Archive URL construction and validation
+- **Testing Infrastructure**: Comprehensive test suite for archive functionality
+  - Tests for 10 major domains across different time periods (2005-2020)
+  - Archive content fetching and processing validation
+  - Integration tests for historical content classification
+
+### Changed
+- Extended main API in `domain.py` to export new archive functions
+- Updated `__init__.py` to include archive functions in public API
+- Enhanced documentation with archive.org usage examples
+
+### Technical Details
+- Archive snapshots fetched via direct web.archive.org URLs
+- Automatic HTML content cleaning to remove archive.org wrapper elements
+- Selenium WebDriver support for archived page screenshots
+- Compatible with existing caching and batch processing features
+
 ## [0.1.0] - 2024-08-30
 
 ### Added

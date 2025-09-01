@@ -165,6 +165,45 @@ General API
   - The HTML files must be stored as `domainname.html`. 
   - The function returns a pandas dataframe with the predicted labels and corresponding probabilities.
 
+4. **Archive.org Historical Classification (NEW)**
+
+ - **domain.pred_shalla_cat_archive(input, archive_date)**
+ - **domain.pred_shalla_cat_with_text_archive(input, archive_date)**  
+ - **domain.pred_shalla_cat_with_images_archive(input, archive_date)**
+
+ - What it does:
+
+  - Predicts content categories using historical snapshots from archive.org
+  - Fetches content from the closest available snapshot to the specified date
+  - Supports the same analysis as regular functions but with historical data
+  - Useful for analyzing how website content has changed over time
+
+ - Inputs:
+
+  - `input`: list of URLs or domain names to classify
+  - `archive_date`: target date as 'YYYYMMDD' string (e.g., '20200101' for Jan 1, 2020)
+  - `html_path`: optional path for storing archived HTML files
+  - `image_path`: optional path for storing archived screenshots
+  - `use_cache`: whether to reuse existing archived files
+  - `latest`: whether to download latest model version
+
+ - Sample usage:
+   ::
+     
+     from piedomains import domain
+     
+     # Classify domains using content from January 1, 2020
+     domains = ["amazon.com", "facebook.com", "cnn.com"]
+     result = domain.pred_shalla_cat_archive(domains, "20200101")
+     print(result[["domain", "pred_label", "pred_prob", "archive_date"]])
+     
+     # Text-only classification from archive
+     text_result = domain.pred_shalla_cat_with_text_archive(domains, "20200101")
+     
+     # Compare different time periods
+     old_result = domain.pred_shalla_cat_archive(domains, "20100101")  # 2010
+     new_result = domain.pred_shalla_cat_archive(domains, "20200101")  # 2020
+
  - Inputs:
 
   - `input`: list of domains. Either `input` or `html_path` must be specified.
