@@ -12,7 +12,7 @@ piedomains: AI-powered domain content classification
 **piedomains** predicts website content categories using AI analysis of domain names, text content, and homepage screenshots. Classify domains as news, shopping, adult content, education, etc. with high accuracy.
 
 🚀 **Quickstart**
------------------
+-------------------
 
 Install and classify domains in 3 lines:
 
@@ -34,7 +34,7 @@ Install and classify domains in 3 lines:
     # 2 wikipedia.org   education   0.891234
 
 📊 **Key Features**
-------------------
+--------------------
 
 - **High Accuracy**: Combines text analysis + visual screenshots for 90%+ accuracy
 - **Historical Analysis**: Classify websites from any point in time using archive.org
@@ -43,7 +43,7 @@ Install and classify domains in 3 lines:
 - **41 Categories**: From news/finance to adult/gambling content
 
 ⚡ **Usage Examples**
--------------------
+---------------------
 
 **Basic Classification**
 
@@ -87,12 +87,12 @@ Install and classify domains in 3 lines:
     )
 
 🏷️ **Supported Categories**
---------------------------
+------------------------------
 
 News, Finance, Shopping, Education, Government, Adult Content, Gambling, Social Networks, Search Engines, and 32 more categories based on the Shallalist taxonomy.
 
 📈 **Performance**
------------------
+-------------------
 
 - **Speed**: ~10-50 domains/minute (depends on method and network)
 - **Accuracy**: 85-95% depending on content type and method
@@ -100,7 +100,7 @@ News, Finance, Shopping, Education, Government, Adult Content, Gambling, Social 
 - **Caching**: Automatic content caching for faster re-runs
 
 🔧 **Installation**
-------------------
+--------------------
 
 **Requirements**: Python 3.9+
 
@@ -115,7 +115,7 @@ News, Finance, Shopping, Education, Government, Adult Content, Gambling, Social 
     pip install -e .
 
 🔄 **Migration from v0.2.x**
----------------------------
+-----------------------------
 
 **Old API** (still supported):
 
@@ -133,14 +133,14 @@ News, Finance, Shopping, Education, Government, Adult Content, Gambling, Social 
     result = classifier.classify_by_text(["example.com"])
 
 📖 **Documentation**
--------------------
+---------------------
 
 - **API Reference**: https://piedomains.readthedocs.io
 - **Examples**: `/examples` directory
 - **Notebooks**: `/piedomains/notebooks` (training & analysis)
 
 🤝 **Contributing**
-------------------
+--------------------
 
 .. code-block:: bash
 
@@ -156,12 +156,12 @@ News, Finance, Shopping, Education, Government, Adult Content, Gambling, Social 
     flake8 piedomains/
 
 📄 **License**
--------------
+---------------
 
 MIT License - see LICENSE file.
 
 📚 **Citation**
---------------
+----------------
 
 If you use piedomains in research, please cite:
 

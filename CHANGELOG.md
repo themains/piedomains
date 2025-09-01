@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.1] - 2025-09-01
+
+### Documentation
+- **README Overhaul**: Complete rewrite with modern, quickstart-focused approach
+  - 3-line quickstart example for immediate use
+  - Clear migration guide from old API to new DomainClassifier
+  - Prominent examples for all classification methods (text, images, combined)
+  - Archive.org historical analysis prominently featured
+  - Batch processing examples and performance guidelines
+  - Moved legacy API documentation to LEGACY_API.rst for reference
+- **User Experience**: Much clearer onboarding and usage examples
+
 ## [0.3.0] - 2025-09-01
 
 ### 🚀 Major API Overhaul - Modern, Intuitive Interface
