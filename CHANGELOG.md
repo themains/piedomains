@@ -5,6 +5,72 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2025-09-01
+
+### 🚀 Major API Overhaul - Modern, Intuitive Interface
+
+### Added
+- **New Modern API**: Complete redesign for better user experience
+  - `DomainClassifier` class with intuitive methods: `.classify()`, `.classify_by_text()`, `.classify_by_images()`
+  - `classify_domains()` convenience function for quick usage
+  - Integrated archive.org support (no separate functions needed)
+  - Batch processing with progress tracking via `.classify_batch()`
+  - Consistent parameter naming: `domains` instead of `input`
+  - Better error handling and logging throughout
+- **Modular Architecture**: Complete code reorganization
+  - `piedomains/classifiers/`: Focused classification modules (TextClassifier, ImageClassifier, CombinedClassifier)
+  - `piedomains/processors/`: Content processing utilities (TextProcessor, ContentProcessor)
+  - Eliminated monolithic 974-line piedomain.py into maintainable modules
+  - Clear separation of concerns and better testability
+- **Enhanced Testing Suite**: 85+ comprehensive tests
+  - `test_011_new_api_integration.py`: New API functionality testing
+  - `test_012_archive_functionality.py`: Archive.org integration testing
+  - `test_013_performance_benchmarks.py`: Performance and scalability testing
+  - Mock-based testing for reliable CI/CD
+  - Performance benchmarking and memory usage monitoring
+- **Improved Documentation**: 
+  - New quickstart-focused README with 3-line setup
+  - Comprehensive API examples and migration guide
+  - `examples/new_api_demo.py`: Interactive demonstration script
+
+### Changed
+- **API Interface**: Modern, class-based design replacing function-based approach
+  - DateTime support for archive dates (accepts both strings and datetime objects)
+  - Progress tracking for batch operations
+  - Automatic cache directory management
+  - Integrated fetcher architecture (LiveFetcher/ArchiveFetcher)
+- **Code Quality**: Significantly improved maintainability
+  - Type hints throughout new codebase
+  - Comprehensive error handling
+  - Resource management and cleanup
+  - Memory-efficient batch processing
+
+### Backward Compatibility
+- **Legacy API Preserved**: All existing functions still work
+  - `pred_shalla_cat()`, `pred_shalla_cat_with_text()`, etc. unchanged
+  - No breaking changes for existing users
+  - Deprecation warnings will be added in future versions
+- **Import Compatibility**: Both old and new APIs available
+  ```python
+  # Old API still works
+  from piedomains import pred_shalla_cat
+  
+  # New API available
+  from piedomains import DomainClassifier
+  ```
+
+### Performance
+- **Batch Processing**: Efficient handling of large domain lists
+- **Caching**: Improved cache management and directory structure
+- **Memory Management**: Better resource cleanup and optimization
+- **Scalability**: Tested with 1000+ domain batches
+
+### Developer Experience
+- **Better Error Messages**: More descriptive error handling
+- **Type Safety**: Full type hints for better IDE support
+- **Logging**: Structured logging throughout application
+- **Testing**: Comprehensive test coverage for all new functionality
+
 ## [0.2.1] - 2025-09-01
 
 ### Changed
