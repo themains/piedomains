@@ -19,7 +19,7 @@ class TestDomainValidation(unittest.TestCase):
             "a.b",
             "very-long-subdomain.example-domain.com"
         ]
-        
+
         for domain in valid_domains:
             with self.subTest(domain=domain):
                 self.assertTrue(Piedomain.validate_domain_name(domain))
@@ -38,7 +38,7 @@ class TestDomainValidation(unittest.TestCase):
             "special!chars@domain.com",
             "just-a-string-without-dot"
         ]
-        
+
         for domain in invalid_domains:
             with self.subTest(domain=domain):
                 self.assertFalse(Piedomain.validate_domain_name(domain))
@@ -50,7 +50,7 @@ class TestDomainValidation(unittest.TestCase):
             "https://example.org",
             "https://sub.example.com/path"
         ]
-        
+
         for domain in domains_with_protocol:
             with self.subTest(domain=domain):
                 self.assertTrue(Piedomain.validate_domain_name(domain))
@@ -64,13 +64,13 @@ class TestDomainValidation(unittest.TestCase):
             "",
             "twitter.com"
         ]
-        
+
         valid, invalid = Piedomain.validate_domains(mixed_domains)
-        
+
         self.assertEqual(len(valid), 3)
         self.assertEqual(len(invalid), 2)
         self.assertIn("google.com", valid)
-        self.assertIn("facebook.com", valid) 
+        self.assertIn("facebook.com", valid)
         self.assertIn("twitter.com", valid)
         self.assertIn("invalid..domain", invalid)
         self.assertIn("", invalid)
@@ -82,9 +82,9 @@ class TestDomainValidation(unittest.TestCase):
             "http://test.org/path",
             "example.net/"
         ]
-        
+
         valid, invalid = Piedomain.validate_domains(domains_to_normalize)
-        
+
         self.assertEqual(len(valid), 3)
         self.assertEqual(len(invalid), 0)
         self.assertIn("example.com", valid)
@@ -94,3 +94,4 @@ class TestDomainValidation(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+

@@ -10,10 +10,7 @@ from PIL import Image
 
 import numpy as np
 import pandas as pd
-import tensorflow as tf
-import nltk
 import joblib
-from nltk.corpus import stopwords
 
 from .constants import classes, most_common_words
 from .logging import get_logger
@@ -21,10 +18,47 @@ from .base import Base
 from .config import get_config
 
 logger = get_logger()
-nltk.download("stopwords")
-nltk.download("words")
-words = set(nltk.corpus.words.words())
-stop_words = set(stopwords.words("english"))
+
+# Global variables for NLTK data - will be initialized when needed
+words = None
+stop_words = None
+
+def _initialize_nltk():
+    """Initialize NLTK data with proper error handling."""
+    global words, stop_words
+    
+    if words is not None and stop_words is not None:
+        return  # Already initialized
+    
+    try:
+        import nltk
+        
+        # Download required NLTK data
+        nltk.download("stopwords", quiet=True)
+        nltk.download("words", quiet=True) 
+        nltk.download("wordnet", quiet=True)
+        nltk.download("punkt", quiet=True)
+        
+        # Import and initialize corpora
+        from nltk.corpus import stopwords
+        words = set(nltk.corpus.words.words())
+        stop_words = set(stopwords.words("english"))
+        
+    except Exception as e:
+        logger.warning(f"NLTK initialization failed: {e}")
+        # Fallback to basic word sets if NLTK fails
+        words = set()
+        stop_words = set(['the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'is', 'are', 'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could', 'should'])
+
+def _get_tensorflow():
+    """Lazy import TensorFlow with error handling."""
+    try:
+        import tensorflow as tf
+        return tf
+    except ImportError as e:
+        raise ImportError(f"TensorFlow is required for ML prediction functionality: {e}")
+    except Exception as e:
+        raise RuntimeError(f"Failed to initialize TensorFlow: {e}")
 
 """
     Piedomain class
@@ -38,6 +72,49 @@ class Piedomain(Base):
     weights_loaded = False
     img_width = 254
     img_height = 254
+
+    @staticmethod
+    def parse_url_to_domain(url: str) -> str:
+        """
+        Extract domain name from a URL.
+        
+        Args:
+            url (str): Full URL or domain name
+            
+        Returns:
+            str: Domain name extracted from URL
+        """
+        if not url or not isinstance(url, str):
+            return url
+        
+        # If it's already just a domain (no protocol), return as-is
+        if not url.startswith(('http://', 'https://')):
+            # Check if it looks like a URL with path but no protocol
+            if '/' in url and '.' in url.split('/')[0]:
+                return url.split('/')[0]
+            return url
+        
+        # Parse full URL to extract domain
+        parsed = urlparse(url)
+        return parsed.netloc
+    
+    @staticmethod
+    def validate_url_or_domain(url_or_domain: str) -> bool:
+        """
+        Validate if input is a valid URL or domain name.
+        
+        Args:
+            url_or_domain (str): URL or domain name to validate
+            
+        Returns:
+            bool: True if valid URL or domain, False otherwise
+        """
+        if not url_or_domain or not isinstance(url_or_domain, str):
+            return False
+            
+        # Extract domain part for validation
+        domain = Piedomain.parse_url_to_domain(url_or_domain)
+        return Piedomain.validate_domain_name(domain)
 
     @staticmethod
     def validate_domain_name(domain: str) -> bool:
@@ -61,14 +138,35 @@ class Piedomain(Base):
         # Remove trailing slash and path
         domain = domain.split('/')[0]
         
-        # Basic domain format validation
-        domain_pattern = re.compile(
-            r'^[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?)*$'
-        )
-        
-        # Check length and pattern
-        if len(domain) > 253 or not domain_pattern.match(domain):
+        # Check for invalid characters (spaces, special chars except hyphen and dot)
+        if ' ' in domain or any(c in domain for c in '!@#$%^&*()+=[]{}|\\:";\'<>?/'):
             return False
+        
+        # Must contain at least one dot to be a valid domain
+        if '.' not in domain:
+            return False
+        
+        # Check for consecutive dots
+        if '..' in domain:
+            return False
+        
+        # Cannot start or end with dot or hyphen
+        if domain.startswith('.') or domain.endswith('.') or domain.startswith('-') or domain.endswith('-'):
+            return False
+        
+        # Check length
+        if len(domain) > 253:
+            return False
+        
+        # Validate each part of the domain
+        parts = domain.split('.')
+        for part in parts:
+            if not part or len(part) > 63:
+                return False
+            if part.startswith('-') or part.endswith('-'):
+                return False
+            if not re.match(r'^[a-zA-Z0-9\-]+$', part):
+                return False
             
         return True
 
@@ -100,6 +198,31 @@ class Piedomain(Base):
         return valid_domains, invalid_domains
 
     @classmethod
+    def validate_urls_or_domains(cls, urls_or_domains: list) -> tuple[list, list, dict]:
+        """
+        Validate a list of URLs or domains and separate valid from invalid.
+        
+        Args:
+            urls_or_domains (list): List of URLs or domain names to validate
+            
+        Returns:
+            tuple: (valid_inputs, invalid_inputs, url_to_domain_map)
+        """
+        valid_inputs = []
+        invalid_inputs = []
+        url_to_domain_map = {}
+        
+        for input_item in urls_or_domains:
+            if cls.validate_url_or_domain(input_item):
+                domain = cls.parse_url_to_domain(input_item)
+                valid_inputs.append(input_item)
+                url_to_domain_map[input_item] = domain
+            else:
+                invalid_inputs.append(input_item)
+                
+        return valid_inputs, invalid_inputs, url_to_domain_map
+
+    @classmethod
     def text_from_html(cls, text: str) -> str:
         """
         Extract clean text content from HTML.
@@ -126,6 +249,12 @@ class Piedomain(Base):
         Returns:
             str: Cleaned text with English words only, no stopwords or common terms
         """
+        if not isinstance(s, str):
+            raise AttributeError("Input must be a string")
+        
+        # Initialize NLTK data if needed
+        _initialize_nltk()
+        
         # remove numbers
         s = re.sub(r"\d+", "", s)
         # remove duplicates
@@ -133,12 +262,13 @@ class Piedomain(Base):
         # remove punctuation from each token
         table = str.maketrans("", "", string.punctuation)
         tokens = [w.translate(table) for w in tokens]
-        # remove non english words
-        tokens = [w.lower() for w in tokens if w.lower() in words]
-        # remove non alpha
+        # remove non alpha first
         tokens = [w.lower() for w in tokens if w.isalpha()]
         # remove non ascii
         tokens = [w.lower() for w in tokens if w.isascii()]
+        # remove non english words (only if words corpus is available)
+        if words:
+            tokens = [w for w in tokens if w in words]
         # filter out stop words
         tokens = [w for w in tokens if w not in stop_words]
         # filter out short tokens
@@ -170,12 +300,12 @@ class Piedomain(Base):
 
 
     @classmethod
-    def save_image(cls, domain: str, image_dir: str) -> tuple[bool, str]:
+    def save_image(cls, url_or_domain: str, image_dir: str) -> tuple[bool, str]:
         """
-        Save screenshot of domain homepage.
+        Save screenshot of URL or domain homepage.
         
         Args:
-            domain (str): Domain name to screenshot
+            url_or_domain (str): URL or domain name to screenshot
             image_dir (str): Directory to save screenshot
             
         Returns:
@@ -185,15 +315,23 @@ class Piedomain(Base):
         config = get_config()
         
         try:
+            # Parse to get domain for file naming
+            domain = cls.parse_url_to_domain(url_or_domain)
+            
+            # Determine the URL to screenshot
+            if url_or_domain.startswith(('http://', 'https://')):
+                url_to_fetch = url_or_domain
+            else:
+                url_to_fetch = f"https://{url_or_domain}"
+            
             with webdriver_context() as driver:
-                url = f"https://{domain}"
                 driver.set_page_load_timeout(config.page_load_timeout)
-                driver.get(url)
+                driver.get(url_to_fetch)
                 time.sleep(config.screenshot_wait_time)
                 driver.save_screenshot(f"{image_dir}/{domain}.png")
                 return True, ""
         except Exception as e:
-            error_msg = f"Failed to screenshot {domain}: {str(e)}"
+            error_msg = f"Failed to screenshot {url_or_domain}: {str(e)}"
             logger.error(error_msg)
             return False, error_msg
 
@@ -249,6 +387,7 @@ class Piedomain(Base):
             if (domain_name in domains) or offline:
                 img_file = Image.open(f"{image_dir}/{image}")
                 img_file = img_file.convert("RGB")
+                tf = _get_tensorflow()
                 img_tensor = tf.convert_to_tensor(np.array(img_file))
                 img_tensor = tf.image.resize(img_tensor, [cls.img_width, cls.img_height])
                 img_tensor = tf.cast(img_tensor, tf.float32)
@@ -257,12 +396,12 @@ class Piedomain(Base):
 
 
     @classmethod
-    def extract_htmls(cls, domains: list, use_cache: bool, html_path: str) -> dict:
+    def extract_htmls(cls, urls_or_domains: list, use_cache: bool, html_path: str) -> dict:
         """
-        Extract HTML content from domain homepages.
+        Extract HTML content from URLs or domain homepages.
         
         Args:
-            domains (list): List of domain names
+            urls_or_domains (list): List of URLs or domain names
             use_cache (bool): Whether to use cached HTML files
             html_path (str): Directory to save HTML files
             
@@ -276,8 +415,17 @@ class Piedomain(Base):
         config = get_config()
         errors = {}
         
-        for domain in domains:
+        for url_or_domain in urls_or_domains:
             try:
+                # Parse to get domain for file naming
+                domain = cls.parse_url_to_domain(url_or_domain)
+                
+                # Determine the URL to fetch
+                if url_or_domain.startswith(('http://', 'https://')):
+                    url_to_fetch = url_or_domain
+                else:
+                    url_to_fetch = f"https://{url_or_domain}"
+                
                 if use_cache and os.path.exists(f"{html_path}/{domain}.html"):
                     continue
                     
@@ -291,7 +439,7 @@ class Piedomain(Base):
                 for attempt in range(config.max_retries + 1):
                     try:
                         page = requests.get(
-                            f"https://{domain}", 
+                            url_to_fetch, 
                             timeout=config.http_timeout, 
                             headers=headers,
                             allow_redirects=True
@@ -356,6 +504,40 @@ class Piedomain(Base):
         return domains, content
 
     @classmethod
+    def _predict_with_model(cls, model, input_data):
+        """
+        Universal prediction method that handles both Keras models and TFSMLayer.
+        
+        Args:
+            model: Either a Keras model or TFSMLayer instance
+            input_data: Input tensor for prediction
+            
+        Returns:
+            Prediction results
+        """
+        tf = _get_tensorflow()
+        if hasattr(model, 'predict'):
+            return model.predict(input_data)
+        else:
+            # Handle TFSMLayer which is callable but doesn't have predict method
+            # TFSMLayer expects keyword arguments and may return a dict
+            if isinstance(input_data, (list, str)):
+                # For text input (list of strings), convert to tensor and pass as keyword argument
+                tf = _get_tensorflow()
+                input_tensor = tf.constant(input_data)
+                results = model(input_tensor)
+            else:
+                # For tensor input (images), pass as positional argument
+                results = model(input_data)
+            
+            # TFSMLayer may return a dict, extract the tensor if needed
+            if isinstance(results, dict):
+                # Get the first (and likely only) tensor value from the dict
+                results = list(results.values())[0]
+            
+            return results
+
+    @classmethod
     def load_model(cls, model_file_name: str, latest: bool = False):
         """
         Load TensorFlow models and calibrators from local cache or download from server.
@@ -372,11 +554,28 @@ class Piedomain(Base):
             logger.info(f"Loading models (latest={latest})")
             cls.model_path = cls.load_model_data(model_file_name, latest)
             
+            tf = _get_tensorflow()
             logger.info("Loading text-based TensorFlow model")
-            cls.model = tf.keras.models.load_model(f"{cls.model_path}/saved_model/piedomains")
+            try:
+                # Try loading with new Keras 3 format first
+                cls.model = tf.keras.models.load_model(f"{cls.model_path}/saved_model/piedomains")
+            except ValueError as e:
+                if "File format not supported" in str(e):
+                    logger.info("Loading legacy SavedModel format using TFSMLayer")
+                    # Use TFSMLayer for legacy SavedModel format
+                    cls.model = tf.keras.layers.TFSMLayer(f"{cls.model_path}/saved_model/piedomains", call_endpoint='serving_default')
+                else:
+                    raise e
             
             logger.info("Loading image-based TensorFlow model")
-            cls.model_cv = tf.keras.models.load_model(f"{cls.model_path}/saved_model/pydomains_images")
+            try:
+                cls.model_cv = tf.keras.models.load_model(f"{cls.model_path}/saved_model/pydomains_images")
+            except ValueError as e:
+                if "File format not supported" in str(e):
+                    logger.info("Loading legacy SavedModel format using TFSMLayer for images")
+                    cls.model_cv = tf.keras.layers.TFSMLayer(f"{cls.model_path}/saved_model/pydomains_images", call_endpoint='serving_default')
+                else:
+                    raise e
 
             # load calibrated models
             logger.info(f"Loading {len(classes)} calibration models")
@@ -395,7 +594,7 @@ class Piedomain(Base):
         Validate input parameters for prediction functions.
         
         Args:
-            input (list): List of domain names
+            input (list): List of URLs or domain names
             path (str): Path to HTML or image files
             type (str): Input type - 'html' or 'image'
             
@@ -403,7 +602,7 @@ class Piedomain(Base):
             bool: True if operating in offline mode (using local files only)
             
         Raises:
-            Exception: If neither domains nor valid path provided
+            Exception: If neither URLs/domains nor valid path provided
         """
         if type == "html":
             pth = "html_path"
@@ -452,10 +651,10 @@ class Piedomain(Base):
         cls, input: list = [], html_path: str = None, use_cache: bool = True, latest: bool = True
     ) -> pd.DataFrame:
         """
-        Predict domain categories using text content from homepage HTML.
+        Predict domain categories using text content from URLs or domains.
         
         Args:
-            input (list): List of domain names to classify
+            input (list): List of URLs or domain names to classify
             html_path (str): Path to directory with HTML files (optional)
             use_cache (bool): Whether to reuse existing HTML files
             latest (bool): Whether to download latest model version
@@ -473,17 +672,17 @@ class Piedomain(Base):
         offline_htmls = cls.validate_input(input, html_path, "html")
         cls.load_model(cls.model_file_name, latest)
         
-        # Validate domain names if not in offline mode
+        # Validate URLs/domains if not in offline mode
         if not offline_htmls and input:
-            logger.info(f"Validating {len(input)} input domains for text prediction")
-            valid_domains, invalid_domains = cls.validate_domains(input)
-            if invalid_domains:
-                logger.warning(f"Invalid domains found and will be skipped: {invalid_domains}")
-            logger.info(f"Proceeding with {len(valid_domains)} valid domains")
-            domains = valid_domains
+            logger.info(f"Validating {len(input)} input URLs/domains for text prediction")
+            valid_inputs, invalid_inputs, url_to_domain_map = cls.validate_urls_or_domains(input)
+            if invalid_inputs:
+                logger.warning(f"Invalid URLs/domains found and will be skipped: {invalid_inputs}")
+            logger.info(f"Proceeding with {len(valid_inputs)} valid URLs/domains")
+            urls_or_domains = valid_inputs
         else:
-            domains = input.copy()
-            logger.info(f"Using offline mode or direct domain list: {len(domains)} domains")
+            urls_or_domains = input.copy()
+            logger.info(f"Using offline mode or direct input list: {len(urls_or_domains)} items")
             
         # if html_path is None then use the default path
         if html_path is None:
@@ -495,13 +694,13 @@ class Piedomain(Base):
         all_content = []
         all_errors = {}
         
-        if not offline_htmls and len(domains) > config.batch_size:
-            logger.info(f"Processing {len(domains)} domains in batches of {config.batch_size}")
+        if not offline_htmls and len(urls_or_domains) > config.batch_size:
+            logger.info(f"Processing {len(urls_or_domains)} URLs/domains in batches of {config.batch_size}")
             
-            # Process domains in batches to manage memory usage
-            for i in range(0, len(domains), config.batch_size):
-                batch = domains[i:i + config.batch_size]
-                logger.info(f"Processing batch {i//config.batch_size + 1}/{(len(domains)-1)//config.batch_size + 1} ({len(batch)} domains)")
+            # Process URLs/domains in batches to manage memory usage
+            for i in range(0, len(urls_or_domains), config.batch_size):
+                batch = urls_or_domains[i:i + config.batch_size]
+                logger.info(f"Processing batch {i//config.batch_size + 1}/{(len(urls_or_domains)-1)//config.batch_size + 1} ({len(batch)} URLs/domains)")
                 
                 batch_domains, batch_content, batch_errors = cls._process_text_batch(batch, html_path, use_cache)
                 
@@ -516,15 +715,17 @@ class Piedomain(Base):
             errors = all_errors
         else:
             if not offline_htmls:
-                logger.info(f"Extracting HTML content for {len(domains)} domains")
-                errors = cls.extract_htmls(domains, use_cache, html_path)
+                logger.info(f"Extracting HTML content for {len(urls_or_domains)} URLs/domains")
+                errors = cls.extract_htmls(urls_or_domains, use_cache, html_path)
                 if len(errors) > 0:
-                    logger.error(f"Failed to extract HTML for {len(errors)} domains")
+                    logger.error(f"Failed to extract HTML for {len(errors)} URLs/domains")
                     for domain in errors:
                         logger.error(f"HTML extraction error for {domain}: {errors[domain]}")
 
             logger.info("Processing HTML text content")
-            domains, content = cls.extract_html_text(offline_htmls, domains, html_path)
+            # Extract domains from URLs for file lookups
+            domain_list = [cls.parse_url_to_domain(item) for item in urls_or_domains]
+            domains, content = cls.extract_html_text(offline_htmls, domain_list, html_path)
         
         logger.info(f"Successfully processed text for {len(domains)} domains")
         
@@ -539,15 +740,16 @@ class Piedomain(Base):
             all_results = []
             for i in range(0, len(content), config.batch_size):
                 batch_content = content[i:i + config.batch_size]
-                batch_results = cls.model.predict(batch_content)
+                batch_results = cls._predict_with_model(cls.model, batch_content)
                 all_results.append(batch_results)
                 # Clear intermediate results to free memory
                 del batch_results
             results = np.concatenate(all_results, axis=0)
             del all_results  # Free memory
         else:
-            results = cls.model.predict(content)
+            results = cls._predict_with_model(cls.model, content)
             
+        tf = _get_tensorflow()
         probs = tf.nn.softmax(results)
         probs_df = pd.DataFrame(probs.numpy(), columns=classes)
         
@@ -595,10 +797,10 @@ class Piedomain(Base):
         cls, input: list = [], image_path=None, use_cache: bool = True, latest: bool = True
     ) -> pd.DataFrame:
         """
-        Predict domain categories using homepage screenshots.
+        Predict domain categories using screenshots from URLs or domains.
         
         Args:
-            input (list): List of domain names to classify
+            input (list): List of URLs or domain names to classify
             image_path (str): Path to directory with screenshot images (optional)
             use_cache (bool): Whether to reuse existing screenshot files
             latest (bool): Whether to download latest model version
@@ -614,17 +816,17 @@ class Piedomain(Base):
         offline_images = cls.validate_input(input, image_path, "image")
         cls.load_model(cls.model_file_name, latest)
         
-        # Validate domain names if not in offline mode
+        # Validate URLs/domains if not in offline mode
         if not offline_images and input:
-            logger.info(f"Validating {len(input)} input domains for image prediction")
-            valid_domains, invalid_domains = cls.validate_domains(input)
-            if invalid_domains:
-                logger.warning(f"Invalid domains found and will be skipped: {invalid_domains}")
-            logger.info(f"Proceeding with {len(valid_domains)} valid domains")
-            domains = valid_domains
+            logger.info(f"Validating {len(input)} input URLs/domains for image prediction")
+            valid_inputs, invalid_inputs, url_to_domain_map = cls.validate_urls_or_domains(input)
+            if invalid_inputs:
+                logger.warning(f"Invalid URLs/domains found and will be skipped: {invalid_inputs}")
+            logger.info(f"Proceeding with {len(valid_inputs)} valid URLs/domains")
+            urls_or_domains = valid_inputs
         else:
-            domains = input.copy()
-            logger.info(f"Using offline mode or direct domain list: {len(domains)} domains")
+            urls_or_domains = input.copy()
+            logger.info(f"Using offline mode or direct input list: {len(urls_or_domains)} items")
             
         # if image_path is None then use the default path
         if image_path is None:
@@ -632,14 +834,20 @@ class Piedomain(Base):
             print(f"image_path not provided using default path: {image_path}")
         screenshot_errors = {}
         if not offline_images:
-            logger.info(f"Capturing screenshots for {len(domains)} domains")
-            used_domain_screenshot, screenshot_errors = cls.extract_images(domains, use_cache, image_path)
+            logger.info(f"Capturing screenshots for {len(urls_or_domains)} URLs/domains")
+            used_domain_screenshot, screenshot_errors = cls.extract_images(urls_or_domains, use_cache, image_path)
             if screenshot_errors:
-                logger.error(f"Failed to capture screenshots for {len(screenshot_errors)} domains")
+                logger.error(f"Failed to capture screenshots for {len(screenshot_errors)} URLs/domains")
                 logger.warning(f"Screenshot errors: {screenshot_errors}")
         
         logger.info("Processing image tensors")
-        images = cls.extract_image_tensor(offline_images, domains, image_path)
+        # Extract domains for file lookups
+        if offline_images and len(urls_or_domains) == 0:
+            # In offline mode with no input, process all images in directory
+            domain_list = []
+        else:
+            domain_list = [cls.parse_url_to_domain(item) for item in urls_or_domains]
+        images = cls.extract_image_tensor(offline_images, domain_list, image_path)
         img_domains = list(images.keys())
         logger.info(f"Successfully processed images for {len(img_domains)} domains")
         
@@ -659,10 +867,11 @@ class Piedomain(Base):
             logger.info(f"Running image prediction in batches of {config.batch_size}")
             all_results = []
             
+            tf = _get_tensorflow()
             for i in range(0, len(img_tensors_list), config.batch_size):
                 batch_tensors = img_tensors_list[i:i + config.batch_size]
                 batch_tensor_stack = tf.stack(batch_tensors)
-                batch_results = cls.model_cv.predict(batch_tensor_stack)
+                batch_results = cls._predict_with_model(cls.model_cv, batch_tensor_stack)
                 all_results.append(batch_results)
                 
                 # Clear intermediate tensors to free memory
@@ -671,13 +880,15 @@ class Piedomain(Base):
             results = np.concatenate(all_results, axis=0)
             del all_results  # Free memory
         else:
+            tf = _get_tensorflow()
             img_tensors = tf.stack(img_tensors_list)
-            results = cls.model_cv.predict(img_tensors)
+            results = cls._predict_with_model(cls.model_cv, img_tensors)
             del img_tensors  # Free memory
             
         # Clear the images dict to free memory
         del images, img_tensors_list
         
+        tf = _get_tensorflow()
         probs = tf.nn.softmax(results)
         probs_df = pd.DataFrame(probs.numpy(), columns=classes)
         
@@ -720,7 +931,7 @@ class Piedomain(Base):
         and image-based classification for improved accuracy.
         
         Args:
-            input (list): List of domain names to classify
+            input (list): List of URLs or domain names to classify
             html_path (str): Path to directory with HTML files (optional)
             image_path (str): Path to directory with screenshot images (optional)
             use_cache (bool): Whether to reuse existing files
@@ -728,7 +939,7 @@ class Piedomain(Base):
             
         Returns:
             pd.DataFrame: DataFrame with columns:
-                - domain: Domain name
+                - domain: Domain name (extracted from URLs)
                 - text_label, text_prob: Text-based prediction and confidence
                 - image_label, image_prob: Image-based prediction and confidence
                 - label, label_prob: Final ensemble prediction and confidence
@@ -736,7 +947,7 @@ class Piedomain(Base):
                 - used_domain_text, used_domain_screenshot: Success flags
                 - extracted_text: Cleaned HTML text content
         """
-        logger.info(f"Starting combined prediction for {len(input) if input else 'offline'} domains")
+        logger.info(f"Starting combined prediction for {len(input) if input else 'offline'} URLs/domains")
         
         # text prediction
         logger.info("Running text-based prediction")

@@ -1,6 +1,5 @@
 import sys
 from contextlib import contextmanager
-import pandas
 
 try:
     from StringIO import StringIO

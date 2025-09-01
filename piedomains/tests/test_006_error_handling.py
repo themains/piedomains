@@ -29,26 +29,26 @@ class TestErrorHandling(unittest.TestCase):
         """Test validate_input with empty domain list and no path."""
         with self.assertRaises(Exception) as context:
             Piedomain.validate_input([], None, "html")
-        
+
         self.assertIn("Provide list of Domains", str(context.exception))
 
     def test_validate_input_nonexistent_path(self):
         """Test validate_input with nonexistent path."""
         nonexistent_path = "/path/that/does/not/exist"
-        
+
         with self.assertRaises(Exception) as context:
             Piedomain.validate_input([], nonexistent_path, "html")
-        
+
         self.assertIn("does not exist", str(context.exception))
 
     def test_validate_input_empty_directory(self):
         """Test validate_input with empty directory."""
         empty_dir = os.path.join(self.temp_dir, "empty")
         os.makedirs(empty_dir)
-        
+
         with self.assertRaises(Exception) as context:
             Piedomain.validate_input([], empty_dir, "html")
-        
+
         self.assertIn("is empty", str(context.exception))
 
     def test_validate_input_valid_offline_mode(self):
@@ -57,7 +57,7 @@ class TestErrorHandling(unittest.TestCase):
         test_file = os.path.join(self.html_dir, "test.html")
         with open(test_file, "w") as f:
             f.write("<html><body>test</body></html>")
-        
+
         result = Piedomain.validate_input([], self.html_dir, "html")
         self.assertTrue(result)  # Should return True for offline mode
 
@@ -65,10 +65,10 @@ class TestErrorHandling(unittest.TestCase):
     def test_extract_htmls_network_error(self, mock_get):
         """Test HTML extraction with network errors."""
         mock_get.side_effect = Exception("Network error")
-        
+
         domains = ["example.com"]
         errors = Piedomain.extract_htmls(domains, False, self.html_dir)
-        
+
         self.assertIn("example.com", errors)
         self.assertIn("Network error", str(errors["example.com"]))
 
@@ -78,10 +78,10 @@ class TestErrorHandling(unittest.TestCase):
         mock_response = MagicMock()
         mock_response.raise_for_status.side_effect = Exception("404 Not Found")
         mock_get.return_value = mock_response
-        
+
         domains = ["nonexistent.com"]
         errors = Piedomain.extract_htmls(domains, False, self.html_dir)
-        
+
         self.assertIn("nonexistent.com", errors)
 
     @patch('piedomains.piedomain.Piedomain.get_driver')
@@ -90,9 +90,9 @@ class TestErrorHandling(unittest.TestCase):
         mock_driver = MagicMock()
         mock_driver.get.side_effect = Exception("WebDriver error")
         mock_get_driver.return_value = mock_driver
-        
+
         success, error_msg = Piedomain.save_image("example.com", self.image_dir)
-        
+
         self.assertFalse(success)
         self.assertIn("WebDriver error", error_msg)
         mock_driver.quit.assert_called_once()
@@ -104,34 +104,34 @@ class TestErrorHandling(unittest.TestCase):
         mock_driver.get.side_effect = Exception("WebDriver error")
         mock_driver.quit.side_effect = Exception("Quit error")
         mock_get_driver.return_value = mock_driver
-        
+
         # Should handle quit error gracefully
         success, error_msg = Piedomain.save_image("example.com", self.image_dir)
-        
+
         self.assertFalse(success)
         self.assertIn("WebDriver error", error_msg)
 
     def test_extract_image_tensor_invalid_directory(self):
         """Test image tensor extraction with invalid directory."""
         nonexistent_dir = "/path/that/does/not/exist"
-        
+
         with self.assertRaises(FileNotFoundError):
             Piedomain.extract_image_tensor(True, ["example.com"], nonexistent_dir)
 
     def test_extract_html_text_invalid_directory(self):
         """Test HTML text extraction with invalid directory."""
         nonexistent_dir = "/path/that/does/not/exist"
-        
+
         with self.assertRaises(FileNotFoundError):
             Piedomain.extract_html_text(True, ["example.com"], nonexistent_dir)
 
     def test_text_from_html_malformed_html(self):
         """Test text extraction from malformed HTML."""
         malformed_html = "<html><body><p>Unclosed paragraph<div>Nested incorrectly</p></div></body></html>"
-        
+
         # Should handle malformed HTML gracefully
         result = Piedomain.text_from_html(malformed_html)
-        
+
         self.assertIsInstance(result, str)
         # BeautifulSoup should handle malformed HTML
 
@@ -146,7 +146,7 @@ class TestErrorHandling(unittest.TestCase):
         # Create a directory and remove write permissions
         restricted_dir = os.path.join(self.temp_dir, "restricted")
         os.makedirs(restricted_dir)
-        
+
         # This test may not work on all systems due to permission handling
         try:
             os.chmod(restricted_dir, 0o444)  # Read-only
@@ -160,9 +160,9 @@ class TestErrorHandling(unittest.TestCase):
     def test_validate_domains_with_none_values(self):
         """Test domain validation with None values in list."""
         domains_with_none = ["google.com", None, "facebook.com"]
-        
+
         valid, invalid = Piedomain.validate_domains(domains_with_none)
-        
+
         self.assertEqual(len(invalid), 1)
         self.assertIn(None, invalid)
         self.assertEqual(len(valid), 2)
@@ -170,3 +170,4 @@ class TestErrorHandling(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+

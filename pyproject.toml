@@ -1,0 +1,80 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "piedomains"
+version = "0.2.0"
+description = "Predict categories based on domain names and their content"
+readme = "README.rst"
+license = {text = "MIT License"}
+authors = [
+    {name = "Rajashekar Chintalapati", email = "rajshekar.ch@gmail.com"},
+    {name = "Gaurav Sood", email = "gsood07@gmail.com"}
+]
+keywords = [
+    "domain classification",
+    "website categorization", 
+    "machine learning",
+    "content analysis",
+    "web scraping",
+    "computer vision"
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Internet :: WWW/HTTP",
+    "Topic :: Scientific/Engineering :: Information Analysis",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Text Processing :: Markup :: HTML",
+    "Topic :: Utilities"
+]
+requires-python = ">=3.9"
+dependencies = [
+    "tqdm==4.66.3",
+    "beautifulsoup4>=4.0.0",
+    "pandas==1.4.2",
+    "nltk==3.9",
+    "tensorflow>=2.11.1,<2.16.0",
+    "numpy>=1.21.0,<2.0.0",
+    "scikit-learn==1.5.0",
+    "joblib==1.2.0",
+    "selenium==4.8.0",
+    "webdriver_manager==3.8.5",
+    "pillow==10.3.0"
+]
+
+[project.optional-dependencies]
+dev = ["check-manifest", "pytest", "flake8", "black", "isort"]
+test = ["coverage", "pytest", "pytest-cov", "pytest-mock", "flake8"]
+
+[project.urls]
+Homepage = "https://github.com/themains/piedomains"
+
+[project.scripts]
+classify_domains = "piedomains.domain:main"
+
+[tool.setuptools.packages.find]
+exclude = ["data", "docs", "tests", "scripts"]
+
+[tool.setuptools.package-data]
+piedomains = [
+    "notebooks/*.ipynb",
+    "model/calibrate/text/*.sav"
+]
+
+[tool.pytest.ini_options]
+testpaths = ["piedomains/tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v"
+markers = [
+    "ml: marks tests that require ML models (TensorFlow)",
+    "basic: marks tests that don't require ML models"
+]

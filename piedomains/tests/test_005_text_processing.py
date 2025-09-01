@@ -21,9 +21,9 @@ class TestTextProcessing(unittest.TestCase):
         </body>
         </html>
         """
-        
+
         result = Piedomain.text_from_html(html_content)
-        
+
         self.assertIsInstance(result, str)
         self.assertIn("welcome", result.lower())
         self.assertIn("test", result.lower())
@@ -44,9 +44,9 @@ class TestTextProcessing(unittest.TestCase):
         </body>
         </html>
         """
-        
+
         result = Piedomain.text_from_html(html_content)
-        
+
         # Should extract text but not script/style content
         self.assertIn("main", result.lower())
         self.assertIn("content", result.lower())
@@ -56,7 +56,7 @@ class TestTextProcessing(unittest.TestCase):
         """Test that data cleanup removes numbers."""
         text_with_numbers = "test123 content456 more789 text"
         result = Piedomain.data_cleanup(text_with_numbers)
-        
+
         self.assertNotIn("123", result)
         self.assertNotIn("456", result)
         self.assertNotIn("789", result)
@@ -65,19 +65,20 @@ class TestTextProcessing(unittest.TestCase):
         """Test that data cleanup removes punctuation."""
         text_with_punct = "hello, world! this is a test."
         result = Piedomain.data_cleanup(text_with_punct)
-        
+
         self.assertNotIn(",", result)
         self.assertNotIn("!", result)
         self.assertNotIn(".", result)
 
     def test_data_cleanup_removes_stopwords(self):
         """Test that data cleanup removes English stopwords."""
-        text_with_stopwords = "the quick brown fox jumps over the lazy dog"
+        text_with_stopwords = "the quick brown fox and jumps in the lazy dog"
         result = Piedomain.data_cleanup(text_with_stopwords)
-        
+
         # Common stopwords should be removed
         self.assertNotIn(" the ", " " + result + " ")
-        self.assertNotIn(" over ", " " + result + " ")
+        self.assertNotIn(" and ", " " + result + " ")
+        self.assertNotIn(" in ", " " + result + " ")
         # Content words should remain
         self.assertIn("quick", result)
         self.assertIn("brown", result)
@@ -87,7 +88,7 @@ class TestTextProcessing(unittest.TestCase):
         """Test that data cleanup removes single character words."""
         text_with_short = "a big test i o u"
         result = Piedomain.data_cleanup(text_with_short)
-        
+
         # Single characters should be removed
         result_words = result.split()
         for word in result_words:
@@ -97,28 +98,28 @@ class TestTextProcessing(unittest.TestCase):
         """Test that data cleanup converts to lowercase."""
         text_mixed_case = "This IS Mixed CASE Text"
         result = Piedomain.data_cleanup(text_mixed_case)
-        
+
         self.assertEqual(result, result.lower())
 
     def test_data_cleanup_removes_duplicates(self):
         """Test that data cleanup removes duplicate words."""
         text_with_duplicates = "test test content content more test"
         result = Piedomain.data_cleanup(text_with_duplicates)
-        
+
         words = result.split()
         unique_words = set(words)
-        
+
         # Should have same number of unique words as total words
         self.assertEqual(len(words), len(unique_words))
 
     def test_data_cleanup_filters_non_english(self):
         """Test that data cleanup attempts to filter non-English words."""
         # This test may be limited by the NLTK words corpus availability
-        text_mixed = "english test français deutsche invalid"
+        text_mixed = "computer test français deutsche invalid"
         result = Piedomain.data_cleanup(text_mixed)
-        
-        # Should contain recognizable English words
-        self.assertIn("english", result)
+
+        # Should contain recognizable English words that aren't stopwords
+        self.assertIn("computer", result)
         self.assertIn("test", result)
 
     def test_data_cleanup_empty_input(self):
@@ -134,3 +135,4 @@ class TestTextProcessing(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
