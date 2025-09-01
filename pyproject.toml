@@ -51,7 +51,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["check-manifest", "pytest", "flake8", "black", "isort"]
-test = ["coverage", "pytest", "pytest-cov", "pytest-mock"]
+test = ["coverage", "pytest", "pytest-cov", "pytest-mock", "flake8"]
 
 [project.urls]
 Homepage = "https://github.com/themains/piedomains"
