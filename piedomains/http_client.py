@@ -31,6 +31,10 @@ class PooledHTTPClient:
                 pool_maxsize=20,      # Max connections per pool
                 max_retries=0         # We handle retries manually
             )
+            adapter.config.update({
+                "pool_connections": 10,
+                "pool_maxsize": 20,
+            })
             self._session.mount('http://', adapter)
             self._session.mount('https://', adapter)
             

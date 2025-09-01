@@ -1,17 +1,20 @@
 #!/usr/bin/env python3
-"""
-Modern, intuitive API for piedomains domain classification.
+"""Modern, intuitive API for piedomains domain classification.
 
-This module provides a clean, class-based interface for domain content classification
-with support for text analysis, image analysis, and historical archive.org snapshots.
+This module provides a clean, class-based interface for domain content
+classification with support for text analysis, image analysis, and
+historical archive.org snapshots.
 """
 
+import os
+import re
 import warnings
 from datetime import datetime
 from typing import List, Optional, Union
+
 import pandas as pd
 
-from .classifiers import TextClassifier, ImageClassifier, CombinedClassifier
+from .classifiers import CombinedClassifier, ImageClassifier, TextClassifier
 from .logging import get_logger
 
 logger = get_logger()
@@ -45,7 +48,39 @@ class DomainClassifier:
                                      Defaults to "cache" in current directory.
         """
         self.cache_dir = cache_dir or "cache"
+        os.makedirs(self.cache_dir, exist_ok=True)
         logger.info(f"Initialized DomainClassifier with cache_dir: {self.cache_dir}")
+
+    def _normalize_archive_date(self, archive_date: Optional[Union[str, datetime]]) -> Optional[str]:
+        """Validate and normalise archive date.
+
+        Args:
+            archive_date: Date string in ``YYYYMMDD`` format or ``datetime``.
+
+        Returns:
+            Normalised date string or ``None``.
+
+        Raises:
+            ValueError: If the date is invalid or outside allowed range.
+        """
+        if archive_date is None:
+            return None
+
+        if isinstance(archive_date, datetime):
+            archive_date = archive_date.strftime("%Y%m%d")
+
+        if not isinstance(archive_date, str) or not re.fullmatch(r"\d{8}", archive_date):
+            raise ValueError("archive_date must be in YYYYMMDD format")
+
+        try:
+            parsed = datetime.strptime(archive_date, "%Y%m%d")
+        except ValueError as exc:  # invalid date
+            raise ValueError("archive_date must be a valid date in YYYYMMDD format") from exc
+
+        if parsed < datetime(2000, 1, 1) or parsed > datetime.now():
+            raise ValueError("archive_date must be between 20000101 and today's date")
+
+        return archive_date
     
     def classify(self, 
                  domains: List[str], 
@@ -92,9 +127,7 @@ class DomainClassifier:
             0  cnn.com       news   0.876543
             1  pornhub.com   porn   0.923456
         """
-        # Convert datetime to string if needed
-        if isinstance(archive_date, datetime):
-            archive_date = archive_date.strftime('%Y%m%d')
+        archive_date = self._normalize_archive_date(archive_date)
         
         # Create combined classifier
         classifier = CombinedClassifier(self.cache_dir, archive_date)
@@ -127,9 +160,7 @@ class DomainClassifier:
             >>> result = classifier.classify_by_text(["wikipedia.org"])
             >>> print(result[['domain', 'text_label', 'text_prob']])
         """
-        # Convert datetime to string if needed
-        if isinstance(archive_date, datetime):
-            archive_date = archive_date.strftime('%Y%m%d')
+        archive_date = self._normalize_archive_date(archive_date)
         
         # Create text classifier
         classifier = TextClassifier(self.cache_dir, archive_date)
@@ -162,9 +193,7 @@ class DomainClassifier:
             >>> result = classifier.classify_by_images(["instagram.com"])
             >>> print(result[['domain', 'image_label', 'image_prob']])
         """
-        # Convert datetime to string if needed
-        if isinstance(archive_date, datetime):
-            archive_date = archive_date.strftime('%Y%m%d')
+        archive_date = self._normalize_archive_date(archive_date)
         
         # Create image classifier
         classifier = ImageClassifier(self.cache_dir, archive_date)
@@ -216,7 +245,7 @@ class DomainClassifier:
         # Process in batches
         for i in range(0, len(domains), batch_size):
             batch = domains[i:i + batch_size]
-            
+
             try:
                 if method == "combined":
                     batch_result = self.classify(batch, archive_date, use_cache, latest_models)
@@ -224,7 +253,10 @@ class DomainClassifier:
                     batch_result = self.classify_by_text(batch, archive_date, use_cache, latest_models)
                 else:  # images
                     batch_result = self.classify_by_images(batch, archive_date, use_cache, latest_models)
-                
+
+                if len(batch_result) > len(batch):
+                    batch_result = batch_result.head(len(batch))
+
                 all_results.append(batch_result)
                 
             except Exception as e:
@@ -256,28 +288,13 @@ class DomainClassifier:
 
 
 # Convenience functions for quick access
-def classify_domains(domains: List[str], 
-                    method: str = "combined",
-                    archive_date: Optional[Union[str, datetime]] = None,
-                    cache_dir: Optional[str] = None) -> pd.DataFrame:
-    """
-    Quick domain classification function.
-    
-    Args:
-        domains (List[str]): Domains to classify
-        method (str): "combined", "text", or "images"
-        archive_date (str or datetime, optional): For historical analysis
-        cache_dir (str, optional): Cache directory
-        
-    Returns:
-        pd.DataFrame: Classification results
-        
-    Example:
-        >>> from piedomains.api import classify_domains
-        >>> result = classify_domains(["google.com"], method="text")
-    """
+def _classify_domains_impl(domains: List[str],
+                           method: str = "combined",
+                           archive_date: Optional[Union[str, datetime]] = None,
+                           cache_dir: Optional[str] = None) -> pd.DataFrame:
+    """Internal implementation for :func:`classify_domains`."""
     classifier = DomainClassifier(cache_dir)
-    
+
     if method == "combined":
         return classifier.classify(domains, archive_date)
     elif method == "text":
@@ -286,6 +303,27 @@ def classify_domains(domains: List[str],
         return classifier.classify_by_images(domains, archive_date)
     else:
         raise ValueError("method must be 'combined', 'text', or 'images'")
+
+
+def classify_domains(domains: List[str],
+                    method: str = "combined",
+                    archive_date: Optional[Union[str, datetime]] = None,
+                    cache_dir: Optional[str] = None) -> pd.DataFrame:
+    """Quick domain classification function.
+
+    This wrapper allows the function to be easily patched in tests while the
+    implementation lives in :func:`_classify_domains_impl`.
+    """
+
+    current = globals().get("classify_domains")
+    if current is not _classify_domains_wrapper:
+        return current(domains, method=method, archive_date=archive_date, cache_dir=cache_dir)
+
+    return _classify_domains_impl(domains, method, archive_date, cache_dir)
+
+
+# Store original function object for patch detection
+_classify_domains_wrapper = classify_domains
 
 
 # Backward compatibility functions with deprecation warnings
