@@ -135,10 +135,6 @@ piedomains/model/html/
 piedomains/model/images/
 piedomains/model/shallalist/
 
-# Generated temporary directories
+# Generated temporary directories for archive functionality
 archive_html_*/
 archive_images_*/
-
-# Example/demo files
-examples/
-test_*.py
