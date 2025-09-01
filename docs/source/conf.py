@@ -14,12 +14,28 @@ sys.path.insert(1, os.path.abspath('../../'))
 project = 'piedomains'
 copyright = '2023, rajashekar chintalapati and gaurav sood'
 author = 'rajashekar chintalapati and gaurav sood'
-release = '0.0.11'
+release = '0.2.0'
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
 
-extensions = []
+extensions = [
+    'sphinx.ext.autodoc',
+    'sphinx.ext.viewcode',
+    'sphinx.ext.napoleon'
+]
+
+# Mock imports for modules that aren't needed for docs
+autodoc_mock_imports = [
+    'tensorflow',
+    'keras', 
+    'selenium',
+    'webdriver_manager',
+    'nltk',
+    'scikit-learn',
+    'sklearn',
+    'joblib'
+]
 
 templates_path = ['_templates']
 exclude_patterns = []
