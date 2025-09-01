@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.2] - 2025-09-01
+
+### Fixed
+- **Critical Dependency Issue**: Fixed numpy/pandas binary incompatibility error on installation
+  - Updated pandas from `==1.4.2` to `>=1.5.0,<3.0.0` for better compatibility
+  - Relaxed dependency constraints to use compatible ranges instead of exact pins
+  - Prevents `ValueError: numpy.dtype size changed` error on fresh installations
+
+### Enhanced
+- **HTTP Performance**: Added connection pooling with `PooledHTTPClient` for batch operations
+- **Critical Integration Tests**: Added comprehensive test suite for security and edge cases
+- **Documentation**: Updated architecture documentation in CLAUDE.md
+
+### Dependencies Updated
+- pandas: `==1.4.2` → `>=1.5.0,<3.0.0`
+- scikit-learn: `==1.5.0` → `>=1.3.0,<2.0.0`
+- Other dependencies: Changed from exact pins to compatible ranges for better ecosystem compatibility
+
 ## [0.3.1] - 2025-09-01
 
 ### Documentation
