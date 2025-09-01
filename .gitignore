@@ -134,3 +134,7 @@ dmypy.json
 piedomains/model/html/
 piedomains/model/images/
 piedomains/model/shallalist/
+
+# Generated temporary directories for archive functionality
+archive_html_*/
+archive_images_*/

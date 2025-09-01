@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.1] - 2025-09-01
+
+### Changed
+- **Repository Organization**: Improved code structure and organization
+  - Moved test/demo scripts from root directory to `examples/` folder
+  - Cleaned up build artifacts (`build/`, `dist/`, `*.egg-info/`)
+  - Added `examples/README.md` with usage instructions
+  - Updated `.gitignore` to prevent future clutter with better patterns
+
+### Documentation
+- Enhanced documentation structure for better maintainability
+- ReadTheDocs configuration optimized for reliable builds
+
 ## [0.2.0] - 2025-09-01
 
 ### Added
