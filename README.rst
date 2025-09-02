@@ -2,8 +2,8 @@
 piedomains: AI-powered domain content classification
 ===========================================================================================
 
-.. image:: https://github.com/themains/piedomains/actions/workflows/python-package.yml/badge.svg
-    :target: https://github.com/themains/piedomains/actions/workflows/python-package.yml
+.. image:: https://github.com/themains/piedomains/actions/workflows/python-publish.yml/badge.svg
+    :target: https://github.com/themains/piedomains/actions/workflows/python-publish.yml
 .. image:: https://img.shields.io/pypi/v/piedomains.svg
     :target: https://pypi.python.org/pypi/piedomains
 .. image:: https://readthedocs.org/projects/piedomains/badge/?version=latest

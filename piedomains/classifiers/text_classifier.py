@@ -11,6 +11,7 @@ import pandas as pd
 
 from ..base import Base
 from ..constants import classes
+
 from ..logging import get_logger
 from ..processors.content_processor import ContentProcessor
 

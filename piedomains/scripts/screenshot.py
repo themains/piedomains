@@ -5,7 +5,6 @@ from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
 
-
 driver = None
 
 df = pd.read_csv("fulldomain_min_greater_than_5_words_v3.csv.gz", usecols=["full_domain"])
