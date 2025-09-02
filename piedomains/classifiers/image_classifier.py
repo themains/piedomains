@@ -49,7 +49,14 @@ class ImageClassifier(Base):
             
             # Load image model
             image_model_path = os.path.join(model_path, "saved_model", "pydomains_images")
-            self._model = tf.keras.models.load_model(image_model_path)
+            try:
+                self._model = tf.keras.models.load_model(image_model_path)
+            except ValueError as e:
+                if "File format not supported" in str(e):
+                    logger.info("Loading legacy SavedModel format using TFSMLayer for images")
+                    self._model = tf.keras.layers.TFSMLayer(image_model_path, call_endpoint='serving_default')
+                else:
+                    raise e
             
             logger.info("Loaded image classification model")
             
@@ -139,7 +146,14 @@ class ImageClassifier(Base):
             image_input = np.expand_dims(image_tensor, axis=0)
             
             # Get model predictions
-            raw_predictions = self._model.predict(image_input, verbose=0)[0]
+            if hasattr(self._model, 'predict'):
+                raw_predictions = self._model.predict(image_input, verbose=0)[0]
+            else:
+                # Handle TFSMLayer which is callable but doesn't have predict method
+                results = self._model(image_input)
+                if isinstance(results, dict):
+                    results = list(results.values())[0]
+                raw_predictions = results[0]
             
             # Convert to class probabilities
             probs = {}
