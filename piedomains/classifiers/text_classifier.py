@@ -53,14 +53,7 @@ class TextClassifier(Base):
 
             # Load text model
             text_model_path = os.path.join(model_path, "saved_model", "piedomains")
-            try:
-                self._model = tf.keras.models.load_model(text_model_path)
-            except ValueError as e:
-                if "File format not supported" in str(e):
-                    logger.info("Loading legacy SavedModel format using TFSMLayer")
-                    self._model = tf.keras.layers.TFSMLayer(text_model_path, call_endpoint='serving_default')
-                else:
-                    raise e
+            self._model = tf.keras.models.load_model(text_model_path)
 
             # Load calibrators
             import joblib
@@ -191,14 +184,7 @@ class TextClassifier(Base):
             text_input = np.array([text])
             
             # Get raw model predictions
-            if hasattr(self._model, 'predict'):
-                raw_predictions = self._model.predict(text_input, verbose=0)[0]
-            else:
-                # Handle TFSMLayer which is callable but doesn't have predict method
-                results = self._model(text_input)
-                if isinstance(results, dict):
-                    results = list(results.values())[0]
-                raw_predictions = results[0]
+            raw_predictions = self._model.predict(text_input, verbose=0)[0]
             
             # Apply calibration if available
             calibrated_probs = {}
