@@ -115,13 +115,22 @@ class ArchiveFetcher(BaseFetcher):
         try:
             # Use Wayback Machine availability API
             api_url = f"https://archive.org/wayback/available?url={quote(url)}&timestamp={self.target_date}"
+            logger.info(f"Searching for archive snapshot of {url} near {self.target_date}")
+            logger.info(f"Archive API URL: {api_url}")
             response = requests.get(api_url, timeout=10)
             response.raise_for_status()
             
             data = response.json()
+            logger.info(f"Archive API response: {data}")
             if data.get('archived_snapshots', {}).get('closest', {}).get('available'):
-                return data['archived_snapshots']['closest']['url']
-            return None
+                closest_snapshot = data['archived_snapshots']['closest']
+                snapshot_url = closest_snapshot['url']
+                snapshot_date = closest_snapshot.get('timestamp', 'unknown')
+                logger.info(f"Found closest snapshot for {url}: {snapshot_date} -> {snapshot_url}")
+                return snapshot_url
+            else:
+                logger.warning(f"No archive snapshots available for {url}")
+                return None
         except Exception as e:
             logger.error(f"Failed to find archive snapshot for {url}: {e}")
             return None

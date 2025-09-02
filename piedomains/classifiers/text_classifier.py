@@ -64,13 +64,40 @@ class TextClassifier(Base):
 
             # Load calibrators
             import joblib
-            calibrator_path = os.path.join(model_path, "calibrate", "text")
+            import warnings
+            # Calibrators are in parent directory of model_path
+            parent_path = os.path.dirname(model_path)
+            calibrator_path = os.path.join(parent_path, "calibrate", "text")
             self._calibrators = {}
+            logger.info(f"Looking for calibrators in: {calibrator_path}")
 
-            for class_name in classes:
-                calibrator_file = os.path.join(calibrator_path, f"{class_name}.sav")
-                if os.path.exists(calibrator_file):
-                    self._calibrators[class_name] = joblib.load(calibrator_file)
+            # Attempt to load calibrators with version compatibility handling
+            calibrators_loaded = 0
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore", category=UserWarning, module="sklearn")
+                
+                for class_name in classes:
+                    calibrator_file = os.path.join(calibrator_path, f"{class_name}.sav")
+                    if os.path.exists(calibrator_file):
+                        try:
+                            calibrator = joblib.load(calibrator_file)
+                            # Test with multiple values to ensure robustness
+                            test_values = [0.1, 0.5, 0.9]
+                            test_results = calibrator.predict(test_values)
+                            
+                            # Check if all results are valid
+                            if all(r == r and 0 <= r <= 1 for r in test_results):  # NaN and range check
+                                self._calibrators[class_name] = calibrator
+                                calibrators_loaded += 1
+                            else:
+                                logger.debug(f"Calibrator for {class_name} produces invalid values, skipping")
+                        except Exception as e:
+                            logger.debug(f"Failed to load calibrator for {class_name}: {e}")
+            
+            if calibrators_loaded == 0:
+                logger.info("No working calibrators found due to version incompatibility, using raw probabilities")
+            else:
+                logger.info(f"Successfully loaded {calibrators_loaded}/39 working calibrators")
 
             logger.info(f"Loaded text model and {len(self._calibrators)} calibrators")
 
@@ -128,7 +155,9 @@ class TextClassifier(Base):
             return pd.DataFrame(data)
 
         # Extract and process text content
+        logger.info(f"Processing text content for {len(domains)} domains")
         text_content, errors = self.processor.extract_text_content(domains, use_cache)
+        logger.info(f"Text extraction results: {len(text_content)} successful, {len(errors)} errors")
 
         # Prepare results DataFrame
         results = []
@@ -192,40 +221,61 @@ class TextClassifier(Base):
             
             # Get raw model predictions
             if hasattr(self._model, 'predict'):
+                logger.info("Using standard model.predict() method")
                 raw_predictions = self._model.predict(text_input, verbose=0)[0]
             else:
                 # Handle TFSMLayer case - check for different output keys
                 output = self._model(text_input)
+                logger.info(f"TFSMLayer text model output keys: {list(output.keys()) if isinstance(output, dict) else 'not dict'}")
                 if isinstance(output, dict):
-                    # Try common output keys
-                    for key in ['output_0', 'predictions', 'dense', 'dense_1']:
+                    # Try common output keys (including sequential_1 for text model)
+                    for key in ['output_0', 'predictions', 'dense', 'dense_1', 'sequential_1']:
                         if key in output:
+                            logger.info(f"Using text model output key: {key}")
                             raw_predictions = output[key][0]
                             break
                     else:
                         # Fall back to first key
                         first_key = list(output.keys())[0]
+                        logger.info(f"Using fallback text model key: {first_key}")
                         raw_predictions = output[first_key][0]
                 else:
+                    logger.info("Using direct output (not dict)")
                     raw_predictions = output[0]
             
             # Apply calibration if available
             calibrated_probs = {}
+            calibrators_used = 0
             for i, class_name in enumerate(classes):
                 raw_prob = float(raw_predictions[i])
                 
                 if class_name in self._calibrators:
                     # Apply isotonic regression calibration
-                    calibrator = self._calibrators[class_name]
-                    calibrated_prob = float(calibrator.predict([raw_prob])[0])
+                    try:
+                        calibrator = self._calibrators[class_name]
+                        calibrated_prob = float(calibrator.predict([raw_prob])[0])
+                        # Robust validation for calibrated output
+                        if (calibrated_prob == calibrated_prob and  # NaN check
+                            0 <= calibrated_prob <= 1 and             # Range check
+                            abs(calibrated_prob) != float('inf')):    # Infinity check
+                            calibrators_used += 1
+                        else:
+                            logger.warning(f"Invalid calibrated value for {class_name}: {calibrated_prob}, using raw")
+                            calibrated_prob = raw_prob
+                    except Exception as e:
+                        logger.warning(f"Calibration failed for {class_name}: {e}, using raw")
+                        calibrated_prob = raw_prob
                 else:
                     calibrated_prob = raw_prob
                     
                 calibrated_probs[class_name] = calibrated_prob
             
+            logger.info(f"Applied calibration to {calibrators_used}/{len(classes)} classes")
+            
             # Find best prediction
             best_class = max(calibrated_probs, key=calibrated_probs.get)
             best_prob = calibrated_probs[best_class]
+            logger.info(f"Text prediction: {best_class} ({best_prob:.3f})")
             
             return {
                 'text_label': best_class,

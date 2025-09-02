@@ -68,8 +68,10 @@ class ContentProcessor:
                     logger.warning(f"Failed to read cached HTML for {domain_name}: {e}")
             
             # Fetch fresh content
+            logger.info(f"Fetching HTML content for {domain}")
             success, content, error = self.fetcher.fetch_html(domain)
             if success:
+                logger.info(f"Successfully fetched HTML for {domain_name} ({len(content)} chars)")
                 # Save to cache
                 try:
                     with open(html_file, 'w', encoding='utf-8') as f:
@@ -79,6 +81,7 @@ class ContentProcessor:
                     logger.warning(f"Failed to cache HTML for {domain_name}: {e}")
                     html_content[domain_name] = content  # Still use the content
             else:
+                logger.error(f"Failed to fetch HTML for {domain}: {error}")
                 errors[domain_name] = error
                 
         return html_content, errors
@@ -134,10 +137,13 @@ class ContentProcessor:
                 continue
             
             # Take fresh screenshot
+            logger.info(f"Taking screenshot for {domain}")
             success, error = self.fetcher.fetch_screenshot(domain, image_file)
             if success:
+                logger.info(f"Successfully captured screenshot for {domain_name}")
                 image_paths[domain_name] = image_file
             else:
+                logger.error(f"Failed to capture screenshot for {domain}: {error}")
                 errors[domain_name] = error
                 
         return image_paths, errors
@@ -156,14 +162,17 @@ class ContentProcessor:
         
         for domain_name, image_path in image_paths.items():
             try:
+                logger.info(f"Processing image tensor for {domain_name}: {image_path}")
                 # Load and resize image
                 img = Image.open(image_path)
+                logger.info(f"Loaded image {img.size} for {domain_name}")
                 img = img.convert('RGB')
                 img = img.resize((254, 254))
                 
                 # Convert to numpy array and normalize
                 img_array = np.array(img)
                 img_array = img_array.astype('float32') / 255.0
+                logger.info(f"Created tensor shape {img_array.shape} for {domain_name}")
                 
                 tensors[domain_name] = img_array
                 
