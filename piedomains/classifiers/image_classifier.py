@@ -4,11 +4,9 @@ Image-based domain classification using homepage screenshots.
 """
 
 import os
-from ..utils import safe_import_pandas
+import pandas as pd
 import numpy as np
 from typing import List, Dict, Optional
-
-pd = safe_import_pandas()
 
 from ..base import Base
 from ..constants import classes

@@ -1,12 +1,9 @@
 import os
-from ..utils import safe_import_pandas
+import pandas as pd
 from PIL import Image
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
-
-
-pd = safe_import_pandas()
 
 driver = None
 

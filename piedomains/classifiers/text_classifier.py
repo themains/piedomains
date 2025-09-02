@@ -7,11 +7,10 @@ import os
 from typing import Dict, List, Optional, Tuple
 
 import numpy as np
-from ..utils import safe_import_pandas
+import pandas as pd
 
 from ..base import Base
 from ..constants import classes
-pd = safe_import_pandas()
 
 from ..logging import get_logger
 from ..processors.content_processor import ContentProcessor
