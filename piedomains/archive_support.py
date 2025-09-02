@@ -5,10 +5,12 @@ Extended API functions that support historical snapshots.
 """
 
 import requests
-import pandas as pd
+from .utils import safe_import_pandas
 from datetime import datetime
 from typing import Union, Optional
 from urllib.parse import quote
+
+pd = safe_import_pandas()
 
 from .piedomain import Piedomain
 from .logging import get_logger

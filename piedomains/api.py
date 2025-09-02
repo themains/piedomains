@@ -12,7 +12,9 @@ import warnings
 from datetime import datetime
 from typing import List, Optional, Union
 
-import pandas as pd
+from .utils import safe_import_pandas
+
+pd = safe_import_pandas()
 
 from .classifiers import CombinedClassifier, ImageClassifier, TextClassifier
 from .logging import get_logger
