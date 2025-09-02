@@ -1,9 +1,0 @@
-# ReadTheDocs requirements - minimal for docs build
-# Avoid heavy dependencies like TensorFlow for docs
-sphinx>=4.0.0
-sphinx-rtd-theme
-beautifulsoup4>=4.0.0
-pandas>=1.5.0
-numpy>=1.21.0
-requests>=2.20.0
-tqdm>=4.60.0
