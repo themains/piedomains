@@ -1,16 +1,13 @@
-# Publish to PyPI when a new release is created
+# Publish to PyPI when a new release is created or manually triggered
 # For more information see: https://docs.github.com/en/actions/guides/publishing-python-packages
-
 name: python-publish
-
 on:
   release:
     types: [published]
-
+  workflow_dispatch:  # Enables manual triggering
 permissions:
   contents: read
   id-token: write
-
 jobs:
   publish:
     runs-on: ubuntu-latest
@@ -30,4 +27,3 @@ jobs:
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           password: ${{ secrets.PYPI_API_TOKEN }}
-
