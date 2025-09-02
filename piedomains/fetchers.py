@@ -158,7 +158,7 @@ class ArchiveFetcher(BaseFetcher):
             
             # Remove archive.org specific elements
             for element in soup.find_all(['script', 'link', 'div'], 
-                                       attrs={'src': lambda x: x and 'archive.org' in x}):
+                                       attrs={'src': lambda x: x and (urlparse(x).hostname == 'archive.org')}):
                 element.decompose()
             for element in soup.find_all(attrs={'class': lambda x: x and 'wayback' in str(x).lower()}):
                 element.decompose()
