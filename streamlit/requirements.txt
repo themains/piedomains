@@ -1,5 +1,5 @@
 Cython>=0.28.5
-numpy>=1.22.0
+numpy>=2.0.0
 joblib
 tqdm
 nltk
@@ -9,7 +9,8 @@ bs4==0.0.1
 scikit-learn >=1.2.1
 Pillow==10.3.0
 selenium==4.8.0
-pandas==1.4.2
+pandas>=2.0.0
 setuptools>=65.5.1
-piedomains==0.0.18
+piedomains>=0.3.3
 streamlit
+

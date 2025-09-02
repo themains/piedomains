@@ -3,9 +3,11 @@
 Combined text and image-based domain classification.
 """
 
-import pandas as pd
+from ..utils import safe_import_pandas
 import numpy as np
 from typing import List, Optional, Dict
+
+pd = safe_import_pandas()
 
 from ..logging import get_logger
 from .text_classifier import TextClassifier

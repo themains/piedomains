@@ -2,6 +2,37 @@ import os
 import tarfile
 import requests
 
+def safe_import_pandas():
+    """Safely import pandas with a clear error if it's incompatible.
+
+    Pandas can raise a ``ValueError`` when the installed NumPy version
+    is ABI-incompatible with the version it was built against.  This
+    helper converts that failure into a more informative ``ImportError``
+    so users know how to resolve the issue instead of seeing the cryptic
+    "numpy.dtype size changed" message.
+
+    Returns
+    -------
+    ModuleType
+        The imported :mod:`pandas` module.
+
+    Raises
+    ------
+    ImportError
+        If pandas cannot be imported due to a binary mismatch or other
+        installation problems.
+    """
+    try:  # pragma: no cover - success path exercised in normal tests
+        import pandas as pd
+    except Exception as exc:  # pragma: no cover - handled in dedicated test
+        raise ImportError(
+            "Failed to import pandas. This is typically caused by an"
+            " incompatible NumPy version. Try reinstalling pandas and"
+            " NumPy to ensure they are built against each other."
+        ) from exc
+
+    return pd
+
 
 REPO_BASE_URL = os.environ.get("PIEDOMAINS_MODEL_URL") or "https://dataverse.harvard.edu/api/access/datafile/7081895"
 

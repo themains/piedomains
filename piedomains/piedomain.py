@@ -9,7 +9,9 @@ from selenium import webdriver
 from PIL import Image
 
 import numpy as np
-import pandas as pd
+from .utils import safe_import_pandas
+
+pd = safe_import_pandas()
 import joblib
 
 from .constants import classes, most_common_words
