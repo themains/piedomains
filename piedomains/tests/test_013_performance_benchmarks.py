@@ -105,8 +105,9 @@ class TestPerformanceBenchmarks(unittest.TestCase):
             self.assertLess(total_time, 10)  # Very generous for mocked tests
             
             # Log performance for manual review
+            rate = size/total_time if total_time > 0 else float('inf')
             print(f"Processed {size} domains in {total_time:.2f} seconds "
-                  f"({size/total_time:.1f} domains/second)")
+                  f"({rate:.1f} domains/second)")
     
     def test_cache_effectiveness(self):
         """Test that caching improves performance."""
