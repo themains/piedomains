@@ -11,7 +11,7 @@ sys.path.insert(0, '.')
 import requests
 import pandas as pd
 from bs4 import BeautifulSoup
-
+from urllib.parse import urlparse
 def test_direct_archive_urls():
     """Test with known working archive URLs."""
     print("=== Archive.org Direct URL Test ===")
@@ -88,8 +88,8 @@ def test_direct_archive_urls():
                 title = soup.find('title')
                 title_text = title.get_text().strip() if title else "No title"
                 
-                # Check for archive.org wrapper content
-                has_wayback_toolbar = 'wayback' in content.lower() or 'archive.org' in content.lower()
+                # Check for archive.org Wayback toolbar by searching for the toolbar markup
+                has_wayback_toolbar = soup.find(id="wm-ipp") is not None or urlparse(response.url).hostname == "web.archive.org"
                 
                 results.append({
                     'domain': case['domain'],
