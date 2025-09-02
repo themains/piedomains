@@ -84,9 +84,12 @@ class ImageClassifier(Base):
         self.load_models(latest)
         
         # Extract screenshot images
+        logger.info(f"Processing image content for {len(domains)} domains")
         image_paths, errors = self.processor.extract_image_content(domains, use_cache)
+        logger.info(f"Image extraction results: {len(image_paths)} successful, {len(errors)} errors")
         
         # Convert images to tensors
+        logger.info(f"Converting {len(image_paths)} images to tensors")
         image_tensors = self.processor.prepare_image_tensors(image_paths)
         
         # Prepare results DataFrame
@@ -144,22 +147,47 @@ class ImageClassifier(Base):
         try:
             # Prepare input for model (add batch dimension)
             image_input = np.expand_dims(image_tensor, axis=0)
+            logger.info(f"Image tensor stats - shape: {image_tensor.shape}, min: {np.min(image_tensor):.3f}, max: {np.max(image_tensor):.3f}, mean: {np.mean(image_tensor):.3f}")
             
             # Get model predictions
             if hasattr(self._model, 'predict'):
                 raw_predictions = self._model.predict(image_input, verbose=0)[0]
             else:
-                # Handle TFSMLayer case  
-                raw_predictions = self._model(image_input)['output_0'][0]
+                # Handle TFSMLayer case - try common output keys
+                model_output = self._model(image_input)
+                logger.info(f"TFSMLayer output keys: {list(model_output.keys())}")
+                if 'output_0' in model_output:
+                    logger.info("Using output_0 key")
+                    raw_predictions = model_output['output_0'][0]
+                elif 'dense_2' in model_output:
+                    logger.info("Using dense_2 key")
+                    raw_predictions = model_output['dense_2'][0]
+                elif 'predictions' in model_output:
+                    logger.info("Using predictions key")
+                    raw_predictions = model_output['predictions'][0]
+                else:
+                    # Fallback: use the first available key
+                    key = list(model_output.keys())[0]
+                    logger.info(f"Using fallback key: {key}")
+                    raw_predictions = model_output[key][0]
+            
+            # Convert logits to probabilities using softmax
+            import tensorflow as tf
+            logger.info(f"Raw logits stats - shape: {raw_predictions.shape}, min: {np.min(raw_predictions):.3f}, max: {np.max(raw_predictions):.3f}")
+            softmax_probs = tf.nn.softmax(raw_predictions).numpy()
+            logger.info(f"Applied softmax to convert logits to probabilities")
             
             # Convert to class probabilities
             probs = {}
             for i, class_name in enumerate(classes):
-                probs[class_name] = float(raw_predictions[i])
+                probs[class_name] = float(softmax_probs[i])
+            
+            logger.info(f"Top 3 image predictions: {sorted(probs.items(), key=lambda x: x[1], reverse=True)[:3]}")
             
             # Find best prediction
             best_class = max(probs, key=probs.get)
             best_prob = probs[best_class]
+            logger.info(f"Image prediction: {best_class} ({best_prob:.3f})")
             
             return {
                 'image_label': best_class,

@@ -148,6 +148,13 @@ result = classifier.classify(["facebook.com"], archive_date="20200101")
 - **Resource Limits**: Configurable timeouts and batch sizes prevent resource exhaustion
 - **Error Isolation**: Robust error handling prevents crashes from malformed inputs
 
+### Debugging and Logging
+- **Comprehensive Logging**: Detailed logging throughout all classifiers and processors
+- **Model Output Debugging**: Logs model output keys, tensor stats, and prediction details
+- **Processing Pipeline Visibility**: Tracks HTML fetching, screenshot capture, and tensor conversion
+- **Calibration Monitoring**: Shows calibrator usage and prediction confidence
+- **Error Tracking**: Detailed error messages for debugging network, model, and processing issues
+
 ### Performance Monitoring
 - **Memory Usage**: TensorFlow tensor cleanup and resource management
 - **Network Efficiency**: Connection pooling reduces overhead for batch operations
