@@ -53,7 +53,14 @@ class TextClassifier(Base):
 
             # Load text model
             text_model_path = os.path.join(model_path, "saved_model", "piedomains")
-            self._model = tf.keras.models.load_model(text_model_path)
+            try:
+                self._model = tf.keras.models.load_model(text_model_path)
+            except ValueError as e:
+                if "File format not supported" in str(e) and "Keras 3" in str(e):
+                    logger.info("Loading legacy SavedModel with TFSMLayer for Keras 3 compatibility")
+                    self._model = tf.keras.layers.TFSMLayer(text_model_path, call_endpoint='serving_default')
+                else:
+                    raise
 
             # Load calibrators
             import joblib
@@ -184,7 +191,23 @@ class TextClassifier(Base):
             text_input = np.array([text])
             
             # Get raw model predictions
-            raw_predictions = self._model.predict(text_input, verbose=0)[0]
+            if hasattr(self._model, 'predict'):
+                raw_predictions = self._model.predict(text_input, verbose=0)[0]
+            else:
+                # Handle TFSMLayer case - check for different output keys
+                output = self._model(text_input)
+                if isinstance(output, dict):
+                    # Try common output keys
+                    for key in ['output_0', 'predictions', 'dense', 'dense_1']:
+                        if key in output:
+                            raw_predictions = output[key][0]
+                            break
+                    else:
+                        # Fall back to first key
+                        first_key = list(output.keys())[0]
+                        raw_predictions = output[first_key][0]
+                else:
+                    raw_predictions = output[0]
             
             # Apply calibration if available
             calibrated_probs = {}

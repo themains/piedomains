@@ -1,15 +1,6 @@
 import streamlit as st
-import piedomains
-from piedomains import domain
+from piedomains import DomainClassifier
 import base64
-
-
-# Define your sidebar options
-sidebar_options = {
-    "Predict with text from domain": domain.pred_shalla_cat_with_text,
-    "Predict with screenshot of domain": domain.pred_shalla_cat_with_images,
-    "Predict with both": domain.pred_shalla_cat,
-}
 
 
 def download_file(df):
@@ -31,30 +22,35 @@ def app():
 
     # Set up the sidebar
     st.sidebar.title("Select Function")
-    selected_function = st.sidebar.selectbox("", list(sidebar_options.keys()))
+    method_options = {
+        "Text analysis only": "text",
+        "Image analysis only": "image", 
+        "Combined analysis": "combined"
+    }
+    selected_method = st.sidebar.selectbox("", list(method_options.keys()))
 
     # Create a form to enter the list of numbers
     with st.form("number_form"):
-        lst_input = st.text_input("Enter a list of domains separated by commas (e.g. google.com, yahoo.com)")
+        lst_input = st.text_input("Enter a list of domains separated by commas (e.g. cnn.com, amazon.com)")
 
         # Add a submit button
         submitted = st.form_submit_button("Submit")
 
     if submitted:
         lst = [s.strip() for s in lst_input.split(",")]
-
-        if selected_function == "Predict with text from domain":
-            transformed_df = domain.pred_shalla_cat_with_text(lst)
-            st.dataframe(transformed_df)
-            download_file(transformed_df)
-        elif selected_function == "Predict with screenshot of domain":
-            transformed_df = domain.pred_shalla_cat_with_images(lst)
-            st.dataframe(transformed_df)
-            download_file(transformed_df)
-        elif selected_function == "Predict with both":
-            transformed_df = domain.pred_shalla_cat(lst)
-            st.dataframe(transformed_df)
-            download_file(transformed_df)
+        classifier = DomainClassifier()
+        
+        method = method_options[selected_method]
+        
+        if method == "text":
+            transformed_df = classifier.classify_by_text(lst)
+        elif method == "image":
+            transformed_df = classifier.classify_by_images(lst)
+        else:
+            transformed_df = classifier.classify(lst)
+            
+        st.dataframe(transformed_df)
+        download_file(transformed_df)
 
 
 # Run the app
