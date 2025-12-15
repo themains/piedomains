@@ -17,7 +17,7 @@ from pathlib import Path
 
 import requests
 
-from .logging import get_logger
+from .piedomains_logging import get_logger
 
 logger = get_logger()
 

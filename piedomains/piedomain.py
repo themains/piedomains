@@ -14,13 +14,14 @@ from selenium import webdriver
 from .base import Base
 from .config import get_config
 from .constants import classes, most_common_words
-from .logging import get_logger
+from .piedomains_logging import get_logger
 
 logger = get_logger()
 
 # Global variables for NLTK data - will be initialized when needed
 words = None
 stop_words = None
+
 
 def _initialize_nltk():
     """Initialize NLTK data with proper error handling."""
@@ -40,6 +41,7 @@ def _initialize_nltk():
 
         # Import and initialize corpora
         from nltk.corpus import stopwords
+
         words = set(nltk.corpus.words.words())
         stop_words = set(stopwords.words("english"))
 
@@ -47,7 +49,40 @@ def _initialize_nltk():
         logger.warning(f"NLTK initialization failed: {e}")
         # Fallback to basic word sets if NLTK fails
         words = set()
-        stop_words = {'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'is', 'are', 'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could', 'should'}
+        stop_words = {
+            "the",
+            "a",
+            "an",
+            "and",
+            "or",
+            "but",
+            "in",
+            "on",
+            "at",
+            "to",
+            "for",
+            "of",
+            "with",
+            "by",
+            "is",
+            "are",
+            "was",
+            "were",
+            "be",
+            "been",
+            "being",
+            "have",
+            "has",
+            "had",
+            "do",
+            "does",
+            "did",
+            "will",
+            "would",
+            "could",
+            "should",
+        }
+
 
 def _get_tensorflow():
     """Lazy import TensorFlow with graceful fallback.
@@ -58,15 +93,19 @@ def _get_tensorflow():
     """
     try:
         import tensorflow as tf
+
         return tf
     except ImportError as e:  # pragma: no cover - exercised when TF missing
         from unittest import SkipTest
 
-        raise SkipTest(f"TensorFlow is required for ML prediction functionality: {e}") from e
+        raise SkipTest(
+            f"TensorFlow is required for ML prediction functionality: {e}"
+        ) from e
     except Exception as e:  # pragma: no cover
         from unittest import SkipTest
 
         raise SkipTest(f"Failed to initialize TensorFlow: {e}") from e
+
 
 """
     Piedomain class
@@ -96,10 +135,10 @@ class Piedomain(Base):
             return url
 
         # If it's already just a domain (no protocol), return as-is
-        if not url.startswith(('http://', 'https://')):
+        if not url.startswith(("http://", "https://")):
             # Check if it looks like a URL with path but no protocol
-            if '/' in url and '.' in url.split('/')[0]:
-                return url.split('/')[0]
+            if "/" in url and "." in url.split("/")[0]:
+                return url.split("/")[0]
             return url
 
         # Parse full URL to extract domain
@@ -139,27 +178,32 @@ class Piedomain(Base):
             return False
 
         # Remove protocol if present
-        if domain.startswith(('http://', 'https://')):
+        if domain.startswith(("http://", "https://")):
             parsed = urlparse(domain)
             domain = parsed.netloc
 
         # Remove trailing slash and path
-        domain = domain.split('/')[0]
+        domain = domain.split("/")[0]
 
         # Check for invalid characters (spaces, special chars except hyphen and dot)
-        if ' ' in domain or any(c in domain for c in '!@#$%^&*()+=[]{}|\\:";\'<>?/'):
+        if " " in domain or any(c in domain for c in "!@#$%^&*()+=[]{}|\\:\";'<>?/"):
             return False
 
         # Must contain at least one dot to be a valid domain
-        if '.' not in domain:
+        if "." not in domain:
             return False
 
         # Check for consecutive dots
-        if '..' in domain:
+        if ".." in domain:
             return False
 
         # Cannot start or end with dot or hyphen
-        if domain.startswith('.') or domain.endswith('.') or domain.startswith('-') or domain.endswith('-'):
+        if (
+            domain.startswith(".")
+            or domain.endswith(".")
+            or domain.startswith("-")
+            or domain.endswith("-")
+        ):
             return False
 
         # Check length
@@ -167,13 +211,13 @@ class Piedomain(Base):
             return False
 
         # Validate each part of the domain
-        parts = domain.split('.')
+        parts = domain.split(".")
         for part in parts:
             if not part or len(part) > 63:
                 return False
-            if part.startswith('-') or part.endswith('-'):
+            if part.startswith("-") or part.endswith("-"):
                 return False
-            if not re.match(r'^[a-zA-Z0-9\-]+$', part):
+            if not re.match(r"^[a-zA-Z0-9\-]+$", part):
                 return False
 
         return True
@@ -195,10 +239,10 @@ class Piedomain(Base):
         for domain in domains:
             if cls.validate_domain_name(domain):
                 # Normalize domain (remove protocol, trailing slash, etc.)
-                if domain.startswith(('http://', 'https://')):
+                if domain.startswith(("http://", "https://")):
                     parsed = urlparse(domain)
                     domain = parsed.netloc
-                domain = domain.split('/')[0]
+                domain = domain.split("/")[0]
                 valid_domains.append(domain)
             else:
                 invalid_domains.append(domain)
@@ -243,7 +287,9 @@ class Piedomain(Base):
         """
         soup = BeautifulSoup(text, "html.parser")
         text = soup.get_text()
-        result = " ".join(list({t.lower().strip() for t in text.split() if t.strip().isalpha()}))
+        result = " ".join(
+            list({t.lower().strip() for t in text.split() if t.strip().isalpha()})
+        )
         return result
 
     @classmethod
@@ -294,6 +340,7 @@ class Piedomain(Base):
             webdriver.Chrome: Headless Chrome driver with optimized settings
         """
         from webdriver_manager.chrome import ChromeDriverManager
+
         config = get_config()
 
         options = webdriver.ChromeOptions()
@@ -304,8 +351,10 @@ class Piedomain(Base):
         options.add_argument(f"--window-size={config.webdriver_window_size}")
         options.add_argument(f"--user-agent={config.user_agent}")
 
-        return webdriver.Chrome(service=webdriver.ChromeService(ChromeDriverManager().install()), options=options)
-
+        return webdriver.Chrome(
+            service=webdriver.ChromeService(ChromeDriverManager().install()),
+            options=options,
+        )
 
     @classmethod
     def save_image(cls, url_or_domain: str, image_dir: str) -> tuple[bool, str]:
@@ -320,6 +369,7 @@ class Piedomain(Base):
             tuple[bool, str]: (success, error_message)
         """
         from .context_managers import webdriver_context
+
         config = get_config()
 
         try:
@@ -327,7 +377,7 @@ class Piedomain(Base):
             domain = cls.parse_url_to_domain(url_or_domain)
 
             # Determine the URL to screenshot
-            if url_or_domain.startswith(('http://', 'https://')):
+            if url_or_domain.startswith(("http://", "https://")):
                 url_to_fetch = url_or_domain
             else:
                 url_to_fetch = f"https://{url_or_domain}"
@@ -343,9 +393,10 @@ class Piedomain(Base):
             logger.error(error_msg)
             return False, error_msg
 
-
     @classmethod
-    def extract_images(cls, input: list, use_cache: bool, image_dir: str) -> tuple[list, dict]:
+    def extract_images(
+        cls, input: list, use_cache: bool, image_dir: str
+    ) -> tuple[list, dict]:
         """
         Extract screenshots for domains.
 
@@ -397,14 +448,17 @@ class Piedomain(Base):
                 img_file = img_file.convert("RGB")
                 tf = _get_tensorflow()
                 img_tensor = tf.convert_to_tensor(np.array(img_file))
-                img_tensor = tf.image.resize(img_tensor, [cls.img_width, cls.img_height])
+                img_tensor = tf.image.resize(
+                    img_tensor, [cls.img_width, cls.img_height]
+                )
                 img_tensor = tf.cast(img_tensor, tf.float32)
                 images[domain_name] = img_tensor
         return images
 
-
     @classmethod
-    def extract_htmls(cls, urls_or_domains: list, use_cache: bool, html_path: str) -> dict:
+    def extract_htmls(
+        cls, urls_or_domains: list, use_cache: bool, html_path: str
+    ) -> dict:
         """
         Extract HTML content from URLs or domain homepages.
 
@@ -429,7 +483,7 @@ class Piedomain(Base):
                 domain = cls.parse_url_to_domain(url_or_domain)
 
                 # Determine the URL to fetch
-                if url_or_domain.startswith(('http://', 'https://')):
+                if url_or_domain.startswith(("http://", "https://")):
                     url_to_fetch = url_or_domain
                 else:
                     url_to_fetch = f"https://{url_or_domain}"
@@ -439,7 +493,7 @@ class Piedomain(Base):
 
                 headers = {
                     "User-Agent": config.user_agent,
-                    "Accept-Language": "en-US,en;q=0.9"
+                    "Accept-Language": "en-US,en;q=0.9",
                 }
 
                 # Retry logic with exponential backoff
@@ -450,19 +504,25 @@ class Piedomain(Base):
                             url_to_fetch,
                             timeout=config.http_timeout,
                             headers=headers,
-                            allow_redirects=True
+                            allow_redirects=True,
                         )
                         page.raise_for_status()  # Raise exception for bad status codes
 
-                        with open(f"{html_path}/{domain}.html", "w", encoding="utf-8") as f:
+                        with open(
+                            f"{html_path}/{domain}.html", "w", encoding="utf-8"
+                        ) as f:
                             f.write(page.text)
                         break  # Success, exit retry loop
 
                     except (OSError, requests.exceptions.RequestException) as e:
                         last_exception = e
                         if attempt < config.max_retries:
-                            wait_time = config.retry_delay * (2 ** attempt)  # Exponential backoff
-                            logger.debug(f"Retrying HTML fetch for {domain} in {wait_time}s (attempt {attempt + 1}/{config.max_retries + 1})")
+                            wait_time = config.retry_delay * (
+                                2**attempt
+                            )  # Exponential backoff
+                            logger.debug(
+                                f"Retrying HTML fetch for {domain} in {wait_time}s (attempt {attempt + 1}/{config.max_retries + 1})"
+                            )
                             time.sleep(wait_time)
                         else:
                             # All retries exhausted, raise the last exception
@@ -511,7 +571,6 @@ class Piedomain(Base):
                     f.close()
         return domains, content
 
-
     @classmethod
     def load_model(cls, model_file_name: str, latest: bool = False):
         """
@@ -531,16 +590,22 @@ class Piedomain(Base):
 
             tf = _get_tensorflow()
             logger.info("Loading text-based TensorFlow model")
-            cls.model = tf.keras.models.load_model(f"{cls.model_path}/saved_model/piedomains")
+            cls.model = tf.keras.models.load_model(
+                f"{cls.model_path}/saved_model/piedomains"
+            )
 
             logger.info("Loading image-based TensorFlow model")
-            cls.model_cv = tf.keras.models.load_model(f"{cls.model_path}/saved_model/pydomains_images")
+            cls.model_cv = tf.keras.models.load_model(
+                f"{cls.model_path}/saved_model/pydomains_images"
+            )
 
             # load calibrated models
             logger.info(f"Loading {len(classes)} calibration models")
             cls.calibrated_models = {}
             for c in classes:
-                cls.calibrated_models[c] = joblib.load(f"{cls.model_path}/../calibrate/text/{c}.sav")
+                cls.calibrated_models[c] = joblib.load(
+                    f"{cls.model_path}/../calibrate/text/{c}.sav"
+                )
 
             cls.weights_loaded = True
             logger.info("All models loaded successfully")
@@ -573,7 +638,9 @@ class Piedomain(Base):
         if len(input) == 0:
             # if path is None, raise exception
             if path is None:
-                raise Exception(f"Provide list of Domains, or for offline provide {pth}")
+                raise Exception(
+                    f"Provide list of Domains, or for offline provide {pth}"
+                )
             else:
                 # if path is not None, check if it exists and is not empty
                 if not os.path.exists(path):
@@ -585,7 +652,9 @@ class Piedomain(Base):
         return offline
 
     @classmethod
-    def _process_text_batch(cls, domains_batch: list, html_path: str, use_cache: bool) -> tuple[list, list, dict]:
+    def _process_text_batch(
+        cls, domains_batch: list, html_path: str, use_cache: bool
+    ) -> tuple[list, list, dict]:
         """
         Process a batch of domains for text extraction.
 
@@ -604,4 +673,3 @@ class Piedomain(Base):
         domains, content = cls.extract_html_text(False, domains_batch, html_path)
 
         return domains, content, errors
-

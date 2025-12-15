@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import base64
-import logging
 import time
 from io import BytesIO
 from pathlib import Path
@@ -21,8 +20,9 @@ from ..llm.prompts import (
     get_multimodal_prompt,
 )
 from ..llm.response_parser import parse_batch_response, parse_llm_response
+from ..piedomains_logging import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class LLMClassifier:
@@ -68,10 +68,12 @@ class LLMClassifier:
 
         try:
             # Simple test request
+            params = self.config.to_litellm_params()
+            params["max_tokens"] = 5  # Override for test (use minimal tokens)
+
             litellm.completion(
-                **self.config.to_litellm_params(),
+                **params,
                 messages=[{"role": "user", "content": "Hello"}],
-                max_tokens=5,
             )
             logger.info(f"LLM connection test successful for {self.config.provider}")
         except Exception as e:

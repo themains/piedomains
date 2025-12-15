@@ -1,0 +1,54 @@
+(version 1)
+
+; More permissive sandbox profile for piedomains testing
+; This provides reasonable security while allowing Python to function
+
+; Deny dangerous operations by default
+(deny default)
+
+; Allow basic process operations
+(allow process-fork)
+(allow process-exec
+    (literal "/opt/homebrew/opt/python@3.13/bin/python3.13")
+    (literal "/opt/homebrew/bin/python3")
+    (literal "/usr/bin/python3")
+    (literal "/usr/local/bin/python3"))
+
+; Allow reading system and Python libraries
+(allow file-read*
+    (subpath "/System/Library")
+    (subpath "/usr/lib")
+    (subpath "/opt/homebrew")
+    (subpath "/Library/Frameworks/Python.framework")
+    (subpath "/Applications/Python*")
+    (literal "/dev/urandom")
+    (literal "/dev/null")
+    (literal "/dev/zero"))
+
+; Allow current working directory access
+(allow file-read*
+    (subpath "$(PWD)"))
+
+; Allow temporary files (needed for Python)
+(allow file-read* file-write*
+    (subpath "$(TMPDIR)")
+    (subpath "/tmp")
+    (subpath "/private/tmp"))
+
+; Allow writing to output directory
+(allow file-write*
+    (subpath "$(PWD)/output"))
+
+; Allow basic networking (for HTTP requests)
+(allow network-outbound)
+
+; Allow system information access
+(allow sysctl-read)
+
+; Allow signal handling
+(allow signal)
+
+; Allow memory mapping (needed for Python libraries)
+(allow mach-lookup)
+(allow ipc-posix-shm-read-data)
+(allow ipc-posix-shm-write-data)

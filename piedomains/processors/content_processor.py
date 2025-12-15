@@ -11,7 +11,7 @@ from PIL import Image
 
 from ..config import get_config
 from ..fetchers import get_fetcher
-from ..logging import get_logger
+from ..piedomains_logging import get_logger
 from .text_processor import TextProcessor
 
 logger = get_logger()
@@ -39,13 +39,24 @@ class ContentProcessor:
         os.makedirs(self.html_dir, exist_ok=True)
         os.makedirs(self.image_dir, exist_ok=True)
 
-    def extract_html_content(self, domains: list[str], use_cache: bool = True) -> tuple[dict[str, str], dict[str, str]]:
+    def extract_html_content(
+        self,
+        domains: list[str],
+        use_cache: bool = True,
+        *,
+        force_fetch: bool = False,
+        allow_content_types: list[str] = None,
+        ignore_extensions: bool = False,
+    ) -> tuple[dict[str, str], dict[str, str]]:
         """
-        Extract HTML content for domains.
+        Extract HTML content for domains with security validation.
 
         Args:
             domains (List[str]): List of domain names or URLs
             use_cache (bool): Whether to use cached HTML files
+            force_fetch (bool): Skip security validation (dangerous)
+            allow_content_types (list): Override allowed content types
+            ignore_extensions (bool): Skip file extension validation
 
         Returns:
             Tuple[Dict[str, str], Dict[str, str]]: (html_content_dict, errors_dict)
@@ -60,20 +71,27 @@ class ContentProcessor:
             # Check cache first
             if use_cache and os.path.exists(html_file):
                 try:
-                    with open(html_file, encoding='utf-8') as f:
+                    with open(html_file, encoding="utf-8") as f:
                         html_content[domain_name] = f.read()
                     continue
                 except Exception as e:
                     logger.warning(f"Failed to read cached HTML for {domain_name}: {e}")
 
-            # Fetch fresh content
+            # Fetch fresh content with security validation
             logger.info(f"Fetching HTML content for {domain}")
-            success, content, error = self.fetcher.fetch_html(domain)
+            success, content, error = self.fetcher.fetch_html(
+                domain,
+                force_fetch=force_fetch,
+                allow_content_types=allow_content_types,
+                ignore_extensions=ignore_extensions,
+            )
             if success:
-                logger.info(f"Successfully fetched HTML for {domain_name} ({len(content)} chars)")
+                logger.info(
+                    f"Successfully fetched HTML for {domain_name} ({len(content)} chars)"
+                )
                 # Save to cache
                 try:
-                    with open(html_file, 'w', encoding='utf-8') as f:
+                    with open(html_file, "w", encoding="utf-8") as f:
                         f.write(content)
                     html_content[domain_name] = content
                 except Exception as e:
@@ -85,19 +103,36 @@ class ContentProcessor:
 
         return html_content, errors
 
-    def extract_text_content(self, domains: list[str], use_cache: bool = True) -> tuple[dict[str, str], dict[str, str]]:
+    def extract_text_content(
+        self,
+        domains: list[str],
+        use_cache: bool = True,
+        *,
+        force_fetch: bool = False,
+        allow_content_types: list[str] = None,
+        ignore_extensions: bool = False,
+    ) -> tuple[dict[str, str], dict[str, str]]:
         """
-        Extract and process text content from domains.
+        Extract and process text content from domains with security validation.
 
         Args:
             domains (List[str]): List of domain names or URLs
             use_cache (bool): Whether to use cached content
+            force_fetch (bool): Skip security validation (dangerous)
+            allow_content_types (list): Override allowed content types
+            ignore_extensions (bool): Skip file extension validation
 
         Returns:
             Tuple[Dict[str, str], Dict[str, str]]: (processed_text_dict, errors_dict)
         """
-        # Get HTML content first
-        html_content, html_errors = self.extract_html_content(domains, use_cache)
+        # Get HTML content first with security validation
+        html_content, html_errors = self.extract_html_content(
+            domains,
+            use_cache,
+            force_fetch=force_fetch,
+            allow_content_types=allow_content_types,
+            ignore_extensions=ignore_extensions,
+        )
 
         text_content = {}
         text_errors = html_errors.copy()
@@ -112,13 +147,22 @@ class ContentProcessor:
 
         return text_content, text_errors
 
-    def extract_image_content(self, domains: list[str], use_cache: bool = True) -> tuple[dict[str, str], dict[str, str]]:
+    def extract_image_content(
+        self,
+        domains: list[str],
+        use_cache: bool = True,
+        *,
+        force_fetch: bool = False,
+        ignore_extensions: bool = False,
+    ) -> tuple[dict[str, str], dict[str, str]]:
         """
-        Extract screenshot images for domains.
+        Extract screenshot images for domains with security validation.
 
         Args:
             domains (List[str]): List of domain names or URLs
             use_cache (bool): Whether to use cached images
+            force_fetch (bool): Skip security validation (dangerous)
+            ignore_extensions (bool): Skip file extension validation
 
         Returns:
             Tuple[Dict[str, str], Dict[str, str]]: (image_paths_dict, errors_dict)
@@ -135,9 +179,14 @@ class ContentProcessor:
                 image_paths[domain_name] = image_file
                 continue
 
-            # Take fresh screenshot
+            # Take fresh screenshot with security validation
             logger.info(f"Taking screenshot for {domain}")
-            success, error = self.fetcher.fetch_screenshot(domain, image_file)
+            success, error = self.fetcher.fetch_screenshot(
+                domain,
+                image_file,
+                force_fetch=force_fetch,
+                ignore_extensions=ignore_extensions,
+            )
             if success:
                 logger.info(f"Successfully captured screenshot for {domain_name}")
                 image_paths[domain_name] = image_file
@@ -147,7 +196,9 @@ class ContentProcessor:
 
         return image_paths, errors
 
-    def prepare_image_tensors(self, image_paths: dict[str, str]) -> dict[str, np.ndarray]:
+    def prepare_image_tensors(
+        self, image_paths: dict[str, str]
+    ) -> dict[str, np.ndarray]:
         """
         Convert images to numpy arrays for model input.
 
@@ -165,12 +216,12 @@ class ContentProcessor:
                 # Load and resize image
                 img = Image.open(image_path)
                 logger.info(f"Loaded image {img.size} for {domain_name}")
-                img = img.convert('RGB')
+                img = img.convert("RGB")
                 img = img.resize((254, 254))
 
                 # Convert to numpy array and normalize
                 img_array = np.array(img)
-                img_array = img_array.astype('float32') / 255.0
+                img_array = img_array.astype("float32") / 255.0
                 logger.info(f"Created tensor shape {img_array.shape} for {domain_name}")
 
                 tensors[domain_name] = img_array
@@ -192,4 +243,5 @@ class ContentProcessor:
         """
         # Import here to avoid circular imports
         from ..piedomain import Piedomain
+
         return Piedomain.parse_url_to_domain(url_or_domain)

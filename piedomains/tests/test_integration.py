@@ -18,7 +18,7 @@ import pytest
 from piedomains import DomainClassifier, classify_domains
 from piedomains.archive_org_downloader import download_from_archive_org, get_urls_year
 from piedomains.fetchers import ArchiveFetcher, LiveFetcher, get_fetcher
-from piedomains.logging import configure_logging, get_logger
+from piedomains.piedomains_logging import configure_logging, get_logger
 from piedomains.processors.content_processor import ContentProcessor
 from piedomains.utils import is_within_directory
 
@@ -230,7 +230,7 @@ class TestLoggingIntegration:
 
     def test_logging_configuration(self):
         """Test logging can be configured and used consistently."""
-        from piedomains.logging import (
+        from piedomains.piedomains_logging import (
             configure_logging,
             get_effective_level,
             get_logger,
@@ -246,7 +246,7 @@ class TestLoggingIntegration:
         current_level = get_effective_level()
         assert current_level in ["DEBUG", "INFO", "WARNING", "ERROR"]
 
-    @patch("piedomains.logging.get_logger")
+    @patch("piedomains.piedomains_logging.get_logger")
     def test_error_logging_integration(self, mock_get_logger):
         """Test that errors are properly logged across components."""
         mock_logger = Mock()

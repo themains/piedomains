@@ -1,0 +1,37 @@
+(version 1)
+
+; Deny everything by default
+(deny default)
+
+; Allow Python execution
+(allow process-exec
+    (literal "/usr/bin/python3")
+    (literal "/usr/local/bin/python3")
+    (subpath "/opt/homebrew/bin"))
+
+; Allow reading system libraries
+(allow file-read*
+    (subpath "/usr/lib")
+    (subpath "/System/Library")
+    (subpath "/opt/homebrew")
+    (literal "/dev/urandom")
+    (literal "/dev/null"))
+
+; Allow temporary files
+(allow file-read* file-write*
+    (subpath "$(TMPDIR)")
+    (subpath "/tmp"))
+
+; Allow current directory (for piedomains)
+(allow file-read*
+    (subpath "$(PWD)"))
+
+; Allow writing to output directory only
+(allow file-write*
+    (subpath "$(PWD)/output"))
+
+; Allow network for domain fetching
+(allow network-outbound)
+
+; Allow system info
+(allow sysctl-read)

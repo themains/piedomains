@@ -3,10 +3,9 @@
 Combined text and image-based domain classification.
 """
 
-
 import pandas as pd
 
-from ..logging import get_logger
+from ..piedomains_logging import get_logger
 from .image_classifier import ImageClassifier
 from .text_classifier import TextClassifier
 
@@ -29,7 +28,9 @@ class CombinedClassifier:
         self.text_classifier = TextClassifier(cache_dir, archive_date)
         self.image_classifier = ImageClassifier(cache_dir, archive_date)
 
-    def predict(self, domains: list[str], use_cache: bool = True, latest: bool = False) -> pd.DataFrame:
+    def predict(
+        self, domains: list[str], use_cache: bool = True, latest: bool = False
+    ) -> pd.DataFrame:
         """
         Predict domain categories using combined text and image analysis.
 
@@ -61,11 +62,15 @@ class CombinedClassifier:
             image_results = pd.DataFrame()
 
         # Combine results
-        combined_results = self._combine_predictions(text_results, image_results, domains)
+        combined_results = self._combine_predictions(
+            text_results, image_results, domains
+        )
 
         return combined_results
 
-    def _combine_predictions(self, text_df: pd.DataFrame, image_df: pd.DataFrame, domains: list[str]) -> pd.DataFrame:
+    def _combine_predictions(
+        self, text_df: pd.DataFrame, image_df: pd.DataFrame, domains: list[str]
+    ) -> pd.DataFrame:
         """
         Combine text and image predictions into ensemble results.
 
@@ -84,49 +89,55 @@ class CombinedClassifier:
         image_dict = {}
 
         if not text_df.empty:
-            text_dict = text_df.set_index('domain').to_dict('index')
+            text_dict = text_df.set_index("domain").to_dict("index")
         if not image_df.empty:
-            image_dict = image_df.set_index('domain').to_dict('index')
+            image_dict = image_df.set_index("domain").to_dict("index")
 
         for domain in domains:
             # Parse domain name for consistency
             domain_name = self.text_classifier.processor._parse_domain_name(domain)
 
             result_row = {
-                'domain': domain_name,
-                'pred_label': None,
-                'pred_prob': None,
-                'text_label': None,
-                'text_prob': None,
-                'image_label': None,
-                'image_prob': None,
-                'used_domain_text': False,
-                'used_domain_screenshot': False,
-                'extracted_text': None,
-                'error': None
+                "domain": domain_name,
+                "pred_label": None,
+                "pred_prob": None,
+                "text_label": None,
+                "text_prob": None,
+                "image_label": None,
+                "image_prob": None,
+                "used_domain_text": False,
+                "used_domain_screenshot": False,
+                "extracted_text": None,
+                "error": None,
             }
 
             if self.archive_date:
-                result_row['archive_date'] = self.archive_date
+                result_row["archive_date"] = self.archive_date
 
             # Get text results
             text_data = text_dict.get(domain_name, {})
             if text_data:
-                result_row.update({
-                    'text_label': text_data.get('text_label'),
-                    'text_prob': text_data.get('text_prob'),
-                    'used_domain_text': text_data.get('used_domain_text', False),
-                    'extracted_text': text_data.get('extracted_text')
-                })
+                result_row.update(
+                    {
+                        "text_label": text_data.get("text_label"),
+                        "text_prob": text_data.get("text_prob"),
+                        "used_domain_text": text_data.get("used_domain_text", False),
+                        "extracted_text": text_data.get("extracted_text"),
+                    }
+                )
 
             # Get image results
             image_data = image_dict.get(domain_name, {})
             if image_data:
-                result_row.update({
-                    'image_label': image_data.get('image_label'),
-                    'image_prob': image_data.get('image_prob'),
-                    'used_domain_screenshot': image_data.get('used_domain_screenshot', False)
-                })
+                result_row.update(
+                    {
+                        "image_label": image_data.get("image_label"),
+                        "image_prob": image_data.get("image_prob"),
+                        "used_domain_screenshot": image_data.get(
+                            "used_domain_screenshot", False
+                        ),
+                    }
+                )
 
             # Combine predictions using ensemble logic
             ensemble_result = self._ensemble_predict(text_data, image_data)
@@ -134,9 +145,11 @@ class CombinedClassifier:
 
             # Set error if both failed
             if not text_data and not image_data:
-                result_row['error'] = "Both text and image classification failed"
-            elif text_data.get('error') and image_data.get('error'):
-                result_row['error'] = f"Text: {text_data.get('error')}; Image: {image_data.get('error')}"
+                result_row["error"] = "Both text and image classification failed"
+            elif text_data.get("error") and image_data.get("error"):
+                result_row["error"] = (
+                    f"Text: {text_data.get('error')}; Image: {image_data.get('error')}"
+                )
 
             results.append(result_row)
 
@@ -153,24 +166,24 @@ class CombinedClassifier:
         Returns:
             Dict: Ensemble prediction results
         """
-        text_probs = text_data.get('text_domain_probs', {})
-        image_probs = image_data.get('image_domain_probs', {})
+        text_probs = text_data.get("text_domain_probs", {})
+        image_probs = image_data.get("image_domain_probs", {})
 
         if not text_probs and not image_probs:
-            return {'pred_label': None, 'pred_prob': None}
+            return {"pred_label": None, "pred_prob": None}
 
         if not text_probs:
             # Only image available
             return {
-                'pred_label': image_data.get('image_label'),
-                'pred_prob': image_data.get('image_prob')
+                "pred_label": image_data.get("image_label"),
+                "pred_prob": image_data.get("image_prob"),
             }
 
         if not image_probs:
             # Only text available
             return {
-                'pred_label': text_data.get('text_label'),
-                'pred_prob': text_data.get('text_prob')
+                "pred_label": text_data.get("text_label"),
+                "pred_prob": text_data.get("text_prob"),
             }
 
         # Both available - combine with equal weighting
@@ -186,7 +199,4 @@ class CombinedClassifier:
         best_class = max(combined_probs, key=combined_probs.get)
         best_prob = combined_probs[best_class]
 
-        return {
-            'pred_label': best_class,
-            'pred_prob': best_prob
-        }
+        return {"pred_label": best_class, "pred_prob": best_prob}

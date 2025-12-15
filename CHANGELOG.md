@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.2] - 2025-12-15
+
+### Fixed
+- **Dependency Management**: Removed `_has_llm` anti-pattern and implemented proper Python dependency management via pyproject.toml
+- **BeautifulSoup Warning**: Fixed deprecation warning by replacing `text=True` with `string=True` in text processor
+- **Pytest Warnings**: Added missing `performance` marker to pytest configuration to eliminate unknown mark warnings
+- **LLM Classifier**: Fixed duplicate `max_tokens` parameter error in connection test
+
+### Changed
+- **Documentation Links**: Updated all references from ReadTheDocs to GitHub Pages (https://themains.github.io/piedomains/)
+- **PyPI Links**: Updated PyPI badge to use current domain (pypi.org instead of pypi.python.org)
+- **README**: Streamlined documentation by removing editorial content and marketing language, focusing on minimal practical instructions
+
+### Improved
+- **Code Quality**: All tests now run without warnings (eliminated 3 targeted warnings)
+- **Package Building**: Resolved build conflicts and ensured clean package compilation
+- **Link Verification**: All documentation and package links verified as working
+
 ## [0.4.0] - 2025-12-15
 
 ### 🚨 Breaking Changes
@@ -20,7 +38,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### 🔧 Changed
 - **Type Hints**: Modernized all type annotations to use Python 3.11+ union syntax (`|`)
 - **Import Structure**: Added `from __future__ import annotations` for cleaner type hints
-- **Project Structure**: 
+- **Project Structure**:
   - Moved `piedomains/tests/` → `tests/`
   - Moved `piedomains/notebooks/` → `notebooks/`
 - **Configuration**: Enhanced error handling with proper logging in config validation
@@ -108,7 +126,7 @@ This release represents a major cleanup and modernization of the codebase, remov
   - `test_013_performance_benchmarks.py`: Performance and scalability testing
   - Mock-based testing for reliable CI/CD
   - Performance benchmarking and memory usage monitoring
-- **Improved Documentation**: 
+- **Improved Documentation**:
   - New quickstart-focused README with 3-line setup
   - Comprehensive API examples and migration guide
   - `examples/new_api_demo.py`: Interactive demonstration script
@@ -131,7 +149,7 @@ This release represents a major cleanup and modernization of the codebase, remov
   ```python
   # Modern API
   from piedomains import DomainClassifier
-  
+
   # New API available
   from piedomains import DomainClassifier
   ```
@@ -216,7 +234,7 @@ This release represents a major cleanup and modernization of the codebase, remov
   - Error details and context
 - **Comprehensive Test Suite**: 6 new test modules added
   - Domain validation tests
-  - Text processing tests  
+  - Text processing tests
   - Error handling tests
   - Utility function tests
   - Configuration system tests

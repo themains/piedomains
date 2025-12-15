@@ -110,6 +110,8 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+docs_test_env/
+test_fix_env/
 
 # Spyder project settings
 .spyderproject
@@ -139,3 +141,4 @@ piedomains/model/shallalist/
 archive_html_*/
 archive_images_*/
 /cache
+/test_cache
