@@ -1,11 +1,9 @@
-# piedomains
+# piedomains: Classify website content using ML Models or LLMs
 
 [![CI](https://github.com/themains/piedomains/actions/workflows/ci.yml/badge.svg)](https://github.com/themains/piedomains/actions/workflows/ci.yml)
 [![PyPI Version](https://img.shields.io/pypi/v/piedomains.svg)](https://pypi.org/project/piedomains)
 [![Downloads](https://pepy.tech/badge/piedomains)](https://pepy.tech/project/piedomains)
 [![Documentation](https://img.shields.io/badge/docs-github.io-blue)](https://themains.github.io/piedomains/)
-
-Classify website content categories using machine learning models or LLMs (GPT-4, Claude, Gemini).
 
 ## Installation
 
