@@ -1,4 +1,5 @@
 import os
+
 import pandas as pd
 from PIL import Image
 from selenium import webdriver

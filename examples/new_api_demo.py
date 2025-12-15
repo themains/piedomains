@@ -77,18 +77,18 @@ def demo_new_api():
     print("   → Automatically saves downloaded content for reuse")
     
     print("\n✨ API Benefits:")
-    print("   • Intuitive method names (classify vs pred_shalla_cat)")
+    print("   • Intuitive method names (classify vs legacy functions)")
     print("   • Consistent parameter naming (domains vs input)")
     print("   • Integrated archive support (no separate functions)")
     print("   • Better error handling and logging")
     print("   • Progress tracking for batch operations")
     print("   • Automatic resource management")
     
-    # Show backward compatibility
-    print("\n🔄 Backward Compatibility:")
-    print("   Old API still works:")
-    print("   from piedomains import pred_shalla_cat")
-    print("   pred_shalla_cat(['example.com'])")
+    # Show modern API usage
+    print("\n🚀 Modern API Usage:")
+    print("   from piedomains import DomainClassifier")
+    print("   classifier = DomainClassifier()")
+    print("   classifier.classify(['example.com'])")
     
     # Test the convenience function (API structure only)
     print("\n🧪 Testing API Structure:")

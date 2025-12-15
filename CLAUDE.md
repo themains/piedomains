@@ -5,10 +5,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Commands
 
 ### Testing
-- Run all tests: `pytest piedomains/tests/ -v`
-- Run tests without ML models: `pytest piedomains/tests/ -v -m "not ml"`
-- Run specific test: `pytest piedomains/tests/test_001_pred_domain_text.py`
-- Run with coverage: `pytest piedomains/tests/ --cov=piedomains`
+- Run all tests: `pytest tests/ -v`
+- Run tests without ML models: `pytest tests/ -v -m "not ml"`
+- Run specific test: `pytest tests/test_001_pred_domain_text.py`
+- Run with coverage: `pytest tests/ --cov=piedomains`
 
 ### Linting and Code Quality
 - Run pylint: `pylint piedomains/` (uses configuration from `pylintrc`)
@@ -52,9 +52,6 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `TextProcessor`: HTML parsing, text extraction and cleaning
 - `ContentProcessor`: Content fetching and caching logic
 
-**Legacy API (`domain.py`)**: Backward-compatible functions
-- `pred_shalla_cat_*()` functions preserved for existing users
-- Will show deprecation warnings in future versions
 
 **Core Engine (`piedomain.py`)**: Low-level prediction engine with ML pipeline
 - TensorFlow model inference with proper memory management
@@ -120,11 +117,6 @@ classifier = DomainClassifier()
 result = classifier.classify(["cnn.com", "amazon.com"])
 ```
 
-### Legacy API (Backward Compatible)
-```python
-from piedomains import pred_shalla_cat
-result = pred_shalla_cat(["cnn.com", "amazon.com"])
-```
 
 ### Archive Analysis
 ```python
