@@ -8,7 +8,7 @@ from contextlib import contextmanager
 import requests
 
 from .config import get_config
-from .logging import get_logger
+from .piedomains_logging import get_logger
 
 logger = get_logger()
 
@@ -29,27 +29,33 @@ class PooledHTTPClient:
             # Configure connection pooling
             adapter = requests.adapters.HTTPAdapter(
                 pool_connections=10,  # Number of connection pools
-                pool_maxsize=20,      # Max connections per pool
-                max_retries=0         # We handle retries manually
+                pool_maxsize=20,  # Max connections per pool
+                max_retries=0,  # We handle retries manually
             )
-            adapter.config.update({
-                "pool_connections": 10,
-                "pool_maxsize": 20,
-            })
-            self._session.mount('http://', adapter)
-            self._session.mount('https://', adapter)
+            adapter.config.update(
+                {
+                    "pool_connections": 10,
+                    "pool_maxsize": 20,
+                }
+            )
+            self._session.mount("http://", adapter)
+            self._session.mount("https://", adapter)
 
             # Set default headers
-            self._session.headers.update({
-                "User-Agent": self._config.user_agent,
-                "Accept-Language": "en-US,en;q=0.9"
-            })
+            self._session.headers.update(
+                {
+                    "User-Agent": self._config.user_agent,
+                    "Accept-Language": "en-US,en;q=0.9",
+                }
+            )
 
             logger.debug("Created HTTP session with connection pooling")
 
         return self._session
 
-    def get(self, url: str, timeout: float | None = None, **kwargs) -> requests.Response:
+    def get(
+        self, url: str, timeout: float | None = None, **kwargs
+    ) -> requests.Response:
         """
         Perform HTTP GET with retry logic and connection pooling.
 
@@ -72,10 +78,7 @@ class PooledHTTPClient:
         for attempt in range(self._config.max_retries + 1):
             try:
                 response = self.session.get(
-                    url,
-                    timeout=timeout,
-                    allow_redirects=True,
-                    **kwargs
+                    url, timeout=timeout, allow_redirects=True, **kwargs
                 )
                 response.raise_for_status()
                 return response
@@ -83,11 +86,15 @@ class PooledHTTPClient:
             except (OSError, requests.exceptions.RequestException) as e:
                 last_exception = e
                 if attempt < self._config.max_retries:
-                    wait_time = self._config.retry_delay * (2 ** attempt)
-                    logger.debug(f"Retrying HTTP GET for {url} in {wait_time}s (attempt {attempt + 1}/{self._config.max_retries + 1})")
+                    wait_time = self._config.retry_delay * (2**attempt)
+                    logger.debug(
+                        f"Retrying HTTP GET for {url} in {wait_time}s (attempt {attempt + 1}/{self._config.max_retries + 1})"
+                    )
                     time.sleep(wait_time)
                 else:
-                    logger.error(f"HTTP GET failed for {url} after {self._config.max_retries + 1} attempts: {e}")
+                    logger.error(
+                        f"HTTP GET failed for {url} after {self._config.max_retries + 1} attempts: {e}"
+                    )
                     raise last_exception from e
 
     def close(self):

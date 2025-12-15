@@ -8,12 +8,12 @@ console and file logging with configurable log levels and formats.
 
 Example:
     Basic usage:
-        >>> from piedomains.logging import get_logger
+        >>> from piedomains.piedomains_logging import get_logger
         >>> logger = get_logger()
         >>> logger.info("Processing domain classification")
 
     With custom configuration:
-        >>> from piedomains.logging import configure_logging
+        >>> from piedomains.piedomains_logging import configure_logging
         >>> configure_logging(level="DEBUG", console_format="detailed")
         >>> logger = get_logger()
         >>> logger.debug("Detailed debug information")

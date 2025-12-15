@@ -16,7 +16,7 @@ import os
 from importlib.resources import files
 from pathlib import Path
 
-from .logging import get_logger
+from .piedomains_logging import get_logger
 from .utils import REPO_BASE_URL, download_file
 
 logger = get_logger()

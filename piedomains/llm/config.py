@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
-import logging
 import os
 from dataclasses import dataclass
 from typing import Any
 
-logger = logging.getLogger(__name__)
+from ..piedomains_logging import get_logger
+
+logger = get_logger(__name__)
 
 
 @dataclass

@@ -29,7 +29,7 @@ from urllib.parse import quote, urlparse
 import requests
 from bs4 import BeautifulSoup
 
-from .logging import get_logger
+from .piedomains_logging import get_logger
 
 logger = get_logger()
 

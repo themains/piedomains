@@ -15,9 +15,9 @@ from datetime import datetime
 import pandas as pd
 
 from .classifiers import CombinedClassifier, ImageClassifier, TextClassifier
-from .classifiers.llm_classifier import LLMClassifier
-from .llm.config import LLMConfig
-from .logging import get_logger
+
+# LLM imports happen lazily when needed
+from .piedomains_logging import get_logger
 
 logger = get_logger()
 
@@ -61,8 +61,8 @@ class DomainClassifier:
         """
         self.cache_dir = cache_dir or "cache"
         os.makedirs(self.cache_dir, exist_ok=True)
-        self._llm_config: LLMConfig | None = None
-        self._llm_classifier: LLMClassifier | None = None
+        self._llm_config = None
+        self._llm_classifier = None
         logger.info(f"Initialized DomainClassifier with cache_dir: {self.cache_dir}")
 
     def _normalize_archive_date(
@@ -344,6 +344,10 @@ class DomainClassifier:
             ...     categories=["news", "shopping", "social", "tech"]
             ... )
         """
+        # Import LLM classes - these are required dependencies
+        from .classifiers.llm_classifier import LLMClassifier
+        from .llm.config import LLMConfig
+
         self._llm_config = LLMConfig(
             provider=provider,
             model=model,

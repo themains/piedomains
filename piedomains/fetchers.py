@@ -2,6 +2,9 @@
 """
 Modular page fetcher interfaces for different content sources.
 Supports live content fetching and archive.org historical snapshots.
+
+Security-first design: All content is validated before processing to prevent
+security risks from malicious URLs, executables, and binary content.
 """
 
 import time
@@ -13,48 +16,135 @@ from bs4 import BeautifulSoup
 from selenium import webdriver
 
 from .config import get_config
-from .logging import get_logger
+from .content_validation import ContentValidator
+from .piedomains_logging import get_logger
 
 logger = get_logger()
 
 
 class BaseFetcher:
-    """Base class for content fetchers."""
+    """Base class for content fetchers with security validation."""
 
-    def fetch_html(self, url: str) -> tuple[bool, str, str]:
+    def __init__(self):
+        """Initialize fetcher with content validator."""
+        self.config = get_config()
+        self.validator = ContentValidator(self.config)
+
+    def fetch_html(
+        self,
+        url: str,
+        *,
+        force_fetch: bool = False,
+        allow_content_types: list[str] = None,
+        ignore_extensions: bool = False,
+    ) -> tuple[bool, str, str]:
         """
-        Fetch HTML content from a URL.
+        Fetch HTML content from a URL with security validation.
 
         Args:
             url (str): URL to fetch
+            force_fetch (bool): Skip security validation (dangerous)
+            allow_content_types (list): Override allowed content types
+            ignore_extensions (bool): Skip file extension validation
 
         Returns:
             tuple: (success, html_content, error_message)
         """
         raise NotImplementedError
 
-    def fetch_screenshot(self, url: str, output_path: str) -> tuple[bool, str]:
+    def fetch_screenshot(
+        self,
+        url: str,
+        output_path: str,
+        *,
+        force_fetch: bool = False,
+        ignore_extensions: bool = False,
+    ) -> tuple[bool, str]:
         """
-        Take screenshot of a webpage.
+        Take screenshot of a webpage with security validation.
 
         Args:
             url (str): URL to screenshot
             output_path (str): Path to save screenshot
+            force_fetch (bool): Skip security validation (dangerous)
+            ignore_extensions (bool): Skip file extension validation
 
         Returns:
             tuple: (success, error_message)
         """
         raise NotImplementedError
 
+    def _validate_url_security(
+        self,
+        url: str,
+        *,
+        force_fetch: bool = False,
+        allow_content_types: list[str] = None,
+        ignore_extensions: bool = False,
+    ) -> tuple[bool, str]:
+        """
+        Validate URL security before fetching content.
+
+        Returns:
+            tuple: (is_safe, error_message_or_warnings)
+        """
+        try:
+            validation_result = self.validator.validate_url(
+                url,
+                force_fetch=force_fetch,
+                allow_content_types=allow_content_types,
+                ignore_extensions=ignore_extensions,
+            )
+
+            if not validation_result.is_safe:
+                logger.warning(
+                    f"Security validation failed for {url}: {validation_result.error_message}"
+                )
+                return False, validation_result.error_message
+
+            if validation_result.warnings:
+                warning_msg = "; ".join(validation_result.warnings)
+                logger.info(f"Security warnings for {url}: {warning_msg}")
+
+            if validation_result.sandbox_recommended:
+                sandbox_cmd = self.validator.get_sandbox_command(url)
+                logger.warning(
+                    f"Sandbox execution recommended for {url}: {sandbox_cmd}"
+                )
+
+            return True, "; ".join(
+                validation_result.warnings
+            ) if validation_result.warnings else ""
+
+        except Exception as e:
+            error_msg = f"Security validation error: {e}"
+            logger.error(f"Validation error for {url}: {error_msg}")
+            return False, error_msg
+
 
 class LiveFetcher(BaseFetcher):
-    """Fetcher for live web content (current implementation)."""
+    """Fetcher for live web content with security validation."""
 
-    def __init__(self):
-        self.config = get_config()
+    def fetch_html(
+        self,
+        url: str,
+        *,
+        force_fetch: bool = False,
+        allow_content_types: list[str] = None,
+        ignore_extensions: bool = False,
+    ) -> tuple[bool, str, str]:
+        """Fetch HTML from live web with security validation."""
+        # Security validation first
+        is_safe, validation_message = self._validate_url_security(
+            url,
+            force_fetch=force_fetch,
+            allow_content_types=allow_content_types,
+            ignore_extensions=ignore_extensions,
+        )
 
-    def fetch_html(self, url: str) -> tuple[bool, str, str]:
-        """Fetch HTML from live web."""
+        if not is_safe:
+            return False, "", validation_message
+
         try:
             headers = {"User-Agent": self.config.user_agent}
             response = requests.get(
@@ -64,21 +154,65 @@ class LiveFetcher(BaseFetcher):
                 allow_redirects=True,
             )
             response.raise_for_status()
-            return True, response.text, ""
-        except Exception as e:
-            return False, "", str(e)
 
-    def fetch_screenshot(self, url: str, output_path: str) -> tuple[bool, str]:
+            # Additional post-fetch validation
+            actual_content_type = (
+                response.headers.get("content-type", "").split(";")[0].strip().lower()
+            )
+            if actual_content_type and not force_fetch:
+                # Verify actual content type matches expectations
+                allowed_types = allow_content_types or self.config.allowed_content_types
+                if not any(
+                    actual_content_type.startswith(allowed.lower())
+                    for allowed in allowed_types
+                ):
+                    error_msg = (
+                        f"Actual Content-Type '{actual_content_type}' differs from validation.\n"
+                        f"This may indicate a redirect to binary content.\n"
+                        f"Use force_fetch=True to override or sandbox execution for safety."
+                    )
+                    return False, "", error_msg
+
+            success_msg = validation_message or ""
+            if actual_content_type:
+                logger.info(
+                    f"Successfully fetched {url} (Content-Type: {actual_content_type})"
+                )
+
+            return True, response.text, success_msg
+
+        except Exception as e:
+            error_msg = f"Failed to fetch {url}: {e}"
+            logger.error(error_msg)
+            return False, "", error_msg
+
+    def fetch_screenshot(
+        self,
+        url: str,
+        output_path: str,
+        *,
+        force_fetch: bool = False,
+        ignore_extensions: bool = False,
+    ) -> tuple[bool, str]:
         """
-        Take screenshot using Selenium with robust error handling.
+        Take screenshot using Selenium with security validation.
 
         Args:
             url (str): URL to capture screenshot from
             output_path (str): Path where screenshot should be saved
+            force_fetch (bool): Skip security validation (dangerous)
+            ignore_extensions (bool): Skip file extension validation
 
         Returns:
             tuple[bool, str]: Success status and error message if failed
         """
+        # Security validation first
+        is_safe, validation_message = self._validate_url_security(
+            url, force_fetch=force_fetch, ignore_extensions=ignore_extensions
+        )
+
+        if not is_safe:
+            return False, validation_message
         driver = None
         try:
             from selenium.common.exceptions import (
@@ -167,7 +301,7 @@ class ArchiveFetcher(BaseFetcher):
         Args:
             target_date: Target date as 'YYYYMMDD' string or datetime object
         """
-        self.config = get_config()
+        super().__init__()  # Initialize parent class with validator
         if isinstance(target_date, datetime):
             self.target_date = target_date.strftime("%Y%m%d")
         else:
@@ -227,8 +361,26 @@ class ArchiveFetcher(BaseFetcher):
             logger.error(f"Failed to find archive snapshot for {url}: {e}")
             return None
 
-    def fetch_html(self, url: str) -> tuple[bool, str, str]:
-        """Fetch HTML from archive.org snapshot."""
+    def fetch_html(
+        self,
+        url: str,
+        *,
+        force_fetch: bool = False,
+        allow_content_types: list[str] = None,
+        ignore_extensions: bool = False,
+    ) -> tuple[bool, str, str]:
+        """Fetch HTML from archive.org snapshot with security validation."""
+        # Security validation first
+        is_safe, validation_message = self._validate_url_security(
+            url,
+            force_fetch=force_fetch,
+            allow_content_types=allow_content_types,
+            ignore_extensions=ignore_extensions,
+        )
+
+        if not is_safe:
+            return False, "", validation_message
+
         try:
             snapshot_url = self._find_closest_snapshot(url)
             if not snapshot_url:
@@ -263,21 +415,42 @@ class ArchiveFetcher(BaseFetcher):
             ):
                 element.decompose()
 
-            return True, str(soup), ""
-        except Exception as e:
-            return False, "", str(e)
+            success_msg = validation_message or ""
+            logger.info(f"Successfully fetched archived {url} from {self.target_date}")
+            return True, str(soup), success_msg
 
-    def fetch_screenshot(self, url: str, output_path: str) -> tuple[bool, str]:
+        except Exception as e:
+            error_msg = f"Failed to fetch archived {url}: {e}"
+            logger.error(error_msg)
+            return False, "", error_msg
+
+    def fetch_screenshot(
+        self,
+        url: str,
+        output_path: str,
+        *,
+        force_fetch: bool = False,
+        ignore_extensions: bool = False,
+    ) -> tuple[bool, str]:
         """
-        Take screenshot of archived page with robust error handling.
+        Take screenshot of archived page with security validation.
 
         Args:
             url (str): Original URL to find archived snapshot for
             output_path (str): Path where screenshot should be saved
+            force_fetch (bool): Skip security validation (dangerous)
+            ignore_extensions (bool): Skip file extension validation
 
         Returns:
             tuple[bool, str]: Success status and error message if failed
         """
+        # Security validation first
+        is_safe, validation_message = self._validate_url_security(
+            url, force_fetch=force_fetch, ignore_extensions=ignore_extensions
+        )
+
+        if not is_safe:
+            return False, validation_message
         driver = None
         try:
             snapshot_url = self._find_closest_snapshot(url)

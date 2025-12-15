@@ -101,7 +101,7 @@ def demo_new_api():
     print("\nNext steps:")
     print("1. Install: pip install piedomains")
     print("2. Try: classifier.classify(['your-domain.com'])")
-    print("3. Read docs: https://piedomains.readthedocs.io")
+    print("3. Read docs: https://themains.github.io/piedomains/")
 
 
 if __name__ == "__main__":

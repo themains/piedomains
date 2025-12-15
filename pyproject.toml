@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "piedomains"
-version = "0.4.1"
+version = "0.4.2"
 description = "Predict categories based on domain names and their content"
 readme = "README.md"
 license = {text = "MIT License"}
@@ -166,6 +166,7 @@ markers = [
     "ml: marks tests that require ML models (TensorFlow)",
     "basic: marks tests that don't require ML models",
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "performance: marks tests that benchmark performance",
 ]
 
 # mypy configuration

@@ -11,7 +11,7 @@ from bs4 import BeautifulSoup
 from bs4.element import Comment
 
 from ..constants import most_common_words
-from ..logging import get_logger
+from ..piedomains_logging import get_logger
 
 logger = get_logger()
 
@@ -38,6 +38,7 @@ def _initialize_nltk():
 
         # Import and initialize corpora
         from nltk.corpus import stopwords
+
         words = set(nltk.corpus.words.words())
         stop_words = set(stopwords.words("english"))
 
@@ -63,24 +64,24 @@ class TextProcessor:
             str: Cleaned visible text content
         """
         try:
-            soup = BeautifulSoup(html_content, 'html.parser')
+            soup = BeautifulSoup(html_content, "html.parser")
 
             # Remove script and style elements
             for script in soup(["script", "style"]):
                 script.decompose()
 
             # Get text and filter out comments
-            texts = soup.find_all(text=True)
+            texts = soup.find_all(string=True)
             visible_texts = []
 
             for element in texts:
-                if element.parent.name not in ['style', 'script', 'meta', 'title']:
+                if element.parent.name not in ["style", "script", "meta", "title"]:
                     if not isinstance(element, Comment):
                         text = element.strip()
                         if text:
                             visible_texts.append(text)
 
-            return ' '.join(visible_texts)
+            return " ".join(visible_texts)
 
         except Exception as e:
             logger.error(f"Error extracting text from HTML: {e}")

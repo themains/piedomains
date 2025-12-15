@@ -20,6 +20,24 @@ python new_api_demo.py
 python llm_demo.py  # Requires API key
 ```
 
+## 🔒 Security & Sandbox Examples
+
+**⚠️ Important**: For unknown/suspicious domains, use the sandbox examples to protect your system:
+
+```bash
+# Safe, isolated domain classification
+cd examples/sandbox
+python3 secure_classify.py suspicious-domain.com --text-only
+
+# Interactive secure mode
+python3 secure_classify.py --interactive
+
+# See all sandboxing options
+python3 sandbox_demo.py
+```
+
+See **[`sandbox/`](sandbox/)** directory for complete security examples including Docker isolation, macOS sandboxing, and VM setup guides.
+
 ### LLM Demo Setup
 
 For LLM examples, set your API key:

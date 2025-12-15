@@ -10,8 +10,8 @@ from contextlib import contextmanager
 
 from selenium import webdriver
 
-from .logging import get_logger
 from .piedomain import Piedomain
+from .piedomains_logging import get_logger
 
 logger = get_logger()
 
@@ -43,7 +43,9 @@ def webdriver_context() -> Generator[webdriver.Chrome, None, None]:
 
 
 @contextmanager
-def temporary_directory(suffix: str = "", prefix: str = "piedomains_") -> Generator[str, None, None]:
+def temporary_directory(
+    suffix: str = "", prefix: str = "piedomains_"
+) -> Generator[str, None, None]:
     """
     Context manager for temporary directories.
 
@@ -70,7 +72,9 @@ def temporary_directory(suffix: str = "", prefix: str = "piedomains_") -> Genera
                 shutil.rmtree(temp_dir)
                 logger.debug(f"Cleaned up temporary directory: {temp_dir}")
             except Exception as cleanup_error:
-                logger.warning(f"Error cleaning up temporary directory {temp_dir}: {cleanup_error}")
+                logger.warning(
+                    f"Error cleaning up temporary directory {temp_dir}: {cleanup_error}"
+                )
 
 
 @contextmanager
@@ -92,11 +96,15 @@ def file_cleanup(*file_paths: str) -> Generator[None, None, None]:
                     os.remove(file_path)
                     logger.debug(f"Cleaned up file: {file_path}")
                 except Exception as cleanup_error:
-                    logger.warning(f"Error cleaning up file {file_path}: {cleanup_error}")
+                    logger.warning(
+                        f"Error cleaning up file {file_path}: {cleanup_error}"
+                    )
 
 
 @contextmanager
-def error_recovery(operation_name: str, fallback_value=None, reraise: bool = False) -> Generator:
+def error_recovery(
+    operation_name: str, fallback_value=None, reraise: bool = False
+) -> Generator:
     """
     Context manager for error recovery with logging.
 
@@ -108,25 +116,27 @@ def error_recovery(operation_name: str, fallback_value=None, reraise: bool = Fal
     Yields:
         dict: Dictionary with 'success', 'error', 'result' keys
     """
-    result = {'success': False, 'error': None, 'result': fallback_value}
+    result = {"success": False, "error": None, "result": fallback_value}
 
     try:
         logger.debug(f"Starting operation: {operation_name}")
         yield result
-        result['success'] = True
+        result["success"] = True
         logger.debug(f"Operation completed successfully: {operation_name}")
     except Exception as e:
-        result['error'] = e
+        result["error"] = e
         logger.error(f"Operation failed: {operation_name} - {str(e)}")
 
         if reraise:
             raise
         else:
-            result['result'] = fallback_value
+            result["result"] = fallback_value
 
 
 @contextmanager
-def batch_progress_tracking(total_items: int, operation_name: str = "Processing") -> Generator:
+def batch_progress_tracking(
+    total_items: int, operation_name: str = "Processing"
+) -> Generator:
     """
     Context manager for tracking batch processing progress.
 
@@ -137,20 +147,26 @@ def batch_progress_tracking(total_items: int, operation_name: str = "Processing"
     Yields:
         callable: Function to update progress
     """
-    processed = {'count': 0}
+    processed = {"count": 0}
 
     def update_progress(increment: int = 1):
-        processed['count'] += increment
-        if processed['count'] % 10 == 0 or processed['count'] == total_items:
-            logger.info(f"{operation_name}: {processed['count']}/{total_items} completed "
-                       f"({processed['count']/total_items*100:.1f}%)")
+        processed["count"] += increment
+        if processed["count"] % 10 == 0 or processed["count"] == total_items:
+            logger.info(
+                f"{operation_name}: {processed['count']}/{total_items} completed "
+                f"({processed['count']/total_items*100:.1f}%)"
+            )
 
     try:
         logger.info(f"Starting {operation_name}: {total_items} items")
         yield update_progress
-        logger.info(f"Completed {operation_name}: {processed['count']}/{total_items} processed")
+        logger.info(
+            f"Completed {operation_name}: {processed['count']}/{total_items} processed"
+        )
     except Exception as e:
-        logger.error(f"{operation_name} failed after processing {processed['count']}/{total_items} items: {e}")
+        logger.error(
+            f"{operation_name} failed after processing {processed['count']}/{total_items} items: {e}"
+        )
         raise
 
 
