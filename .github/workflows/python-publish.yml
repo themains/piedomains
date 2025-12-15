@@ -1,4 +1,5 @@
 # Publish to PyPI when a new release is created or manually triggered
+# Uses OpenID Connect trusted publishing for enhanced security
 # For more information see: https://docs.github.com/en/actions/guides/publishing-python-packages
 name: python-publish
 on:
@@ -7,10 +8,11 @@ on:
   workflow_dispatch:  # Enables manual triggering
 permissions:
   contents: read
-  id-token: write
+  id-token: write  # Required for trusted publishing with OIDC
 jobs:
   publish:
     runs-on: ubuntu-latest
+    environment: pypi  # Use PyPI environment for trusted publishing
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python
@@ -25,7 +27,8 @@ jobs:
       
       - name: Build package
         run: uv build
+      
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          password: ${{ secrets.PYPI_API_TOKEN }}
+        # Trusted publishing with OpenID Connect - no API token needed
+        # Configured via PyPI project settings: https://pypi.org/manage/account/publishing/

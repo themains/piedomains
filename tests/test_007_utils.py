@@ -41,49 +41,56 @@ class TestUtils(unittest.TestCase):
     @patch('builtins.open', new_callable=mock_open)
     @patch('tarfile.open')
     @patch('os.remove')
-    def test_download_file_success(self, mock_remove, mock_tarfile, mock_file, mock_get):
+    @patch('pathlib.Path.mkdir')
+    @patch('pathlib.Path.stat')
+    @patch('pathlib.Path.unlink')
+    def test_download_file_success(self, mock_unlink, mock_stat, mock_mkdir, mock_remove, mock_tarfile, mock_file, mock_get):
         """Test successful file download and extraction."""
         # Mock successful HTTP response
         mock_response = MagicMock()
         mock_response.content = b"fake tar content"
         mock_get.return_value = mock_response
 
+        # Mock file size
+        mock_stat.return_value.st_size = 1000
+
         # Mock tarfile extraction
         mock_tar = MagicMock()
         mock_tarfile.return_value.__enter__.return_value = mock_tar
 
-        result = utils.download_file("http://example.com/file.tar.gz", "/target", "file.tar.gz")
+        result = utils.download_file("http://example.com/file.tar.gz", "/test", "file.tar.gz")
 
         self.assertTrue(result)
-        mock_get.assert_called_once_with("http://example.com/file.tar.gz", allow_redirects=True, timeout=10)
-        mock_file.assert_called_once_with("/target/file.tar.gz", "wb")
-        mock_remove.assert_called_once_with("/target/file.tar.gz")
+        mock_get.assert_called_once_with("http://example.com/file.tar.gz", allow_redirects=True, timeout=30)
+        mock_unlink.assert_called_once()
 
     @patch('requests.get')
     def test_download_file_http_error(self, mock_get):
         """Test file download with HTTP error."""
-        mock_get.side_effect = Exception("HTTP error")
+        with tempfile.TemporaryDirectory() as temp_dir:
+            mock_get.side_effect = Exception("HTTP error")
 
-        result = utils.download_file("http://example.com/file.tar.gz", "/target", "file.tar.gz")
+            result = utils.download_file("http://example.com/file.tar.gz", temp_dir, "file.tar.gz")
 
-        self.assertFalse(result)
+            self.assertFalse(result)
 
     @patch('requests.get')
     @patch('builtins.open', new_callable=mock_open)
     @patch('tarfile.open')
     def test_download_file_extraction_error(self, mock_tarfile, mock_file, mock_get):
         """Test file download with extraction error."""
-        # Mock successful HTTP response
-        mock_response = MagicMock()
-        mock_response.content = b"fake tar content"
-        mock_get.return_value = mock_response
+        with tempfile.TemporaryDirectory() as temp_dir:
+            # Mock successful HTTP response
+            mock_response = MagicMock()
+            mock_response.content = b"fake tar content"
+            mock_get.return_value = mock_response
 
-        # Mock tarfile extraction error
-        mock_tarfile.side_effect = Exception("Extraction error")
+            # Mock tarfile extraction error
+            mock_tarfile.side_effect = Exception("Extraction error")
 
-        result = utils.download_file("http://example.com/file.tar.gz", "/target", "file.tar.gz")
+            result = utils.download_file("http://example.com/file.tar.gz", temp_dir, "file.tar.gz")
 
-        self.assertFalse(result)
+            self.assertFalse(result)
 
     def test_safe_extract_safe_members(self):
         """Test safe_extract with safe tar members."""
@@ -128,7 +135,7 @@ class TestUtils(unittest.TestCase):
                 with self.assertRaises(Exception) as context:
                     utils.safe_extract(tar, extract_dir)
 
-                self.assertIn("Failed Path Traversal", str(context.exception))
+                self.assertIn("Path traversal detected", str(context.exception))
 
     def test_repo_base_url_environment_variable(self):
         """Test REPO_BASE_URL uses environment variable when set."""
@@ -156,4 +163,3 @@ class TestUtils(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-
