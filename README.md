@@ -1,8 +1,8 @@
 # piedomains: AI-powered domain content classification
 
-[![Build Status](https://github.com/themains/piedomains/actions/workflows/python-publish.yml/badge.svg)](https://github.com/themains/piedomains/actions/workflows/python-publish.yml)
+[![CI](https://github.com/themains/piedomains/actions/workflows/ci.yml/badge.svg)](https://github.com/themains/piedomains/actions/workflows/ci.yml)
 [![PyPI Version](https://img.shields.io/pypi/v/piedomains.svg)](https://pypi.python.org/pypi/piedomains)
-[![Documentation Status](https://readthedocs.org/projects/piedomains/badge/?version=latest)](http://piedomains.readthedocs.io/en/latest/?badge=latest)
+[![Documentation](https://github.com/themains/piedomains/actions/workflows/docs.yml/badge.svg)](https://github.com/themains/piedomains/actions/workflows/docs.yml)
 
 **piedomains** predicts website content categories using AI analysis of domain names, text content, and homepage screenshots. Classify domains as news, shopping, adult content, education, etc. with high accuracy.
 
