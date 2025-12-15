@@ -58,7 +58,8 @@ autodoc_mock_imports = [
     'nltk',
     'scikit-learn',
     'sklearn',
-    'joblib'
+    'joblib',
+    'litellm'
 ]
 
 # Source file configuration

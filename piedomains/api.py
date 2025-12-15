@@ -15,6 +15,8 @@ from datetime import datetime
 import pandas as pd
 
 from .classifiers import CombinedClassifier, ImageClassifier, TextClassifier
+from .classifiers.llm_classifier import LLMClassifier
+from .llm.config import LLMConfig
 from .logging import get_logger
 
 logger = get_logger()
@@ -24,10 +26,12 @@ class DomainClassifier:
     """
     Main interface for domain content classification.
 
-    Supports text-based, image-based, and combined classification approaches.
-    Can analyze current content or historical snapshots from archive.org.
+    Supports multiple classification approaches:
+    - Traditional ML: Text-based, image-based, and combined classification
+    - Modern AI: LLM-based classification with multimodal support
+    - Historical analysis via archive.org snapshots
 
-    Example:
+    Example (Traditional ML):
         >>> classifier = DomainClassifier()
         >>> result = classifier.classify(["google.com", "facebook.com"])
         >>> print(result[['domain', 'pred_label', 'pred_prob']])
@@ -35,8 +39,16 @@ class DomainClassifier:
         # Historical analysis
         >>> result = classifier.classify(["google.com"], archive_date="20200101")
 
-        # Text-only analysis
-        >>> result = classifier.classify_by_text(["google.com"])
+    Example (LLM-based):
+        >>> classifier = DomainClassifier()
+        >>> classifier.configure_llm(
+        ...     provider="openai",
+        ...     model="gpt-4o", 
+        ...     api_key="sk-...",
+        ...     categories=["news", "shopping", "social", "tech"]
+        ... )
+        >>> result = classifier.classify_by_llm(["cnn.com"])
+        >>> result = classifier.classify_by_llm_multimodal(["amazon.com"])
     """
 
     def __init__(self, cache_dir: str | None = None):
@@ -49,6 +61,8 @@ class DomainClassifier:
         """
         self.cache_dir = cache_dir or "cache"
         os.makedirs(self.cache_dir, exist_ok=True)
+        self._llm_config: LLMConfig | None = None
+        self._llm_classifier: LLMClassifier | None = None
         logger.info(f"Initialized DomainClassifier with cache_dir: {self.cache_dir}")
 
     def _normalize_archive_date(self, archive_date: str | datetime | None) -> str | None:
@@ -279,6 +293,157 @@ class DomainClassifier:
             return pd.concat(all_results, ignore_index=True)
         else:
             return pd.DataFrame()
+
+    def configure_llm(self,
+                      provider: str,
+                      model: str,
+                      api_key: str | None = None,
+                      categories: list[str] | None = None,
+                      **kwargs) -> None:
+        """
+        Configure LLM for AI-powered domain classification.
+        
+        Args:
+            provider: LLM provider ('openai', 'anthropic', 'google', etc.)
+            model: Model name ('gpt-4o', 'claude-3-5-sonnet-20241022', 'gemini-1.5-pro')
+            api_key: API key for the provider (or set via environment variable)
+            categories: Custom classification categories
+            **kwargs: Additional LLMConfig parameters (temperature, max_tokens, etc.)
+            
+        Example:
+            >>> classifier = DomainClassifier()
+            >>> classifier.configure_llm(
+            ...     provider="openai",
+            ...     model="gpt-4o",
+            ...     api_key="sk-...",
+            ...     categories=["news", "shopping", "social", "tech"]
+            ... )
+        """
+        self._llm_config = LLMConfig(
+            provider=provider,
+            model=model,
+            api_key=api_key,
+            categories=categories,
+            **kwargs
+        )
+        
+        self._llm_classifier = LLMClassifier(self._llm_config)
+        logger.info(f"Configured LLM: {provider}/{model}")
+
+    def classify_by_llm(self,
+                        domains: list[str],
+                        custom_instructions: str | None = None,
+                        use_cache: bool = True) -> pd.DataFrame:
+        """
+        Classify domains using LLM text analysis.
+        
+        Args:
+            domains: List of domain names to classify
+            custom_instructions: Optional custom classification instructions  
+            use_cache: Whether to use cached content (default: True)
+            
+        Returns:
+            pd.DataFrame: Results with LLM classifications
+            
+        Raises:
+            RuntimeError: If LLM not configured
+            
+        Example:
+            >>> classifier = DomainClassifier()
+            >>> classifier.configure_llm("openai", "gpt-4o", api_key="sk-...")
+            >>> result = classifier.classify_by_llm(["cnn.com", "amazon.com"])
+        """
+        if self._llm_classifier is None:
+            raise RuntimeError("LLM not configured. Call configure_llm() first.")
+        
+        # Get text content using existing infrastructure
+        text_classifier = TextClassifier(self.cache_dir)
+        text_results = text_classifier.predict(domains, use_cache, latest=False)
+        
+        # Extract content for LLM
+        content_dict = {}
+        for _, row in text_results.iterrows():
+            domain = row.get('domain', '')
+            content = row.get('extracted_text', '')
+            if domain and content:
+                content_dict[domain] = content
+        
+        # Classify with LLM
+        return self._llm_classifier.classify_text(
+            domains, content_dict, custom_instructions
+        )
+
+    def classify_by_llm_multimodal(self,
+                                   domains: list[str],
+                                   custom_instructions: str | None = None,
+                                   use_cache: bool = True) -> pd.DataFrame:
+        """
+        Classify domains using LLM multimodal analysis (text + screenshots).
+        
+        Args:
+            domains: List of domain names to classify
+            custom_instructions: Optional custom classification instructions
+            use_cache: Whether to use cached content (default: True)
+            
+        Returns:
+            pd.DataFrame: Results with multimodal LLM classifications
+            
+        Raises:
+            RuntimeError: If LLM not configured
+            
+        Example:
+            >>> classifier = DomainClassifier()
+            >>> classifier.configure_llm("openai", "gpt-4o", api_key="sk-...")
+            >>> result = classifier.classify_by_llm_multimodal(["cnn.com"])
+        """
+        if self._llm_classifier is None:
+            raise RuntimeError("LLM not configured. Call configure_llm() first.")
+        
+        # Get both text and image content using existing infrastructure
+        combined_classifier = CombinedClassifier(self.cache_dir)
+        combined_results = combined_classifier.predict(domains, use_cache, latest=False)
+        
+        # Extract content and screenshots for LLM
+        content_dict = {}
+        screenshot_dict = {}
+        
+        for _, row in combined_results.iterrows():
+            domain = row.get('domain', '')
+            content = row.get('extracted_text', '')
+            
+            if domain:
+                if content:
+                    content_dict[domain] = content
+                
+                # Check if screenshot was captured
+                if row.get('used_domain_screenshot', False):
+                    # Screenshot should be in cache
+                    screenshot_path = os.path.join(self.cache_dir, 'images', f'{domain}.png')
+                    if os.path.exists(screenshot_path):
+                        screenshot_dict[domain] = screenshot_path
+        
+        # Classify with LLM multimodal
+        return self._llm_classifier.classify_multimodal(
+            domains, content_dict, screenshot_dict, custom_instructions
+        )
+
+    def get_llm_usage_stats(self) -> dict | None:
+        """
+        Get LLM usage statistics and cost tracking.
+        
+        Returns:
+            Dictionary with usage stats or None if LLM not configured
+            
+        Example:
+            >>> classifier = DomainClassifier()
+            >>> classifier.configure_llm("openai", "gpt-4o")
+            >>> classifier.classify_by_llm(["example.com"])
+            >>> stats = classifier.get_llm_usage_stats()
+            >>> print(f"Cost: ${stats['estimated_cost_usd']:.4f}")
+        """
+        if self._llm_classifier is None:
+            return None
+        return self._llm_classifier.get_usage_stats()
 
     def _parse_domain_name(self, url_or_domain: str) -> str:
         """Extract domain name from URL or domain string."""

@@ -20,6 +20,14 @@ piedomains.classifiers.image\_classifier module
    :show-inheritance:
    :undoc-members:
 
+piedomains.classifiers.llm\_classifier module
+---------------------------------------------
+
+.. automodule:: piedomains.classifiers.llm_classifier
+   :members:
+   :show-inheritance:
+   :undoc-members:
+
 piedomains.classifiers.text\_classifier module
 ----------------------------------------------
 

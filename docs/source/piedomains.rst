@@ -8,6 +8,7 @@ Subpackages
    :maxdepth: 4
 
    piedomains.classifiers
+   piedomains.llm
    piedomains.processors
 
 Submodules
