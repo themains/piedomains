@@ -56,8 +56,13 @@ docs = [
     "sphinx-copybutton>=0.5",
     "myst-parser>=2.0",
 ]
-
-[dependency-groups]
+test = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+    "pytest-mock>=3.10",
+    "psutil>=5.9.0",
+    "ruff>=0.7.0",
+]
 dev = [
     "pytest>=7.0",
     "pytest-cov>=4.0",
@@ -68,12 +73,6 @@ dev = [
     "black>=24.0",
     "isort>=5.0",
     "pre-commit>=3.0",
-    "psutil>=5.9.0",
-]
-test = [
-    "pytest>=7.0",
-    "pytest-cov>=4.0",
-    "pytest-mock>=3.10",
     "psutil>=5.9.0",
 ]
 

@@ -33,7 +33,6 @@ jobs:
       - name: Install dependencies
         run: |
           uv pip install --system -e ".[test]"
-          uv pip install --system ruff
       
       - name: Run linting with ruff
         run: |
