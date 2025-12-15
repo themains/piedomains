@@ -43,7 +43,7 @@ class DomainClassifier:
         >>> classifier = DomainClassifier()
         >>> classifier.configure_llm(
         ...     provider="openai",
-        ...     model="gpt-4o", 
+        ...     model="gpt-4o",
         ...     api_key="sk-...",
         ...     categories=["news", "shopping", "social", "tech"]
         ... )
@@ -65,7 +65,9 @@ class DomainClassifier:
         self._llm_classifier: LLMClassifier | None = None
         logger.info(f"Initialized DomainClassifier with cache_dir: {self.cache_dir}")
 
-    def _normalize_archive_date(self, archive_date: str | datetime | None) -> str | None:
+    def _normalize_archive_date(
+        self, archive_date: str | datetime | None
+    ) -> str | None:
         """Validate and normalise archive date.
 
         Args:
@@ -83,24 +85,30 @@ class DomainClassifier:
         if isinstance(archive_date, datetime):
             archive_date = archive_date.strftime("%Y%m%d")
 
-        if not isinstance(archive_date, str) or not re.fullmatch(r"\d{8}", archive_date):
+        if not isinstance(archive_date, str) or not re.fullmatch(
+            r"\d{8}", archive_date
+        ):
             raise ValueError("archive_date must be in YYYYMMDD format")
 
         try:
             parsed = datetime.strptime(archive_date, "%Y%m%d")
         except ValueError as exc:  # invalid date
-            raise ValueError("archive_date must be a valid date in YYYYMMDD format") from exc
+            raise ValueError(
+                "archive_date must be a valid date in YYYYMMDD format"
+            ) from exc
 
         if parsed < datetime(2000, 1, 1) or parsed > datetime.now():
             raise ValueError("archive_date must be between 20000101 and today's date")
 
         return archive_date
 
-    def classify(self,
-                 domains: list[str],
-                 archive_date: str | datetime | None = None,
-                 use_cache: bool = True,
-                 latest_models: bool = False) -> pd.DataFrame:
+    def classify(
+        self,
+        domains: list[str],
+        archive_date: str | datetime | None = None,
+        use_cache: bool = True,
+        latest_models: bool = False,
+    ) -> pd.DataFrame:
         """
         Classify domains using combined text and image analysis.
 
@@ -149,11 +157,13 @@ class DomainClassifier:
         # Perform classification
         return classifier.predict(domains, use_cache, latest_models)
 
-    def classify_by_text(self,
-                        domains: list[str],
-                        archive_date: str | datetime | None = None,
-                        use_cache: bool = True,
-                        latest_models: bool = False) -> pd.DataFrame:
+    def classify_by_text(
+        self,
+        domains: list[str],
+        archive_date: str | datetime | None = None,
+        use_cache: bool = True,
+        latest_models: bool = False,
+    ) -> pd.DataFrame:
         """
         Classify domains using only text content analysis.
 
@@ -182,11 +192,13 @@ class DomainClassifier:
         # Perform classification
         return classifier.predict(domains, use_cache, latest_models)
 
-    def classify_by_images(self,
-                          domains: list[str],
-                          archive_date: str | datetime | None = None,
-                          use_cache: bool = True,
-                          latest_models: bool = False) -> pd.DataFrame:
+    def classify_by_images(
+        self,
+        domains: list[str],
+        archive_date: str | datetime | None = None,
+        use_cache: bool = True,
+        latest_models: bool = False,
+    ) -> pd.DataFrame:
         """
         Classify domains using only homepage screenshot analysis.
 
@@ -215,14 +227,16 @@ class DomainClassifier:
         # Perform classification
         return classifier.predict(domains, use_cache, latest_models)
 
-    def classify_batch(self,
-                      domains: list[str],
-                      method: str = "combined",
-                      archive_date: str | datetime | None = None,
-                      use_cache: bool = True,
-                      latest_models: bool = False,
-                      batch_size: int = 10,
-                      show_progress: bool = True) -> pd.DataFrame:
+    def classify_batch(
+        self,
+        domains: list[str],
+        method: str = "combined",
+        archive_date: str | datetime | None = None,
+        use_cache: bool = True,
+        latest_models: bool = False,
+        batch_size: int = 10,
+        show_progress: bool = True,
+    ) -> pd.DataFrame:
         """
         Classify large batches of domains with progress tracking.
 
@@ -249,6 +263,7 @@ class DomainClassifier:
         if show_progress:
             try:
                 from tqdm import tqdm
+
                 progress_bar = tqdm(total=len(domains), desc=f"Classifying ({method})")
             except ImportError:
                 logger.warning("tqdm not available, progress bar disabled")
@@ -258,15 +273,21 @@ class DomainClassifier:
 
         # Process in batches
         for i in range(0, len(domains), batch_size):
-            batch = domains[i:i + batch_size]
+            batch = domains[i : i + batch_size]
 
             try:
                 if method == "combined":
-                    batch_result = self.classify(batch, archive_date, use_cache, latest_models)
+                    batch_result = self.classify(
+                        batch, archive_date, use_cache, latest_models
+                    )
                 elif method == "text":
-                    batch_result = self.classify_by_text(batch, archive_date, use_cache, latest_models)
+                    batch_result = self.classify_by_text(
+                        batch, archive_date, use_cache, latest_models
+                    )
                 else:  # images
-                    batch_result = self.classify_by_images(batch, archive_date, use_cache, latest_models)
+                    batch_result = self.classify_by_images(
+                        batch, archive_date, use_cache, latest_models
+                    )
 
                 if len(batch_result) > len(batch):
                     batch_result = batch_result.head(len(batch))
@@ -276,10 +297,12 @@ class DomainClassifier:
             except Exception as e:
                 logger.error(f"Batch {i//batch_size + 1} failed: {e}")
                 # Create error result for this batch
-                error_result = pd.DataFrame([
-                    {'domain': self._parse_domain_name(d), 'error': str(e)}
-                    for d in batch
-                ])
+                error_result = pd.DataFrame(
+                    [
+                        {"domain": self._parse_domain_name(d), "error": str(e)}
+                        for d in batch
+                    ]
+                )
                 all_results.append(error_result)
 
             if show_progress:
@@ -294,22 +317,24 @@ class DomainClassifier:
         else:
             return pd.DataFrame()
 
-    def configure_llm(self,
-                      provider: str,
-                      model: str,
-                      api_key: str | None = None,
-                      categories: list[str] | None = None,
-                      **kwargs) -> None:
+    def configure_llm(
+        self,
+        provider: str,
+        model: str,
+        api_key: str | None = None,
+        categories: list[str] | None = None,
+        **kwargs,
+    ) -> None:
         """
         Configure LLM for AI-powered domain classification.
-        
+
         Args:
             provider: LLM provider ('openai', 'anthropic', 'google', etc.)
             model: Model name ('gpt-4o', 'claude-3-5-sonnet-20241022', 'gemini-1.5-pro')
             api_key: API key for the provider (or set via environment variable)
             categories: Custom classification categories
             **kwargs: Additional LLMConfig parameters (temperature, max_tokens, etc.)
-            
+
         Example:
             >>> classifier = DomainClassifier()
             >>> classifier.configure_llm(
@@ -324,30 +349,32 @@ class DomainClassifier:
             model=model,
             api_key=api_key,
             categories=categories,
-            **kwargs
+            **kwargs,
         )
-        
+
         self._llm_classifier = LLMClassifier(self._llm_config)
         logger.info(f"Configured LLM: {provider}/{model}")
 
-    def classify_by_llm(self,
-                        domains: list[str],
-                        custom_instructions: str | None = None,
-                        use_cache: bool = True) -> pd.DataFrame:
+    def classify_by_llm(
+        self,
+        domains: list[str],
+        custom_instructions: str | None = None,
+        use_cache: bool = True,
+    ) -> pd.DataFrame:
         """
         Classify domains using LLM text analysis.
-        
+
         Args:
             domains: List of domain names to classify
-            custom_instructions: Optional custom classification instructions  
+            custom_instructions: Optional custom classification instructions
             use_cache: Whether to use cached content (default: True)
-            
+
         Returns:
             pd.DataFrame: Results with LLM classifications
-            
+
         Raises:
             RuntimeError: If LLM not configured
-            
+
         Example:
             >>> classifier = DomainClassifier()
             >>> classifier.configure_llm("openai", "gpt-4o", api_key="sk-...")
@@ -355,42 +382,44 @@ class DomainClassifier:
         """
         if self._llm_classifier is None:
             raise RuntimeError("LLM not configured. Call configure_llm() first.")
-        
+
         # Get text content using existing infrastructure
         text_classifier = TextClassifier(self.cache_dir)
         text_results = text_classifier.predict(domains, use_cache, latest=False)
-        
+
         # Extract content for LLM
         content_dict = {}
         for _, row in text_results.iterrows():
-            domain = row.get('domain', '')
-            content = row.get('extracted_text', '')
+            domain = row.get("domain", "")
+            content = row.get("extracted_text", "")
             if domain and content:
                 content_dict[domain] = content
-        
+
         # Classify with LLM
         return self._llm_classifier.classify_text(
             domains, content_dict, custom_instructions
         )
 
-    def classify_by_llm_multimodal(self,
-                                   domains: list[str],
-                                   custom_instructions: str | None = None,
-                                   use_cache: bool = True) -> pd.DataFrame:
+    def classify_by_llm_multimodal(
+        self,
+        domains: list[str],
+        custom_instructions: str | None = None,
+        use_cache: bool = True,
+    ) -> pd.DataFrame:
         """
         Classify domains using LLM multimodal analysis (text + screenshots).
-        
+
         Args:
             domains: List of domain names to classify
             custom_instructions: Optional custom classification instructions
             use_cache: Whether to use cached content (default: True)
-            
+
         Returns:
             pd.DataFrame: Results with multimodal LLM classifications
-            
+
         Raises:
             RuntimeError: If LLM not configured
-            
+
         Example:
             >>> classifier = DomainClassifier()
             >>> classifier.configure_llm("openai", "gpt-4o", api_key="sk-...")
@@ -398,30 +427,32 @@ class DomainClassifier:
         """
         if self._llm_classifier is None:
             raise RuntimeError("LLM not configured. Call configure_llm() first.")
-        
+
         # Get both text and image content using existing infrastructure
         combined_classifier = CombinedClassifier(self.cache_dir)
         combined_results = combined_classifier.predict(domains, use_cache, latest=False)
-        
+
         # Extract content and screenshots for LLM
         content_dict = {}
         screenshot_dict = {}
-        
+
         for _, row in combined_results.iterrows():
-            domain = row.get('domain', '')
-            content = row.get('extracted_text', '')
-            
+            domain = row.get("domain", "")
+            content = row.get("extracted_text", "")
+
             if domain:
                 if content:
                     content_dict[domain] = content
-                
+
                 # Check if screenshot was captured
-                if row.get('used_domain_screenshot', False):
+                if row.get("used_domain_screenshot", False):
                     # Screenshot should be in cache
-                    screenshot_path = os.path.join(self.cache_dir, 'images', f'{domain}.png')
+                    screenshot_path = os.path.join(
+                        self.cache_dir, "images", f"{domain}.png"
+                    )
                     if os.path.exists(screenshot_path):
                         screenshot_dict[domain] = screenshot_path
-        
+
         # Classify with LLM multimodal
         return self._llm_classifier.classify_multimodal(
             domains, content_dict, screenshot_dict, custom_instructions
@@ -430,10 +461,10 @@ class DomainClassifier:
     def get_llm_usage_stats(self) -> dict | None:
         """
         Get LLM usage statistics and cost tracking.
-        
+
         Returns:
             Dictionary with usage stats or None if LLM not configured
-            
+
         Example:
             >>> classifier = DomainClassifier()
             >>> classifier.configure_llm("openai", "gpt-4o")
@@ -449,14 +480,17 @@ class DomainClassifier:
         """Extract domain name from URL or domain string."""
         # Import here to avoid circular imports
         from .piedomain import Piedomain
+
         return Piedomain.parse_url_to_domain(url_or_domain)
 
 
 # Convenience functions for quick access
-def _classify_domains_impl(domains: list[str],
-                           method: str = "combined",
-                           archive_date: str | datetime | None = None,
-                           cache_dir: str | None = None) -> pd.DataFrame:
+def _classify_domains_impl(
+    domains: list[str],
+    method: str = "combined",
+    archive_date: str | datetime | None = None,
+    cache_dir: str | None = None,
+) -> pd.DataFrame:
     """Internal implementation for :func:`classify_domains`."""
     classifier = DomainClassifier(cache_dir)
 
@@ -470,10 +504,12 @@ def _classify_domains_impl(domains: list[str],
         raise ValueError("method must be 'combined', 'text', or 'images'")
 
 
-def classify_domains(domains: list[str],
-                    method: str = "combined",
-                    archive_date: str | datetime | None = None,
-                    cache_dir: str | None = None) -> pd.DataFrame:
+def classify_domains(
+    domains: list[str],
+    method: str = "combined",
+    archive_date: str | datetime | None = None,
+    cache_dir: str | None = None,
+) -> pd.DataFrame:
     """Quick domain classification function.
 
     This wrapper allows the function to be easily patched in tests while the
@@ -482,12 +518,12 @@ def classify_domains(domains: list[str],
 
     current = globals().get("classify_domains")
     if current is not _classify_domains_wrapper:
-        return current(domains, method=method, archive_date=archive_date, cache_dir=cache_dir)
+        return current(
+            domains, method=method, archive_date=archive_date, cache_dir=cache_dir
+        )
 
     return _classify_domains_impl(domains, method, archive_date, cache_dir)
 
 
 # Store original function object for patch detection
 _classify_domains_wrapper = classify_domains
-
-

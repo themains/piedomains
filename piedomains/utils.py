@@ -14,7 +14,6 @@ path traversal attacks.
 import os
 import tarfile
 from pathlib import Path
-from typing import Any, Optional
 
 import requests
 
@@ -24,8 +23,9 @@ logger = get_logger()
 
 
 # Model repository configuration
-REPO_BASE_URL = os.environ.get("PIEDOMAINS_MODEL_URL", 
-                              "https://dataverse.harvard.edu/api/access/datafile/7081895")
+REPO_BASE_URL = os.environ.get(
+    "PIEDOMAINS_MODEL_URL", "https://dataverse.harvard.edu/api/access/datafile/7081895"
+)
 """
 str: Base URL for model data repository.
 
@@ -83,55 +83,55 @@ def download_file(url: str, target: str, file_name: str, timeout: int = 30) -> b
     # Ensure target directory exists
     target_path = Path(target)
     target_path.mkdir(parents=True, exist_ok=True)
-    
+
     file_path = target_path / file_name
-    
+
     try:
         logger.info(f"Downloading {file_name} from {url}")
         logger.debug(f"Target directory: {target}")
-        
+
         # Download the file with proper error handling
         response = requests.get(url, allow_redirects=True, timeout=timeout)
         response.raise_for_status()  # Raise an exception for bad status codes
-        
+
         # Write file content
         with open(file_path, "wb") as f:
             f.write(response.content)
-        
+
         file_size = file_path.stat().st_size
         logger.info(f"Downloaded {file_name} ({file_size:,} bytes)")
-        
+
         # Extract archive using secure extraction
         logger.debug(f"Extracting {file_name} to {target}")
         with tarfile.open(file_path, "r:gz") as tar_ref:
             safe_extract(tar_ref, str(target_path))
-        
+
         logger.info(f"Successfully extracted {file_name}")
-        
+
         # Clean up downloaded archive
         file_path.unlink()
         logger.debug(f"Cleaned up downloaded archive: {file_name}")
-        
+
         return True
-        
+
     except requests.exceptions.RequestException as e:
         logger.error(f"Failed to download {file_name} from {url}: {e}")
         return False
-        
+
     except tarfile.TarError as e:
         logger.error(f"Failed to extract {file_name}: {e}")
         # Clean up partial download
         if file_path.exists():
             file_path.unlink()
         return False
-        
+
     except OSError as e:
         logger.error(f"File system error during download of {file_name}: {e}")
         # Clean up partial download
         if file_path.exists():
             file_path.unlink()
         return False
-        
+
     except Exception as e:
         logger.error(f"Unexpected error downloading {file_name}: {e}")
         # Clean up partial download
@@ -160,11 +160,11 @@ def is_within_directory(directory: str, target: str) -> bool:
         >>> # Safe path
         >>> is_within_directory("/safe/dir", "/safe/dir/file.txt")
         True
-        
+
         >>> # Path traversal attempt
         >>> is_within_directory("/safe/dir", "/safe/dir/../../../etc/passwd")
         False
-        
+
         >>> # Another traversal attempt
         >>> is_within_directory("/safe/dir", "/safe/dir/subdir/../../../etc/passwd")
         False
@@ -183,19 +183,21 @@ def is_within_directory(directory: str, target: str) -> bool:
 
     prefix = os.path.commonprefix([abs_directory, abs_target])
     is_safe = prefix == abs_directory
-    
+
     if not is_safe:
-        logger.warning(f"Path traversal attempt detected: {target} would escape {directory}")
-    
+        logger.warning(
+            f"Path traversal attempt detected: {target} would escape {directory}"
+        )
+
     return is_safe
 
 
 def safe_extract(
-    tar: tarfile.TarFile, 
-    path: str = ".", 
-    members: Optional[list] = None, 
-    *, 
-    numeric_owner: bool = False
+    tar: tarfile.TarFile,
+    path: str = ".",
+    members: list | None = None,
+    *,
+    numeric_owner: bool = False,
 ) -> None:
     """
     Securely extract a tar archive with path traversal protection.
@@ -236,25 +238,25 @@ def safe_extract(
         downloaded model files.
     """
     logger.debug(f"Performing secure extraction to {path}")
-    
+
     # Get members to extract (all if none specified)
     members_to_extract = members or tar.getmembers()
-    
+
     # Validate each member before extraction
     for member in members_to_extract:
         member_path = os.path.join(path, member.name)
-        
+
         if not is_within_directory(path, member_path):
             raise SecurityError(
                 f"Path traversal detected in tar archive: member '{member.name}' "
                 f"would extract to '{member_path}' outside target directory '{path}'"
             )
-        
+
         # Additional security checks
         if member.isdev():
             logger.warning(f"Skipping device file in archive: {member.name}")
             continue
-            
+
         if member.issym() or member.islnk():
             # Check that symlinks don't escape the directory
             if member.issym():
@@ -263,12 +265,12 @@ def safe_extract(
                     raise SecurityError(
                         f"Symlink traversal detected: {member.name} -> {member.linkname}"
                     )
-    
+
     logger.debug(f"All {len(members_to_extract)} archive members validated")
-    
+
     # Perform extraction
     tar.extractall(path, members, numeric_owner=numeric_owner)
-    
+
     logger.info(f"Safely extracted {len(members_to_extract)} files to {path}")
 
 
@@ -285,6 +287,7 @@ class SecurityError(Exception):
         ... except SecurityError as e:
         ...     logger.error(f"Security violation: {e}")
     """
+
     pass
 
 
@@ -309,21 +312,21 @@ def get_file_hash(file_path: str, algorithm: str = "sha256") -> str:
         >>> print(f"File hash: {hash_value}")
     """
     import hashlib
-    
+
     # Validate algorithm
     if algorithm not in hashlib.algorithms_available:
         raise ValueError(f"Unsupported hash algorithm: {algorithm}")
-    
+
     hash_obj = hashlib.new(algorithm)
-    
+
     try:
         with open(file_path, "rb") as f:
             # Read file in chunks to handle large files efficiently
             for chunk in iter(lambda: f.read(8192), b""):
                 hash_obj.update(chunk)
-        
+
         return hash_obj.hexdigest()
-        
+
     except FileNotFoundError:
         logger.error(f"File not found for hashing: {file_path}")
         raise

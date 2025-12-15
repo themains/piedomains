@@ -20,17 +20,12 @@ Example:
 """
 
 import logging
-import os
 import sys
 from pathlib import Path
-from typing import Union
-
 
 # Default log formats
 DEFAULT_FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-DETAILED_FORMAT = (
-    "%(asctime)s - %(name)s - %(levelname)s - %(module)s:%(funcName)s:%(lineno)d - %(message)s"
-)
+DETAILED_FORMAT = "%(asctime)s - %(name)s - %(levelname)s - %(module)s:%(funcName)s:%(lineno)d - %(message)s"
 SIMPLE_FORMAT = "%(levelname)s - %(message)s"
 
 # Global logger configuration state
@@ -52,24 +47,24 @@ def get_logger(name: str | None = None) -> logging.Logger:
         >>> # Get the main piedomains logger
         >>> logger = get_logger()
         >>> logger.info("Main application log")
-        
+
         >>> # Get a module-specific logger
         >>> logger = get_logger(__name__)
         >>> logger.debug("Module-specific debug info")
     """
     if not _configured:
         configure_logging()
-    
+
     logger_name = name or "piedomains"
     return logging.getLogger(logger_name)
 
 
 def configure_logging(
-    level: Union[str, int] = "INFO",
+    level: str | int = "INFO",
     console_format: str = "default",
     file_path: str | None = None,
-    file_level: Union[str, int] = "DEBUG",
-    force_reconfigure: bool = False
+    file_level: str | int = "DEBUG",
+    force_reconfigure: bool = False,
 ) -> None:
     """
     Configure logging for the piedomains package with comprehensive options.
@@ -96,7 +91,7 @@ def configure_logging(
     Example:
         >>> # Basic console logging
         >>> configure_logging(level="DEBUG")
-        
+
         >>> # Console + file logging with detailed format
         >>> configure_logging(
         ...     level="INFO",
@@ -106,70 +101,74 @@ def configure_logging(
         ... )
     """
     global _configured
-    
+
     if _configured and not force_reconfigure:
         return
-    
+
     # Convert string levels to logging constants
     if isinstance(level, str):
         level = getattr(logging, level.upper(), logging.INFO)
     if isinstance(file_level, str):
         file_level = getattr(logging, file_level.upper(), logging.DEBUG)
-    
+
     # Select console format
     format_map = {
         "default": DEFAULT_FORMAT,
         "detailed": DETAILED_FORMAT,
-        "simple": SIMPLE_FORMAT
+        "simple": SIMPLE_FORMAT,
     }
-    
+
     if console_format not in format_map:
-        raise ValueError(f"Invalid format style: {console_format}. "
-                        f"Must be one of: {list(format_map.keys())}")
-    
+        raise ValueError(
+            f"Invalid format style: {console_format}. "
+            f"Must be one of: {list(format_map.keys())}"
+        )
+
     console_formatter = logging.Formatter(format_map[console_format])
-    
+
     # Get the root piedomains logger
     logger = logging.getLogger("piedomains")
     logger.setLevel(logging.DEBUG)  # Allow all levels, handlers filter
-    
+
     # Clear existing handlers to avoid duplication
     for handler in logger.handlers[:]:
         logger.removeHandler(handler)
-    
+
     # Console handler
     console_handler = logging.StreamHandler(sys.stdout)
     console_handler.setLevel(level)
     console_handler.setFormatter(console_formatter)
     logger.addHandler(console_handler)
-    
+
     # File handler (optional)
     if file_path:
         try:
             # Ensure log directory exists
             log_dir = Path(file_path).parent
             log_dir.mkdir(parents=True, exist_ok=True)
-            
+
             file_handler = logging.FileHandler(file_path)
             file_handler.setLevel(file_level)
             file_handler.setFormatter(logging.Formatter(DETAILED_FORMAT))
             logger.addHandler(file_handler)
-            
+
             logger.info(f"File logging enabled: {file_path}")
-            
+
         except (OSError, PermissionError) as e:
             # Fallback to console-only logging if file fails
             logger.warning(f"Could not set up file logging at {file_path}: {e}")
-    
+
     # Prevent propagation to root logger to avoid duplicate messages
     logger.propagate = False
-    
+
     _configured = True
-    logger.debug(f"Logging configured: console_level={logging.getLevelName(level)}, "
-                f"format={console_format}")
+    logger.debug(
+        f"Logging configured: console_level={logging.getLevelName(level)}, "
+        f"format={console_format}"
+    )
 
 
-def set_level(level: Union[str, int]) -> None:
+def set_level(level: str | int) -> None:
     """
     Change the logging level for all existing piedomains loggers.
 
@@ -183,13 +182,13 @@ def set_level(level: Union[str, int]) -> None:
     """
     if isinstance(level, str):
         level = getattr(logging, level.upper(), logging.INFO)
-    
+
     logger = logging.getLogger("piedomains")
     for handler in logger.handlers:
         if isinstance(handler, logging.StreamHandler) and handler.stream == sys.stdout:
             handler.setLevel(level)
             break
-    
+
     logger.debug(f"Console logging level changed to {logging.getLevelName(level)}")
 
 
@@ -209,14 +208,14 @@ def get_effective_level() -> str:
     for handler in logger.handlers:
         if isinstance(handler, logging.StreamHandler) and handler.stream == sys.stdout:
             return logging.getLevelName(handler.level)
-    
+
     return "INFO"  # Default fallback
 
 
 def disable_logging() -> None:
     """
     Disable all piedomains logging output.
-    
+
     This is useful for testing or when running in quiet mode.
     Use configure_logging() to re-enable logging.
 
@@ -227,8 +226,8 @@ def disable_logging() -> None:
     """
     logger = logging.getLogger("piedomains")
     logger.setLevel(logging.CRITICAL + 1)  # Level higher than any message
-    
-    
+
+
 def is_debug_enabled() -> bool:
     """
     Check if DEBUG level logging is currently enabled.

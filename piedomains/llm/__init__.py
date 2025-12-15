@@ -7,6 +7,6 @@ from .response_parser import parse_llm_response
 __all__ = [
     "LLMConfig",
     "get_classification_prompt",
-    "get_multimodal_prompt", 
+    "get_multimodal_prompt",
     "parse_llm_response",
 ]

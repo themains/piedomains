@@ -61,7 +61,7 @@ class LiveFetcher(BaseFetcher):
                 url,
                 timeout=self.config.http_timeout,
                 headers=headers,
-                allow_redirects=True
+                allow_redirects=True,
             )
             response.raise_for_status()
             return True, response.text, ""
@@ -71,20 +71,22 @@ class LiveFetcher(BaseFetcher):
     def fetch_screenshot(self, url: str, output_path: str) -> tuple[bool, str]:
         """
         Take screenshot using Selenium with robust error handling.
-        
+
         Args:
             url (str): URL to capture screenshot from
             output_path (str): Path where screenshot should be saved
-            
+
         Returns:
             tuple[bool, str]: Success status and error message if failed
         """
         driver = None
         try:
-            from webdriver_manager.chrome import ChromeDriverManager
             from selenium.common.exceptions import (
-                WebDriverException, TimeoutException, SessionNotCreatedException
+                SessionNotCreatedException,
+                TimeoutException,
+                WebDriverException,
             )
+            from webdriver_manager.chrome import ChromeDriverManager
 
             logger.info(f"Taking screenshot of {url}")
             logger.debug(f"Screenshot output path: {output_path}")
@@ -105,36 +107,36 @@ class LiveFetcher(BaseFetcher):
             # Create WebDriver with proper resource management
             driver = webdriver.Chrome(
                 service=webdriver.ChromeService(ChromeDriverManager().install()),
-                options=options
+                options=options,
             )
-            
+
             try:
                 # Configure timeouts
                 driver.set_page_load_timeout(self.config.page_load_timeout)
                 driver.implicitly_wait(5)  # Implicit wait for elements
-                
+
                 # Navigate to page and take screenshot
                 logger.debug(f"Navigating to {url}")
                 driver.get(url)
-                
+
                 # Wait for page to settle
                 time.sleep(self.config.screenshot_wait_time)
-                
+
                 # Take screenshot
                 logger.debug(f"Saving screenshot to {output_path}")
                 driver.save_screenshot(output_path)
-                
+
                 logger.info(f"Successfully captured screenshot for {url}")
                 return True, ""
-                
+
             except TimeoutException as e:
                 logger.error(f"Timeout while loading {url}: {e}")
                 return False, f"Page load timeout: {str(e)}"
-                
+
             except WebDriverException as e:
                 logger.error(f"WebDriver error for {url}: {e}")
                 return False, f"WebDriver error: {str(e)}"
-                
+
             finally:
                 # Ensure driver is always cleaned up
                 if driver:
@@ -142,12 +144,14 @@ class LiveFetcher(BaseFetcher):
                         driver.quit()
                         logger.debug("WebDriver cleaned up successfully")
                     except Exception as cleanup_error:
-                        logger.warning(f"Error during WebDriver cleanup: {cleanup_error}")
-                        
+                        logger.warning(
+                            f"Error during WebDriver cleanup: {cleanup_error}"
+                        )
+
         except SessionNotCreatedException as e:
             logger.error(f"Failed to create WebDriver session: {e}")
             return False, f"WebDriver session creation failed: {str(e)}"
-            
+
         except Exception as e:
             logger.error(f"Unexpected error taking screenshot of {url}: {e}")
             return False, f"Unexpected error: {str(e)}"
@@ -165,32 +169,32 @@ class ArchiveFetcher(BaseFetcher):
         """
         self.config = get_config()
         if isinstance(target_date, datetime):
-            self.target_date = target_date.strftime('%Y%m%d')
+            self.target_date = target_date.strftime("%Y%m%d")
         else:
             self.target_date = target_date
 
     def _find_closest_snapshot(self, url: str) -> str | None:
         """
         Find the closest archived snapshot to the target date using Wayback Machine API.
-        
+
         This method queries the Internet Archive's availability API to find the snapshot
-        that was captured closest in time to the target date specified during 
+        that was captured closest in time to the target date specified during
         ArchiveFetcher initialization.
-        
+
         Args:
             url (str): The original URL to find archived snapshots for.
                       Should be a valid HTTP/HTTPS URL.
-        
+
         Returns:
             str | None: Complete Wayback Machine URL for the closest snapshot
                        if found, None if no snapshots are available.
-        
+
         Example:
             >>> fetcher = ArchiveFetcher("20200101")
             >>> snapshot = fetcher._find_closest_snapshot("https://example.com")
             >>> if snapshot:
             ...     print(f"Found snapshot: {snapshot}")
-        
+
         Note:
             - Uses the Wayback Machine availability API for efficient lookup
             - Preference is given to snapshots after the target date if available
@@ -199,18 +203,22 @@ class ArchiveFetcher(BaseFetcher):
         try:
             # Use Wayback Machine availability API
             api_url = f"https://archive.org/wayback/available?url={quote(url)}&timestamp={self.target_date}"
-            logger.info(f"Searching for archive snapshot of {url} near {self.target_date}")
+            logger.info(
+                f"Searching for archive snapshot of {url} near {self.target_date}"
+            )
             logger.info(f"Archive API URL: {api_url}")
             response = requests.get(api_url, timeout=10)
             response.raise_for_status()
 
             data = response.json()
             logger.info(f"Archive API response: {data}")
-            if data.get('archived_snapshots', {}).get('closest', {}).get('available'):
-                closest_snapshot = data['archived_snapshots']['closest']
-                snapshot_url = closest_snapshot['url']
-                snapshot_date = closest_snapshot.get('timestamp', 'unknown')
-                logger.info(f"Found closest snapshot for {url}: {snapshot_date} -> {snapshot_url}")
+            if data.get("archived_snapshots", {}).get("closest", {}).get("available"):
+                closest_snapshot = data["archived_snapshots"]["closest"]
+                snapshot_url = closest_snapshot["url"]
+                snapshot_date = closest_snapshot.get("timestamp", "unknown")
+                logger.info(
+                    f"Found closest snapshot for {url}: {snapshot_date} -> {snapshot_url}"
+                )
                 return snapshot_url
             else:
                 logger.warning(f"No archive snapshots available for {url}")
@@ -224,27 +232,35 @@ class ArchiveFetcher(BaseFetcher):
         try:
             snapshot_url = self._find_closest_snapshot(url)
             if not snapshot_url:
-                return False, "", f"No archive snapshot found for {url} near {self.target_date}"
+                return (
+                    False,
+                    "",
+                    f"No archive snapshot found for {url} near {self.target_date}",
+                )
 
             headers = {"User-Agent": self.config.user_agent}
             response = requests.get(
                 snapshot_url,
                 timeout=self.config.http_timeout,
                 headers=headers,
-                allow_redirects=True
+                allow_redirects=True,
             )
             response.raise_for_status()
 
             # Clean up archive.org wrapper content
             html = response.text
             # Remove archive.org toolbar/navigation if present
-            soup = BeautifulSoup(html, 'html.parser')
+            soup = BeautifulSoup(html, "html.parser")
 
             # Remove archive.org specific elements
-            for element in soup.find_all(['script', 'link', 'div'],
-                                       attrs={'src': lambda x: x and (urlparse(x).hostname == 'archive.org')}):
+            for element in soup.find_all(
+                ["script", "link", "div"],
+                attrs={"src": lambda x: x and (urlparse(x).hostname == "archive.org")},
+            ):
                 element.decompose()
-            for element in soup.find_all(attrs={'class': lambda x: x and 'wayback' in str(x).lower()}):
+            for element in soup.find_all(
+                attrs={"class": lambda x: x and "wayback" in str(x).lower()}
+            ):
                 element.decompose()
 
             return True, str(soup), ""
@@ -254,11 +270,11 @@ class ArchiveFetcher(BaseFetcher):
     def fetch_screenshot(self, url: str, output_path: str) -> tuple[bool, str]:
         """
         Take screenshot of archived page with robust error handling.
-        
+
         Args:
             url (str): Original URL to find archived snapshot for
             output_path (str): Path where screenshot should be saved
-            
+
         Returns:
             tuple[bool, str]: Success status and error message if failed
         """
@@ -266,14 +282,18 @@ class ArchiveFetcher(BaseFetcher):
         try:
             snapshot_url = self._find_closest_snapshot(url)
             if not snapshot_url:
-                error_msg = f"No archive snapshot found for {url} near {self.target_date}"
+                error_msg = (
+                    f"No archive snapshot found for {url} near {self.target_date}"
+                )
                 logger.warning(error_msg)
                 return False, error_msg
 
-            from webdriver_manager.chrome import ChromeDriverManager
             from selenium.common.exceptions import (
-                WebDriverException, TimeoutException, SessionNotCreatedException
+                SessionNotCreatedException,
+                TimeoutException,
+                WebDriverException,
             )
+            from webdriver_manager.chrome import ChromeDriverManager
 
             logger.info(f"Taking screenshot of archived page: {snapshot_url}")
             logger.debug(f"Screenshot output path: {output_path}")
@@ -294,36 +314,36 @@ class ArchiveFetcher(BaseFetcher):
             # Create WebDriver with proper resource management
             driver = webdriver.Chrome(
                 service=webdriver.ChromeService(ChromeDriverManager().install()),
-                options=options
+                options=options,
             )
-            
+
             try:
                 # Configure timeouts
                 driver.set_page_load_timeout(self.config.page_load_timeout)
                 driver.implicitly_wait(5)  # Implicit wait for elements
-                
+
                 # Navigate to archived page and take screenshot
                 logger.debug(f"Navigating to archived page: {snapshot_url}")
                 driver.get(snapshot_url)
-                
+
                 # Wait for page to settle (archived pages may be slower)
                 time.sleep(self.config.screenshot_wait_time)
-                
+
                 # Take screenshot
                 logger.debug(f"Saving screenshot to {output_path}")
                 driver.save_screenshot(output_path)
-                
+
                 logger.info(f"Successfully captured screenshot for archived {url}")
                 return True, ""
-                
+
             except TimeoutException as e:
                 logger.error(f"Timeout while loading archived page {snapshot_url}: {e}")
                 return False, f"Archive page load timeout: {str(e)}"
-                
+
             except WebDriverException as e:
                 logger.error(f"WebDriver error for archived page {snapshot_url}: {e}")
                 return False, f"WebDriver error: {str(e)}"
-                
+
             finally:
                 # Ensure driver is always cleaned up
                 if driver:
@@ -331,12 +351,14 @@ class ArchiveFetcher(BaseFetcher):
                         driver.quit()
                         logger.debug("WebDriver cleaned up successfully")
                     except Exception as cleanup_error:
-                        logger.warning(f"Error during WebDriver cleanup: {cleanup_error}")
-                        
+                        logger.warning(
+                            f"Error during WebDriver cleanup: {cleanup_error}"
+                        )
+
         except SessionNotCreatedException as e:
             logger.error(f"Failed to create WebDriver session for archive: {e}")
             return False, f"WebDriver session creation failed: {str(e)}"
-            
+
         except Exception as e:
             logger.error(f"Unexpected error taking screenshot of archived {url}: {e}")
             return False, f"Unexpected error: {str(e)}"

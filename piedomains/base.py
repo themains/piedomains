@@ -11,33 +11,10 @@ providing standardized model loading, caching, and resource management capabilit
 """
 
 import os
-import sys
-from pathlib import Path
 
 # Use modern importlib.resources for Python 3.9+, with fallback for older versions
-if sys.version_info >= (3, 9):
-    from importlib.resources import files
-else:
-    # Fallback to older importlib_resources for Python < 3.9
-    try:
-        from importlib_resources import files
-    except ImportError:
-        # Final fallback to pkg_resources if importlib_resources not available
-        import warnings
-        with warnings.catch_warnings():
-            warnings.filterwarnings("ignore", category=DeprecationWarning, module="pkg_resources")
-            from pkg_resources import resource_filename
-        
-        # Create a compatibility function that mimics importlib.resources.files
-        def files(package):
-            class _FakeFiles:
-                def __init__(self, package_name):
-                    self.package_name = package_name
-                
-                def __truediv__(self, path):
-                    return Path(resource_filename(self.package_name, str(path)))
-            
-            return _FakeFiles(package)
+from importlib.resources import files
+from pathlib import Path
 
 from .logging import get_logger
 from .utils import REPO_BASE_URL, download_file
@@ -60,7 +37,7 @@ class Base:
 
     Example:
         Creating a custom classifier that inherits from Base:
-        
+
         >>> class MyClassifier(Base):
         ...     MODELFN = "model/my_classifier"
         ...
@@ -72,7 +49,7 @@ class Base:
         directory path. The load_model_data method will create this directory
         and download model files as needed.
     """
-    
+
     MODELFN: str | None = None
 
     @classmethod
@@ -120,59 +97,69 @@ class Base:
             - Downloads happen only on first use or when explicitly requested
         """
         model_path = ""
-        
+
         if not cls.MODELFN:
-            logger.warning(f"MODELFN not set for {cls.__name__}, cannot load model data")
+            logger.warning(
+                f"MODELFN not set for {cls.__name__}, cannot load model data"
+            )
             return model_path
-        
+
         try:
             logger.debug(f"Loading model data for {cls.__name__} from {cls.MODELFN}")
-            
+
             # Get the absolute path to the model directory using modern importlib.resources
-            model_dir_path = files(__name__.split('.')[0]) / cls.MODELFN
+            model_dir_path = files(__name__.split(".")[0]) / cls.MODELFN
             model_fn = str(model_dir_path)
             logger.debug(f"Model directory path: {model_fn}")
-            
+
             # Ensure model directory exists
             model_dir = Path(model_fn)
             model_dir.mkdir(parents=True, exist_ok=True)
             logger.debug(f"Model directory ensured: {model_dir}")
-            
+
             # Check if model files exist and determine if download is needed
             saved_model_path = model_dir / "saved_model"
             download_needed = not saved_model_path.exists() or latest
-            
+
             if download_needed:
                 if latest:
-                    logger.info(f"Downloading latest model data for {cls.__name__} "
-                              f"from {REPO_BASE_URL}")
+                    logger.info(
+                        f"Downloading latest model data for {cls.__name__} "
+                        f"from {REPO_BASE_URL}"
+                    )
                 else:
-                    logger.info(f"Model data not found locally for {cls.__name__}, "
-                              f"downloading from server (first time setup)")
-                
+                    logger.info(
+                        f"Model data not found locally for {cls.__name__}, "
+                        f"downloading from server (first time setup)"
+                    )
+
                 # Download model data from remote repository
-                download_success = download_file(REPO_BASE_URL, str(model_fn), file_name)
-                
+                download_success = download_file(
+                    REPO_BASE_URL, str(model_fn), file_name
+                )
+
                 if not download_success:
-                    logger.error(f"Failed to download model data file '{file_name}' "
-                               f"for {cls.__name__}")
+                    logger.error(
+                        f"Failed to download model data file '{file_name}' "
+                        f"for {cls.__name__}"
+                    )
                     raise ConnectionError(f"Model download failed for {file_name}")
-                
+
                 logger.info(f"Successfully downloaded model data for {cls.__name__}")
-                
+
             else:
                 logger.debug(f"Using cached model data from {model_fn}")
-            
+
             model_path = str(model_fn)
-            
+
         except OSError as e:
             logger.error(f"Failed to create model directory {cls.MODELFN}: {e}")
             raise OSError(f"Cannot create model directory: {e}") from e
-            
+
         except Exception as e:
             logger.error(f"Unexpected error loading model data for {cls.__name__}: {e}")
             raise
-        
+
         return model_path
 
     @classmethod
@@ -198,21 +185,23 @@ class Base:
             }
         """
         info = {
-            'class_name': cls.__name__,
-            'model_fn': cls.MODELFN or 'Not set',
-            'model_path': '',
-            'has_saved_model': False
+            "class_name": cls.__name__,
+            "model_fn": cls.MODELFN or "Not set",
+            "model_path": "",
+            "has_saved_model": False,
         }
-        
+
         if cls.MODELFN:
             try:
-                model_dir_path = files(__name__.split('.')[0]) / cls.MODELFN
+                model_dir_path = files(__name__.split(".")[0]) / cls.MODELFN
                 model_path = str(model_dir_path)
-                info['model_path'] = model_path
-                info['has_saved_model'] = os.path.exists(os.path.join(model_path, 'saved_model'))
+                info["model_path"] = model_path
+                info["has_saved_model"] = os.path.exists(
+                    os.path.join(model_path, "saved_model")
+                )
             except Exception as e:
                 logger.debug(f"Could not get model path info: {e}")
-        
+
         return info
 
     def __init_subclass__(cls, **kwargs):
@@ -223,9 +212,11 @@ class Base:
             ValueError: If MODELFN is not properly set by subclass.
         """
         super().__init_subclass__(**kwargs)
-        
+
         if cls.MODELFN is None:
-            logger.warning(f"Subclass {cls.__name__} should define MODELFN class attribute "
-                          "for proper model data management")
+            logger.warning(
+                f"Subclass {cls.__name__} should define MODELFN class attribute "
+                "for proper model data management"
+            )
         elif not isinstance(cls.MODELFN, str):
             raise ValueError(f"MODELFN must be a string, got {type(cls.MODELFN)}")

@@ -17,49 +17,47 @@ Example:
         >>> print(f"Common words to filter: {most_common_words[:5]}")
 """
 
-from typing import List
-
 # Shallalist-based website categories for domain classification
-classes: List[str] = [
-    "adv",              # Advertising - commercial advertisements and banners
-    "alcohol",          # Alcohol - sites promoting or selling alcoholic beverages
-    "automobile",       # Automobile - car-related sites, dealers, automotive info
-    "dating",           # Dating - dating services, personals, relationship sites
-    "downloads",        # Downloads - software downloads, file sharing
-    "drugs",            # Drugs - illegal drugs, drug paraphernalia
-    "education",        # Education - schools, universities, educational content
-    "finance",          # Finance - banks, financial services, investment
-    "fortunetelling",   # Fortune telling - astrology, psychics, supernatural
-    "forum",            # Forum - discussion boards, community forums
-    "gamble",           # Gambling - casinos, betting, lottery sites
-    "government",       # Government - official government sites and services
-    "hobby",            # Hobby - recreational activities, hobbies, crafts
-    "hospitals",        # Hospitals - medical facilities, health services
-    "imagehosting",     # Image hosting - photo sharing, image storage services
-    "isp",              # ISP - Internet service providers, telecom companies
-    "jobsearch",        # Job search - employment, career sites, job boards
-    "models",           # Models - fashion, modeling, photography
-    "movies",           # Movies - film industry, movie reviews, entertainment
-    "music",            # Music - music streaming, artists, music industry
-    "news",             # News - news outlets, journalism, current events
-    "politics",         # Politics - political parties, campaigns, political news
-    "porn",             # Pornography - adult content (explicit material)
-    "radiotv",          # Radio/TV - broadcasting, media companies
-    "recreation",       # Recreation - sports, games, leisure activities
-    "redirector",       # Redirector - URL redirects, link shorteners
-    "religion",         # Religion - religious organizations, spiritual content
-    "science",          # Science - scientific research, academic institutions
-    "searchengines",    # Search engines - web search services, directories
-    "sex",              # Sex - sexual content (non-pornographic), sexual health
-    "shopping",         # Shopping - e-commerce, retail stores, online shopping
-    "socialnet",        # Social networks - social media platforms, networking
-    "spyware",          # Spyware - malicious software, security threats
-    "tracker",          # Tracker - analytics, tracking services, monitoring
-    "urlshortener",     # URL shortener - link shortening services
-    "warez",            # Warez - pirated software, copyright violations
-    "weapons",          # Weapons - firearms, military equipment, weapon sales
-    "webmail",          # Webmail - email services, web-based email
-    "webradio",         # Web radio - online radio stations, audio streaming
+classes: list[str] = [
+    "adv",  # Advertising - commercial advertisements and banners
+    "alcohol",  # Alcohol - sites promoting or selling alcoholic beverages
+    "automobile",  # Automobile - car-related sites, dealers, automotive info
+    "dating",  # Dating - dating services, personals, relationship sites
+    "downloads",  # Downloads - software downloads, file sharing
+    "drugs",  # Drugs - illegal drugs, drug paraphernalia
+    "education",  # Education - schools, universities, educational content
+    "finance",  # Finance - banks, financial services, investment
+    "fortunetelling",  # Fortune telling - astrology, psychics, supernatural
+    "forum",  # Forum - discussion boards, community forums
+    "gamble",  # Gambling - casinos, betting, lottery sites
+    "government",  # Government - official government sites and services
+    "hobby",  # Hobby - recreational activities, hobbies, crafts
+    "hospitals",  # Hospitals - medical facilities, health services
+    "imagehosting",  # Image hosting - photo sharing, image storage services
+    "isp",  # ISP - Internet service providers, telecom companies
+    "jobsearch",  # Job search - employment, career sites, job boards
+    "models",  # Models - fashion, modeling, photography
+    "movies",  # Movies - film industry, movie reviews, entertainment
+    "music",  # Music - music streaming, artists, music industry
+    "news",  # News - news outlets, journalism, current events
+    "politics",  # Politics - political parties, campaigns, political news
+    "porn",  # Pornography - adult content (explicit material)
+    "radiotv",  # Radio/TV - broadcasting, media companies
+    "recreation",  # Recreation - sports, games, leisure activities
+    "redirector",  # Redirector - URL redirects, link shorteners
+    "religion",  # Religion - religious organizations, spiritual content
+    "science",  # Science - scientific research, academic institutions
+    "searchengines",  # Search engines - web search services, directories
+    "sex",  # Sex - sexual content (non-pornographic), sexual health
+    "shopping",  # Shopping - e-commerce, retail stores, online shopping
+    "socialnet",  # Social networks - social media platforms, networking
+    "spyware",  # Spyware - malicious software, security threats
+    "tracker",  # Tracker - analytics, tracking services, monitoring
+    "urlshortener",  # URL shortener - link shortening services
+    "warez",  # Warez - pirated software, copyright violations
+    "weapons",  # Weapons - firearms, military equipment, weapon sales
+    "webmail",  # Webmail - email services, web-based email
+    "webradio",  # Web radio - online radio stations, audio streaming
 ]
 """
 List[str]: Complete list of website classification categories.
@@ -73,26 +71,26 @@ to provide consistent categorization across different classification methods.
 """
 
 # Common words to filter out during text processing
-most_common_words: List[str] = [
-    "home",         # Navigation element
-    "contact",      # Contact information/page
-    "us",           # Common in "contact us", "about us"
-    "new",          # Generic content descriptor
-    "news",         # Common content type
-    "site",         # Website/site references
-    "privacy",      # Privacy policy/settings
-    "search",       # Search functionality
-    "help",         # Help/support sections
-    "copyright",    # Copyright notices
-    "free",         # Marketing term
-    "service",      # Service offerings
-    "en",           # Language indicator (English)
-    "get",          # Action verb (generic)
-    "one",          # Generic article/number
-    "find",         # Search/navigation verb
-    "menu",         # Navigation element
-    "account",      # User account references
-    "next",         # Navigation control
+most_common_words: list[str] = [
+    "home",  # Navigation element
+    "contact",  # Contact information/page
+    "us",  # Common in "contact us", "about us"
+    "new",  # Generic content descriptor
+    "news",  # Common content type
+    "site",  # Website/site references
+    "privacy",  # Privacy policy/settings
+    "search",  # Search functionality
+    "help",  # Help/support sections
+    "copyright",  # Copyright notices
+    "free",  # Marketing term
+    "service",  # Service offerings
+    "en",  # Language indicator (English)
+    "get",  # Action verb (generic)
+    "one",  # Generic article/number
+    "find",  # Search/navigation verb
+    "menu",  # Navigation element
+    "account",  # User account references
+    "next",  # Navigation control
 ]
 """
 List[str]: Common words to filter out during text preprocessing.
@@ -112,7 +110,7 @@ Used by text preprocessing functions to clean content before model input.
 
 
 # Category validation utilities
-def get_valid_categories() -> List[str]:
+def get_valid_categories() -> list[str]:
     """
     Get a copy of all valid classification categories.
 
