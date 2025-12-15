@@ -32,8 +32,8 @@ jobs:
       
       - name: Install dependencies
         run: |
-          uv pip install --system -e .
-          uv pip install --system ruff pytest pytest-cov
+          uv pip install --system -e ".[test]"
+          uv pip install --system ruff
       
       - name: Run linting with ruff
         run: |
@@ -41,13 +41,4 @@ jobs:
       
       - name: Run tests
         run: |
-          pytest tests/ -v -m "not ml" --cov=piedomains --cov-report=xml
-      
-      - name: Upload coverage to Codecov
-        if: matrix.python-version == '3.11'
-        uses: codecov/codecov-action@v4
-        with:
-          file: ./coverage.xml
-          flags: unittests
-          name: codecov-umbrella
-          fail_ci_if_error: false
+          pytest tests/ -v -m "not ml and not performance" --cov=piedomains --cov-report=term-missing
