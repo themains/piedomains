@@ -1,6 +1,11 @@
 import os
 import tarfile
+
 import requests
+
+from .logging import get_logger
+
+logger = get_logger()
 
 
 REPO_BASE_URL = os.environ.get("PIEDOMAINS_MODEL_URL") or "https://dataverse.harvard.edu/api/access/datafile/7081895"
@@ -28,7 +33,7 @@ def download_file(url: str, target: str, file_name: str) -> bool:
         # remove zip file
         os.remove(f"{target}/{file_name}")
     except Exception as exe:
-        print(f"Not able to download models {exe}")
+        logger.error(f"Not able to download models {exe}")
         status = False
     return status
 

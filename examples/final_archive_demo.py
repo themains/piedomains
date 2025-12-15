@@ -115,5 +115,6 @@ else:
     print('✗ Archive.org connectivity issues')
 
 print(f'\n=== READY FOR JUPYTER LAB ===')
-print('from piedomains import pred_shalla_cat_archive')
-print('result = pred_shalla_cat_archive([\"google.com\", \"amazon.com\"], \"20200101\")')
+print('from piedomains import DomainClassifier')
+print('classifier = DomainClassifier()')
+print('result = classifier.classify([\"google.com\", \"amazon.com\"], archive_date=\"20200101\")')

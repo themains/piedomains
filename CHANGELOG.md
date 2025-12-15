@@ -5,6 +5,43 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2025-12-15
+
+### 🚨 Breaking Changes
+- **REMOVED**: Complete removal of legacy API functions (`pred_shalla_cat()`, `pred_shalla_cat_with_text()`, `pred_shalla_cat_with_images()`, `pred_shalla_cat_archive()`)
+- **REMOVED**: Dropped Python 3.10 support - now requires Python 3.11+
+- **MOVED**: Tests and notebooks relocated from `piedomains/` subdirectories to project root
+
+### ✨ Added
+- **Modern Python 3.11+ Features**: Full adoption of PEP 604 union syntax (`str | None` instead of `Union[str, None]`)
+- **Enhanced Logging**: Replaced all `print()` statements with proper `logger` calls for better debugging
+- **Improved Code Quality**: Comprehensive ruff linting with auto-fixes applied
+
+### 🔧 Changed
+- **Type Hints**: Modernized all type annotations to use Python 3.11+ union syntax (`|`)
+- **Import Structure**: Added `from __future__ import annotations` for cleaner type hints
+- **Project Structure**: 
+  - Moved `piedomains/tests/` → `tests/`
+  - Moved `piedomains/notebooks/` → `notebooks/`
+- **Configuration**: Enhanced error handling with proper logging in config validation
+
+### 📚 Documentation
+- **Updated README**: Removed legacy API examples and migration guides
+- **Cleaned CLAUDE.md**: Updated test paths and removed backward compatibility references
+- **Modernized Examples**: Updated all example scripts to use new API only
+
+### 🧹 Removed
+- **LEGACY_API.rst**: Completely removed legacy documentation
+- **Archive Support Legacy Functions**: Removed old archive functionality implementations
+- **Backward Compatibility**: No more deprecation warnings or legacy function wrappers
+
+### 🔧 Development
+- **Ruff Integration**: Full code formatting and linting with modern standards
+- **Test Suite**: All 99 tests passing with updated mocking for new logging approach
+- **Python 3.11+ Only**: Updated all tooling configs (black, ruff, mypy) for Python 3.11+
+
+This release represents a major cleanup and modernization of the codebase, removing all legacy functionality and fully embracing Python 3.11+ features. Users must migrate to the modern `DomainClassifier` API.
+
 ## [0.3.4] - 2025-09-02
 
 ### Removed
@@ -88,15 +125,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Resource management and cleanup
   - Memory-efficient batch processing
 
-### Backward Compatibility
-- **Legacy API Preserved**: All existing functions still work
-  - `pred_shalla_cat()`, `pred_shalla_cat_with_text()`, etc. unchanged
-  - No breaking changes for existing users
-  - Deprecation warnings will be added in future versions
-- **Import Compatibility**: Both old and new APIs available
+### API Modernization
+- **Modern Interface**: New class-based design for better usability
+- **Import Compatibility**: Clean, modern import structure
   ```python
-  # Old API still works
-  from piedomains import pred_shalla_cat
+  # Modern API
+  from piedomains import DomainClassifier
   
   # New API available
   from piedomains import DomainClassifier
@@ -131,9 +165,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - **Archive.org Historical Classification**: New functionality for analyzing historical website content
-  - `pred_shalla_cat_archive()`: Combined text+image classification using archive.org snapshots
-  - `pred_shalla_cat_with_text_archive()`: Text-only classification from historical content
-  - `pred_shalla_cat_with_images_archive()`: Image-only classification from historical screenshots
   - Support for point-in-time analysis using 'YYYYMMDD' date format
   - Automatic discovery of closest available snapshots to target dates
   - Modular fetcher architecture with `BaseFetcher`, `LiveFetcher`, and `ArchiveFetcher` classes

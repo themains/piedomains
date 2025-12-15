@@ -116,12 +116,12 @@ class TestConfig(unittest.TestCase):
     })
     def test_invalid_environment_variable(self):
         """Test handling of invalid environment variable values."""
-        with patch('builtins.print') as mock_print:
+        with patch('piedomains.config.logger.warning') as mock_warning:
             config = Config()
             # Should fall back to default value
             self.assertEqual(config.get('http_timeout'), 10)
-            # Should print warning
-            mock_print.assert_called()
+            # Should log warning
+            mock_warning.assert_called()
 
     def test_global_config_functions(self):
         """Test global configuration functions."""
