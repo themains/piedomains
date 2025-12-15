@@ -11,10 +11,27 @@ sys.path.insert(1, os.path.abspath('../../'))
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
-project = 'piedomains'
-copyright = '2023, rajashekar chintalapati and gaurav sood'
-author = 'rajashekar chintalapati and gaurav sood'
-release = '0.3.10'
+import importlib.metadata
+import datetime
+
+# Get metadata from package
+metadata = importlib.metadata.metadata('piedomains')
+project = metadata['Name']
+release = metadata['Version']
+
+# Extract authors from metadata
+authors_list = []
+for author in metadata.get_all('Author') or []:
+    authors_list.append(author)
+for author_email in metadata.get_all('Author-Email') or []:
+    # Parse "Name <email>" format
+    if '<' in author_email and '>' in author_email:
+        name = author_email.split('<')[0].strip()
+        if name:
+            authors_list.append(name)
+
+author = ', '.join(set(authors_list)) if authors_list else 'piedomains developers'
+copyright = f'{datetime.datetime.now().year}, {author}'
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
