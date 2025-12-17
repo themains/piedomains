@@ -234,22 +234,28 @@ class TestDomainClassifierLLM(unittest.TestCase):
             provider="openai", model="gpt-4o", api_key="test-key"
         )
 
-        # Mock text classifier to avoid actual network calls
-        with patch(
-            "piedomains.text.TextClassifier.predict"
-        ) as mock_text:
-            mock_text.return_value = pd.DataFrame(
-                [
+        # Mock data collection and classification to avoid actual network calls
+        with patch("piedomains.data_collector.DataCollector.collect") as mock_collect:
+            mock_collect.return_value = {
+                "collection_id": "test_collection",
+                "timestamp": "2025-12-17T12:00:00Z",
+                "domains": [
                     {
+                        "url": "example.com",
                         "domain": "example.com",
-                        "extracted_text": "This is news content about current events.",
+                        "text_path": "html/example.com.html",
+                        "image_path": "images/example.com.png",
+                        "date_time_collected": "2025-12-17T12:00:00Z",
+                        "fetch_success": True,
+                        "cached": False,
+                        "error": None
                     }
                 ]
-            )
+            }
 
             result = self.classifier.classify_by_llm(["example.com"])
 
-            self.assertIsInstance(result, pd.DataFrame)
+            self.assertIsInstance(result, list)
             self.assertGreater(len(result), 0)
 
             # Check that litellm.completion was called

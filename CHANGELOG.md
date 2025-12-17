@@ -5,6 +5,55 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] - 2025-12-17
+
+### 💥 BREAKING CHANGES
+- **API Modernization**: Complete removal of DataFrame outputs in favor of pure JSON responses
+- **Deprecated Method Removal**: Removed `collect_data()` → Use `collect_content()`
+- **Deprecated Parameter Removal**: Removed `latest_models` → Use `latest`
+- **Deprecated Alias Removal**: Removed `classify_from_data()` → Use `classify_from_collection()`
+- **No Backward Compatibility**: Clean break from v0.5.x for cleaner, maintainable codebase
+
+### 🎯 API Improvements
+- **Consistent Parameter Naming**: Unified `latest` parameter across all classification methods
+- **JSON-Only Responses**: All methods now return `List[Dict]` with consistent schema
+- **Separated Workflow**: Clear distinction between data collection and inference phases
+- **Method Naming**: More intuitive method names following verb-noun patterns
+
+### 📋 Comprehensive Documentation
+- **JSON Schema Documentation**: Complete schema definitions for all API responses
+- **Field Documentation**: Detailed field descriptions with data types and examples
+- **Supported Categories**: Full list of 41 Shallalist categories with examples
+- **Updated Examples**: All examples updated to demonstrate new JSON-only API
+
+### 🧪 Testing & Quality
+- **Updated Test Suite**: All tests migrated to new API methods and JSON expectations
+- **Linting Compliance**: Full `ruff` compliance with automatic formatting
+- **Example Updates**: All demonstration scripts updated for new API
+- **Documentation Sync**: README, examples, and docstrings fully synchronized
+
+### 🏗️ Code Quality
+- **Removed Dead Code**: Eliminated all deprecated compatibility shims and warnings
+- **Cleaner Imports**: Removed unused imports and circular dependency risks
+- **Consistent Error Messages**: Standardized error messages and exception handling
+- **Type Consistency**: Better type hints and consistent return types
+
+### 🚀 Migration Guide
+For users upgrading from v0.5.x:
+
+```python
+# OLD (v0.5.x) - No longer supported
+result = classifier.classify(domains)
+df = pd.DataFrame(result)  # DataFrame access
+data = classifier.collect_data(domains)  # Deprecated method
+classifier.classify_from_data(data, latest_models=True)  # Deprecated parameter
+
+# NEW (v0.6.0) - Required changes
+results = classifier.classify(domains)  # Returns List[Dict] directly
+collection = classifier.collect_content(domains)  # New method name
+classifier.classify_from_collection(collection, latest=True)  # New parameter name
+```
+
 ## [0.5.0] - 2025-12-17
 
 ### 🚀 Major Features

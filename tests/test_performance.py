@@ -68,27 +68,53 @@ class TestPerformanceBenchmarks(unittest.TestCase):
         self.assertLess(cleaning_time, 1.0)
         self.assertIsInstance(cleaned_text, str)
 
-    @patch("piedomains.text.TextClassifier.predict")
-    def test_batch_processing_scalability(self, mock_predict):
+    @patch("piedomains.data_collector.DataCollector.collect")
+    @patch("piedomains.text.TextClassifier.classify_from_data")
+    def test_batch_processing_scalability(self, mock_classify, mock_collect):
         """Test scalability of batch processing."""
 
-        # Mock prediction results
-        def mock_batch_predict(domains, *args, **kwargs):
-            return pd.DataFrame(
-                [
+        # Mock data collection results
+        def mock_collection(domains, *args, **kwargs):
+            return {
+                "collection_id": "test_collection",
+                "timestamp": "2025-12-17T12:00:00Z",
+                "domains": [
                     {
+                        "url": domain,
                         "domain": domain,
-                        "text_label": "news",
-                        "text_prob": 0.8,
-                        "error": None,
+                        "text_path": f"html/{domain}.html",
+                        "image_path": f"images/{domain}.png",
+                        "date_time_collected": "2025-12-17T12:00:00Z",
+                        "fetch_success": True,
+                        "cached": False,
+                        "error": None
                     }
-                    for domain in [
-                        self.classifier._parse_domain_name(d) for d in domains
-                    ]
+                    for domain in domains
                 ]
-            )
+            }
 
-        mock_predict.side_effect = mock_batch_predict
+        # Mock classification results
+        def mock_classification(collection_data, *args, **kwargs):
+            domains_data = collection_data.get("domains", [])
+            return [
+                {
+                    "url": domain_data["url"],
+                    "domain": domain_data["domain"],
+                    "text_path": domain_data["text_path"],
+                    "image_path": domain_data["image_path"],
+                    "date_time_collected": domain_data["date_time_collected"],
+                    "model_used": "text/shallalist_ml",
+                    "category": "news",
+                    "confidence": 0.8,
+                    "reason": None,
+                    "error": None,
+                    "raw_predictions": {"news": 0.8, "other": 0.2}
+                }
+                for domain_data in domains_data
+            ]
+
+        mock_collect.side_effect = mock_collection
+        mock_classify.side_effect = mock_classification
 
         # Test different batch sizes
         test_sizes = [10, 50, 100]
@@ -97,9 +123,7 @@ class TestPerformanceBenchmarks(unittest.TestCase):
             domains = [f"test{i}.com" for i in range(size)]
 
             start_time = time.time()
-            result = self.classifier.classify_batch(
-                domains, method="text", batch_size=25, show_progress=False
-            )
+            result = self.classifier.classify_by_text(domains)
             total_time = time.time() - start_time
 
             # Verify results
@@ -129,11 +153,13 @@ class TestPerformanceBenchmarks(unittest.TestCase):
 
         # Mock the actual prediction to isolate cache performance
         with patch(
-            "piedomains.text.TextClassifier.predict"
+            "piedomains.text.TextClassifier._predict_text"
         ) as mock_predict:
-            mock_predict.return_value = pd.DataFrame(
-                [{"domain": "example.com", "text_label": "news", "text_prob": 0.8}]
-            )
+            mock_predict.return_value = {
+                "text_label": "news",
+                "text_prob": 0.8,
+                "text_domain_probs": {"news": 0.8, "other": 0.2}
+            }
 
             # First call (should use cache)
             start_time = time.time()
@@ -160,22 +186,54 @@ class TestPerformanceBenchmarks(unittest.TestCase):
         initial_memory = process.memory_info().rss / 1024 / 1024  # MB
 
         # Mock to avoid actual model loading
-        with patch(
-            "piedomains.text.TextClassifier.predict"
-        ) as mock_predict:
-            mock_predict.return_value = pd.DataFrame(
-                [
-                    {"domain": f"test{i}.com", "text_label": "news", "text_prob": 0.8}
-                    for i in range(50)
+        with patch("piedomains.data_collector.DataCollector.collect") as mock_collect, \
+             patch("piedomains.text.TextClassifier.classify_from_data") as mock_classify:
+
+            def mock_collection(domains, *args, **kwargs):
+                return {
+                    "collection_id": "test_collection",
+                    "timestamp": "2025-12-17T12:00:00Z",
+                    "domains": [
+                        {
+                            "url": domain,
+                            "domain": domain,
+                            "text_path": f"html/{domain}.html",
+                            "image_path": f"images/{domain}.png",
+                            "date_time_collected": "2025-12-17T12:00:00Z",
+                            "fetch_success": True,
+                            "cached": False,
+                            "error": None
+                        }
+                        for domain in domains
+                    ]
+                }
+
+            def mock_classification(collection_data, *args, **kwargs):
+                domains_data = collection_data.get("domains", [])
+                return [
+                    {
+                        "url": domain_data["url"],
+                        "domain": domain_data["domain"],
+                        "text_path": domain_data["text_path"],
+                        "image_path": domain_data["image_path"],
+                        "date_time_collected": domain_data["date_time_collected"],
+                        "model_used": "text/shallalist_ml",
+                        "category": "news",
+                        "confidence": 0.8,
+                        "reason": None,
+                        "error": None,
+                        "raw_predictions": {"news": 0.8, "other": 0.2}
+                    }
+                    for domain_data in domains_data
                 ]
-            )
+
+            mock_collect.side_effect = mock_collection
+            mock_classify.side_effect = mock_classification
 
             # Process multiple batches
             for batch_num in range(5):
                 domains = [f"batch{batch_num}_test{i}.com" for i in range(50)]
-                self.classifier.classify_batch(
-                    domains, method="text", batch_size=10, show_progress=False
-                )
+                self.classifier.classify_by_text(domains)
 
                 # Force garbage collection
                 gc.collect()

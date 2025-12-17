@@ -177,7 +177,7 @@ class TestCriticalIntegration(unittest.TestCase):
             result_type, result_data = results_queue.get()
             if result_type == "success":
                 success_count += 1
-                self.assertIsInstance(result_data, pd.DataFrame)
+                self.assertIsInstance(result_data, list)
 
         self.assertEqual(success_count, 5, "All concurrent operations should succeed")
 
@@ -200,8 +200,8 @@ class TestCriticalIntegration(unittest.TestCase):
                 try:
                     # Should either handle gracefully or fail safely
                     result = classifier.classify_by_text([malicious_input])
-                    # If it succeeds, should return valid DataFrame
-                    self.assertIsInstance(result, pd.DataFrame)
+                    # If it succeeds, should return valid list
+                    self.assertIsInstance(result, list)
                 except Exception as e:
                     # If it fails, should have proper error message
                     # Accept validation errors, Playwright browser errors, or general exceptions
