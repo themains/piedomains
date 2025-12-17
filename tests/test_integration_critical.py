@@ -11,12 +11,12 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-import pandas as pd
 import pytest
 
 from piedomains.api import DomainClassifier
 from piedomains.context_managers import ResourceManager
 from piedomains.http_client import PooledHTTPClient, http_client
+from tests.conftest import skip_in_ci
 
 
 class TestCriticalIntegration(unittest.TestCase):
@@ -55,13 +55,51 @@ class TestCriticalIntegration(unittest.TestCase):
             self.assertEqual(len(rm._temp_files), 0)
             self.assertEqual(len(rm._temp_dirs), 0)
 
-    @patch("piedomains.text.TextClassifier.predict")
-    def test_domain_validation_edge_cases(self, mock_predict):
+    @patch("piedomains.data_collector.DataCollector.collect")
+    @patch("piedomains.text.TextClassifier.classify_from_data")
+    def test_domain_validation_edge_cases(self, mock_classify, mock_collect):
         """Test domain validation with edge cases and security inputs."""
         # Mock successful classification
-        mock_predict.return_value = pd.DataFrame(
-            [{"domain": "valid.com", "text_label": "news", "text_prob": 0.85}]
-        )
+        def mock_collection(domains, *args, **kwargs):
+            return {
+                "collection_id": "test_collection",
+                "timestamp": "2025-12-17T12:00:00Z",
+                "domains": [
+                    {
+                        "url": domain,
+                        "domain": domain,
+                        "text_path": f"html/{domain}.html",
+                        "image_path": f"images/{domain}.png",
+                        "date_time_collected": "2025-12-17T12:00:00Z",
+                        "fetch_success": True,
+                        "cached": False,
+                        "error": None
+                    }
+                    for domain in domains
+                ]
+            }
+
+        def mock_classification(collection_data, *args, **kwargs):
+            domains_data = collection_data.get("domains", [])
+            return [
+                {
+                    "url": domain_data["url"],
+                    "domain": domain_data["domain"],
+                    "text_path": domain_data["text_path"],
+                    "image_path": domain_data["image_path"],
+                    "date_time_collected": domain_data["date_time_collected"],
+                    "model_used": "text/shallalist_ml",
+                    "category": "news",
+                    "confidence": 0.85,
+                    "reason": None,
+                    "error": None,
+                    "raw_predictions": {"news": 0.85, "other": 0.15}
+                }
+                for domain_data in domains_data
+            ]
+
+        mock_collect.side_effect = mock_collection
+        mock_classify.side_effect = mock_classification
 
         classifier = DomainClassifier(cache_dir=self.temp_dir)
 
@@ -84,41 +122,69 @@ class TestCriticalIntegration(unittest.TestCase):
                 try:
                     result = classifier.classify_by_text([domain])
                     # Should handle gracefully without crashing
-                    self.assertIsInstance(result, pd.DataFrame)
+                    self.assertIsInstance(result, list)
                 except Exception as e:
                     # Should have meaningful error messages
                     self.assertIn("domain", str(e).lower())
 
-    @patch("piedomains.text.TextClassifier.predict")
-    @patch("piedomains.image.ImageClassifier.predict")
+    @patch("piedomains.data_collector.DataCollector.collect")
+    @patch("piedomains.text.TextClassifier.classify_from_data")
     def test_batch_processing_memory_management(
-        self, mock_img_predict, mock_text_predict
+        self, mock_classify, mock_collect
     ):
         """Test batch processing doesn't leak memory."""
-        # Mock predictions
-        mock_text_predict.return_value = pd.DataFrame(
-            [
-                {"domain": f"test{i}.com", "text_label": "news", "text_prob": 0.8}
-                for i in range(100)
+        # Mock data collection and classification
+        def mock_collection(domains, *args, **kwargs):
+            return {
+                "collection_id": "test_collection",
+                "timestamp": "2025-12-17T12:00:00Z",
+                "domains": [
+                    {
+                        "url": domain,
+                        "domain": domain,
+                        "text_path": f"html/{domain}.html",
+                        "image_path": f"images/{domain}.png",
+                        "date_time_collected": "2025-12-17T12:00:00Z",
+                        "fetch_success": True,
+                        "cached": False,
+                        "error": None
+                    }
+                    for domain in domains
+                ]
+            }
+
+        def mock_classification(collection_data, *args, **kwargs):
+            domains_data = collection_data.get("domains", [])
+            return [
+                {
+                    "url": domain_data["url"],
+                    "domain": domain_data["domain"],
+                    "text_path": domain_data["text_path"],
+                    "image_path": domain_data["image_path"],
+                    "date_time_collected": domain_data["date_time_collected"],
+                    "model_used": "text/shallalist_ml",
+                    "category": "news",
+                    "confidence": 0.8,
+                    "reason": None,
+                    "error": None,
+                    "raw_predictions": {"news": 0.8, "other": 0.2}
+                }
+                for domain_data in domains_data
             ]
-        )
-        mock_img_predict.return_value = pd.DataFrame(
-            [
-                {"domain": f"test{i}.com", "image_label": "news", "image_prob": 0.8}
-                for i in range(100)
-            ]
-        )
+
+        mock_collect.side_effect = mock_collection
+        mock_classify.side_effect = mock_classification
 
         classifier = DomainClassifier(cache_dir=self.temp_dir)
         domains = [f"test{i}.com" for i in range(100)]  # Large batch
 
         # Test batch processing completes without memory issues
-        result = classifier.classify_batch(domains, method="text", batch_size=10)
+        result = classifier.classify_by_text(domains)
 
-        self.assertIsInstance(result, pd.DataFrame)
+        self.assertIsInstance(result, list)
         self.assertEqual(len(result), 100)
         self.assertTrue(
-            all(col in result.columns for col in ["domain", "text_label", "text_prob"])
+            all("domain" in res and "category" in res and "confidence" in res for res in result)
         )
 
     def test_error_handling_network_failures(self):
@@ -132,8 +198,8 @@ class TestCriticalIntegration(unittest.TestCase):
         ):
             result = classifier.classify_by_text(["unreachable.invalid"])
 
-            # Should return DataFrame with error information rather than crash
-            self.assertIsInstance(result, pd.DataFrame)
+            # Should return list with error information rather than crash
+            self.assertIsInstance(result, list)
 
     def test_concurrent_classification_safety(self):
         """Test that multiple concurrent operations are safe."""
@@ -144,12 +210,49 @@ class TestCriticalIntegration(unittest.TestCase):
         classifier = DomainClassifier(cache_dir=self.temp_dir)
 
         # Mock at the module level BEFORE starting threads
-        with patch(
-            "piedomains.text.TextClassifier.predict"
-        ) as mock_predict:
-            mock_predict.return_value = pd.DataFrame(
-                [{"domain": "test.com", "text_label": "news", "text_prob": 0.8}]
-            )
+        with patch("piedomains.data_collector.DataCollector.collect") as mock_collect, \
+             patch("piedomains.text.TextClassifier.classify_from_data") as mock_classify:
+
+            def mock_collection(domains, *args, **kwargs):
+                return {
+                    "collection_id": "test_collection",
+                    "timestamp": "2025-12-17T12:00:00Z",
+                    "domains": [
+                        {
+                            "url": domain,
+                            "domain": domain,
+                            "text_path": f"html/{domain}.html",
+                            "image_path": f"images/{domain}.png",
+                            "date_time_collected": "2025-12-17T12:00:00Z",
+                            "fetch_success": True,
+                            "cached": False,
+                            "error": None
+                        }
+                        for domain in domains
+                    ]
+                }
+
+            def mock_classification(collection_data, *args, **kwargs):
+                domains_data = collection_data.get("domains", [])
+                return [
+                    {
+                        "url": domain_data["url"],
+                        "domain": domain_data["domain"],
+                        "text_path": domain_data["text_path"],
+                        "image_path": domain_data["image_path"],
+                        "date_time_collected": domain_data["date_time_collected"],
+                        "model_used": "text/shallalist_ml",
+                        "category": "news",
+                        "confidence": 0.8,
+                        "reason": None,
+                        "error": None,
+                        "raw_predictions": {"news": 0.8, "other": 0.2}
+                    }
+                    for domain_data in domains_data
+                ]
+
+            mock_collect.side_effect = mock_collection
+            mock_classify.side_effect = mock_classification
 
             def classify_worker(domains):
                 try:
@@ -214,6 +317,7 @@ class TestCriticalIntegration(unittest.TestCase):
                         f"Unexpected error type for input '{malicious_input}': {type(e).__name__}: {e}"
                     )
 
+    @skip_in_ci()
     @pytest.mark.ml
     def test_real_model_inference_basic(self):
         """Test actual model inference with real TensorFlow models (requires ML models)."""
@@ -222,13 +326,13 @@ class TestCriticalIntegration(unittest.TestCase):
         # Test with a well-known domain that should classify successfully
         result = classifier.classify_by_text(["google.com"])
 
-        self.assertIsInstance(result, pd.DataFrame)
+        self.assertIsInstance(result, list)
         self.assertEqual(len(result), 1)
-        self.assertEqual(result.iloc[0]["domain"], "google.com")
-        self.assertIsInstance(result.iloc[0]["text_label"], str)
-        self.assertIsInstance(result.iloc[0]["text_prob"], float)
-        self.assertGreater(result.iloc[0]["text_prob"], 0.0)
-        self.assertLessEqual(result.iloc[0]["text_prob"], 1.0)
+        self.assertEqual(result[0]["domain"], "google.com")
+        self.assertIsInstance(result[0]["category"], str)
+        self.assertIsInstance(result[0]["confidence"], float)
+        self.assertGreater(result[0]["confidence"], 0.0)
+        self.assertLessEqual(result[0]["confidence"], 1.0)
 
     def test_archive_date_validation(self):
         """Test archive date validation and error handling."""

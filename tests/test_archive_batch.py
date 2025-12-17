@@ -100,15 +100,14 @@ class TestArchiveBatch(unittest.TestCase):
                 archive_date="20100101"
             )
 
-            # Verify we got a DataFrame back
-            import pandas as pd
-            self.assertIsInstance(result, pd.DataFrame)
+            # Verify we got a list back
+            self.assertIsInstance(result, list)
             self.assertEqual(len(result), len(test_domains))
 
             print(f"✓ DomainClassifier archive batch returned {len(result)} results")
 
             # Check that at least one domain was processed
-            successful_domains = result[result['text_label'].notna()]
+            successful_domains = [r for r in result if r.get('category') is not None]
             print(f"✓ Successfully classified {len(successful_domains)}/{len(result)} domains from archives")
 
         except Exception as e:

@@ -14,6 +14,34 @@ from unittest.mock import MagicMock
 import pytest
 
 
+def browser_available() -> bool:
+    """Check if Playwright browsers are available."""
+    try:
+        from playwright.sync_api import sync_playwright
+        with sync_playwright() as p:
+            browser = p.chromium.launch()
+            browser.close()
+        return True
+    except Exception:
+        return False
+
+
+def skip_if_no_browser():
+    """Skip test if Playwright browsers are not available."""
+    return pytest.mark.skipif(
+        not browser_available(),
+        reason="Playwright browsers not available"
+    )
+
+
+def skip_in_ci():
+    """Skip test in CI environment."""
+    return pytest.mark.skipif(
+        os.getenv("CI") == "true" or os.getenv("GITHUB_ACTIONS") == "true",
+        reason="Skipped in CI environment"
+    )
+
+
 @pytest.fixture
 def temp_dir():
     """Create a temporary directory for test files."""
@@ -54,21 +82,25 @@ def mock_classifier():
     classifier = MagicMock()
 
     # Default return values for common methods
-    import pandas as pd
-    default_result = pd.DataFrame({
-        "domain": ["test.com"],
-        "pred_label": ["test"],
-        "pred_prob": [0.9],
-        "text_label": ["test"],
-        "text_prob": [0.8],
-        "image_label": ["test"],
-        "image_prob": [0.85]
-    })
+    default_result = [
+        {
+            "url": "test.com",
+            "domain": "test.com",
+            "text_path": "html/test.com.html",
+            "image_path": "images/test.com.png",
+            "date_time_collected": "2025-12-17T12:00:00Z",
+            "model_used": "combined/text_image_ml",
+            "category": "test",
+            "confidence": 0.9,
+            "reason": None,
+            "error": None,
+            "raw_predictions": {"test": 0.9, "other": 0.1}
+        }
+    ]
 
     classifier.classify.return_value = default_result
     classifier.classify_by_text.return_value = default_result
     classifier.classify_by_images.return_value = default_result
-    classifier.classify_batch.return_value = default_result
 
     return classifier
 
