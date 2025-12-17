@@ -107,8 +107,6 @@ class ContentProcessor:
                         fetch_results.append(result)
                     except Exception as e:
                         # Create a failed FetchResult for network errors
-                        from ..fetchers import FetchResult
-
                         failed_result = FetchResult(
                             url=url, success=False, error=f"Network error: {str(e)}"
                         )
@@ -334,6 +332,6 @@ class ContentProcessor:
             str: Clean domain name
         """
         # Import here to avoid circular imports
-        from ..piedomain import Piedomain
+        from .piedomain import Piedomain
 
         return Piedomain.parse_url_to_domain(url_or_domain)

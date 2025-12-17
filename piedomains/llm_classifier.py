@@ -5,7 +5,7 @@ from __future__ import annotations
 import base64
 import json
 import time
-from datetime import datetime
+from datetime import UTC, datetime
 from io import BytesIO
 from pathlib import Path
 from typing import Any
@@ -557,7 +557,7 @@ class LLMClassifier:
 
             # Add metadata
             output_data = {
-                "inference_timestamp": datetime.utcnow().isoformat() + "Z",
+                "inference_timestamp": datetime.now(UTC).isoformat(),
                 "model_used": f"{mode}/llm_{self.config.provider}_{self.config.model}",
                 "total_domains": len(data_paths),
                 "successful": len([r for r in results if r["category"] is not None]),

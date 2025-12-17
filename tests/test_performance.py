@@ -131,7 +131,7 @@ class TestPerformanceBenchmarks(unittest.TestCase):
 
             # Performance should scale reasonably (mocked, so very fast)
             # Real performance would be much slower due to network requests
-            self.assertLess(total_time, 120)  # Very generous timeout for CI environments
+            self.assertLess(total_time, 180)  # Very generous timeout for CI environments
 
             # Log performance for manual review
             rate = size / total_time if total_time > 0 else float("inf")

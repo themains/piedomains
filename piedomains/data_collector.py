@@ -8,7 +8,7 @@ enabling reusability, transparency, and reproducibility.
 
 import json
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 
 from .config import get_config
@@ -96,7 +96,7 @@ class DataCollector:
             raise ValueError("domains list cannot be empty")
 
         collection_id = collection_id or str(uuid.uuid4())
-        collection_start = datetime.utcnow()
+        collection_start = datetime.now(UTC)
 
         logger.info(f"Starting data collection for {len(domains)} domains")
 
@@ -147,7 +147,7 @@ class DataCollector:
             Dictionary with domain collection results
         """
         domain_name = self._parse_domain_name(domain)
-        collection_time = datetime.utcnow()
+        collection_time = datetime.now(UTC)
 
         # Define file paths
         html_file = self.html_dir / f"{domain_name}.html"
@@ -246,7 +246,7 @@ class DataCollector:
             raise ValueError("domains list cannot be empty")
 
         collection_id = collection_id or str(uuid.uuid4())
-        collection_start = datetime.utcnow()
+        collection_start = datetime.now(UTC)
 
         logger.info(f"Starting batch data collection for {len(domains)} domains")
 
@@ -273,7 +273,7 @@ class DataCollector:
                             "domain": domain_name,
                             "text_path": None,
                             "image_path": None,
-                            "date_time_collected": datetime.utcnow().isoformat() + "Z",
+                            "date_time_collected": datetime.now(UTC).isoformat(),
                             "fetch_success": False,
                             "cached": False,
                             "error": f"Batch processing failed: {e}",
@@ -341,7 +341,7 @@ class DataCollector:
                         "domain": domain_name,
                         "text_path": str(html_file.relative_to(self.cache_dir)),
                         "image_path": str(image_file.relative_to(self.cache_dir)),
-                        "date_time_collected": datetime.utcnow().isoformat() + "Z",
+                        "date_time_collected": datetime.now(UTC).isoformat(),
                         "fetch_success": True,
                         "cached": True,
                         "error": None,
@@ -363,7 +363,7 @@ class DataCollector:
                 fetched_results = []
                 for result in fetch_results:
                     domain_name = self._parse_domain_name(result.url)
-                    collection_time = datetime.utcnow()
+                    collection_time = datetime.now(UTC)
 
                     if result.success:
                         # Save HTML content

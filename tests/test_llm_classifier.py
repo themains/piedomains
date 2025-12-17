@@ -212,7 +212,7 @@ class TestDomainClassifierLLM(unittest.TestCase):
         stats = self.classifier.get_llm_usage_stats()
         self.assertIsNone(stats)
 
-    @patch("piedomains.llm.litellm")
+    @patch("piedomains.llm_classifier.litellm")
     def test_classify_by_llm_mock(self, mock_litellm):
         """Test LLM classification with mocked response."""
         # Mock litellm response

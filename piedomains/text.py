@@ -4,6 +4,7 @@ Text-based domain classification using HTML content analysis.
 """
 
 import os
+from datetime import UTC
 from pathlib import Path
 
 import numpy as np
@@ -304,7 +305,7 @@ class TextClassifier(Base):
 
             # Add metadata
             output_data = {
-                "inference_timestamp": datetime.utcnow().isoformat() + "Z",
+                "inference_timestamp": datetime.now(UTC).isoformat(),
                 "model_used": "text/shallalist_ml",
                 "total_domains": len(data_paths),
                 "successful": len([r for r in results if r["category"] is not None]),

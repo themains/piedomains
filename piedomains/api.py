@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import os
 import re
-from datetime import datetime
+from datetime import UTC, datetime
 
 # LLM imports happen lazily when needed
 from .piedomains_logging import get_logger
@@ -660,7 +660,7 @@ class DomainClassifier:
                 os.makedirs(os.path.dirname(output_file), exist_ok=True)
 
                 output_data = {
-                    "inference_timestamp": datetime.utcnow().isoformat() + "Z",
+                    "inference_timestamp": datetime.now(UTC).isoformat(),
                     "model_used": "combined/text_image_ml",
                     "total_domains": len(combined_results),
                     "successful": len(
