@@ -10,8 +10,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-from piedomains import DataCollector, DomainClassifier
-from piedomains import TextClassifier, ImageClassifier
+from piedomains import DataCollector, DomainClassifier, TextClassifier
 
 
 class TestDataCollector(unittest.TestCase):

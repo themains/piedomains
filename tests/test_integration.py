@@ -17,9 +17,9 @@ import pytest
 
 from piedomains import DomainClassifier, classify_domains
 from piedomains.archive_org_downloader import download_from_archive_org, get_urls_year
+from piedomains.content_processor import ContentProcessor
 from piedomains.fetchers import ArchiveFetcher, PlaywrightFetcher, get_fetcher
 from piedomains.piedomains_logging import configure_logging, get_logger
-from piedomains.processors.content_processor import ContentProcessor
 from piedomains.utils import is_within_directory
 
 # Configure test logging

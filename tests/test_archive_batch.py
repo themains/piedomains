@@ -9,7 +9,6 @@ without mocking. Uses real archive.org API with rate limiting.
 import os
 import tempfile
 import unittest
-from datetime import datetime
 
 from piedomains import DomainClassifier
 from piedomains.fetchers import ArchiveFetcher

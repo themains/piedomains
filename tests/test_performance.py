@@ -16,7 +16,7 @@ import pandas as pd
 import pytest
 
 from piedomains.api import DomainClassifier
-from piedomains.processors.text_processor import TextProcessor
+from piedomains.text_processor import TextProcessor
 
 
 class TestPerformanceBenchmarks(unittest.TestCase):
@@ -256,7 +256,7 @@ class TestResourceManagement(unittest.TestCase):
         DomainClassifier(cache_dir=new_cache_dir)
 
         # The directory should be created when processors are initialized
-        from piedomains.processors.content_processor import ContentProcessor
+        from piedomains.content_processor import ContentProcessor
 
         processor = ContentProcessor(new_cache_dir)
 
