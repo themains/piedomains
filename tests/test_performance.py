@@ -140,7 +140,9 @@ class TestPerformanceBenchmarks(unittest.TestCase):
                 f"({rate:.1f} domains/second)"
             )
 
-    def test_cache_effectiveness(self):
+    @patch("piedomains.data_collector.DataCollector.collect")
+    @patch("piedomains.text.TextClassifier.classify_from_data")
+    def test_cache_effectiveness(self, mock_classify, mock_collect):
         """Test that caching improves performance."""
         # Create some test cache files
         cache_html_dir = os.path.join(self.temp_dir, "html")
@@ -151,29 +153,65 @@ class TestPerformanceBenchmarks(unittest.TestCase):
         with open(os.path.join(cache_html_dir, "example.com.html"), "w") as f:
             f.write(test_html)
 
-        # Mock the actual prediction to isolate cache performance
-        with patch(
-            "piedomains.text.TextClassifier._predict_text"
-        ) as mock_predict:
-            mock_predict.return_value = {
-                "text_label": "news",
-                "text_prob": 0.8,
-                "text_domain_probs": {"news": 0.8, "other": 0.2}
+        # Mock data collection to simulate cache behavior
+        def mock_collection(domains, *args, **kwargs):
+            use_cache = kwargs.get("use_cache", True)
+            return {
+                "collection_id": "test_collection",
+                "timestamp": "2025-12-17T12:00:00Z",
+                "domains": [
+                    {
+                        "url": "example.com",
+                        "domain": "example.com",
+                        "text_path": "html/example.com.html",
+                        "image_path": "images/example.com.png",
+                        "date_time_collected": "2025-12-17T12:00:00Z",
+                        "fetch_success": True,
+                        "cached": use_cache,  # Simulate cache usage
+                        "error": None
+                    }
+                ]
             }
 
-            # First call (should use cache)
-            start_time = time.time()
-            self.classifier.classify_by_text(["example.com"], use_cache=True)
-            cached_time = time.time() - start_time
+        # Mock classification
+        def mock_classification(collection_data, *args, **kwargs):
+            return [
+                {
+                    "url": "example.com",
+                    "domain": "example.com",
+                    "text_path": "html/example.com.html",
+                    "image_path": "images/example.com.png",
+                    "date_time_collected": "2025-12-17T12:00:00Z",
+                    "model_used": "text/shallalist_ml",
+                    "category": "news",
+                    "confidence": 0.8,
+                    "reason": None,
+                    "error": None,
+                    "raw_predictions": {"news": 0.8, "other": 0.2}
+                }
+            ]
 
-            # Second call (should also use cache)
-            start_time = time.time()
-            self.classifier.classify_by_text(["example.com"], use_cache=True)
-            cached_time2 = time.time() - start_time
+        mock_collect.side_effect = mock_collection
+        mock_classify.side_effect = mock_classification
 
-            # Both should be fast since we're using cache
-            self.assertLess(cached_time, 1.0)
-            self.assertLess(cached_time2, 1.0)
+        # First call (should use cache)
+        start_time = time.time()
+        result1 = self.classifier.classify_by_text(["example.com"], use_cache=True)
+        cached_time = time.time() - start_time
+
+        # Second call (should also use cache)
+        start_time = time.time()
+        result2 = self.classifier.classify_by_text(["example.com"], use_cache=True)
+        cached_time2 = time.time() - start_time
+
+        # Both should be fast since we're using cache
+        self.assertLess(cached_time, 1.0)
+        self.assertLess(cached_time2, 1.0)
+
+        # Verify results are correct
+        self.assertEqual(len(result1), 1)
+        self.assertEqual(len(result2), 1)
+        self.assertEqual(result1[0]["category"], "news")
 
     def test_memory_usage_batch_processing(self):
         """Test memory usage doesn't grow excessively in batch processing."""

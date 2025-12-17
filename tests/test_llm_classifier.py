@@ -7,7 +7,6 @@ Tests for LLM-based domain classification.
 import unittest
 from unittest.mock import MagicMock, patch
 
-import pandas as pd
 import pytest
 
 from piedomains.api import DomainClassifier
