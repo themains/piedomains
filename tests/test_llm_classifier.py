@@ -213,7 +213,7 @@ class TestDomainClassifierLLM(unittest.TestCase):
         stats = self.classifier.get_llm_usage_stats()
         self.assertIsNone(stats)
 
-    @patch("piedomains.classifiers.llm_classifier.litellm")
+    @patch("piedomains.llm.litellm")
     def test_classify_by_llm_mock(self, mock_litellm):
         """Test LLM classification with mocked response."""
         # Mock litellm response
@@ -236,7 +236,7 @@ class TestDomainClassifierLLM(unittest.TestCase):
 
         # Mock text classifier to avoid actual network calls
         with patch(
-            "piedomains.classifiers.text_classifier.TextClassifier.predict"
+            "piedomains.text.TextClassifier.predict"
         ) as mock_text:
             mock_text.return_value = pd.DataFrame(
                 [

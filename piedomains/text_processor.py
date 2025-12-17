@@ -10,8 +10,8 @@ import string
 from bs4 import BeautifulSoup
 from bs4.element import Comment
 
-from ..constants import most_common_words
-from ..piedomains_logging import get_logger
+from .constants import most_common_words
+from .piedomains_logging import get_logger
 
 logger = get_logger()
 

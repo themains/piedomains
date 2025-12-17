@@ -55,7 +55,7 @@ class TestCriticalIntegration(unittest.TestCase):
             self.assertEqual(len(rm._temp_files), 0)
             self.assertEqual(len(rm._temp_dirs), 0)
 
-    @patch("piedomains.classifiers.text_classifier.TextClassifier.predict")
+    @patch("piedomains.text.TextClassifier.predict")
     def test_domain_validation_edge_cases(self, mock_predict):
         """Test domain validation with edge cases and security inputs."""
         # Mock successful classification
@@ -89,8 +89,8 @@ class TestCriticalIntegration(unittest.TestCase):
                     # Should have meaningful error messages
                     self.assertIn("domain", str(e).lower())
 
-    @patch("piedomains.classifiers.text_classifier.TextClassifier.predict")
-    @patch("piedomains.classifiers.image_classifier.ImageClassifier.predict")
+    @patch("piedomains.text.TextClassifier.predict")
+    @patch("piedomains.image.ImageClassifier.predict")
     def test_batch_processing_memory_management(
         self, mock_img_predict, mock_text_predict
     ):
@@ -145,7 +145,7 @@ class TestCriticalIntegration(unittest.TestCase):
 
         # Mock at the module level BEFORE starting threads
         with patch(
-            "piedomains.classifiers.text_classifier.TextClassifier.predict"
+            "piedomains.text.TextClassifier.predict"
         ) as mock_predict:
             mock_predict.return_value = pd.DataFrame(
                 [{"domain": "test.com", "text_label": "news", "text_prob": 0.8}]

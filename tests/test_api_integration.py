@@ -11,7 +11,6 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-import pandas as pd
 import pytest
 
 from piedomains.api import DomainClassifier, classify_domains
@@ -41,96 +40,116 @@ class TestNewAPIIntegration(unittest.TestCase):
         custom_classifier = DomainClassifier(cache_dir="/tmp/test")
         self.assertEqual(custom_classifier.cache_dir, "/tmp/test")
 
-    @patch("piedomains.classifiers.text_classifier.TextClassifier.predict")
-    def test_classify_by_text_basic(self, mock_predict):
+    @patch("piedomains.text.TextClassifier.classify_from_data")
+    def test_classify_by_text_basic(self, mock_classify):
         """Test text-only classification."""
         # Mock successful text classification
-        mock_result = pd.DataFrame(
-            [
-                {
-                    "domain": "example.com",
-                    "text_label": "news",
-                    "text_prob": 0.85,
-                    "used_domain_text": True,
-                    "extracted_text": "example news content",
-                    "error": None,
-                }
-            ]
-        )
-        mock_predict.return_value = mock_result
+        mock_result = [
+            {
+                "url": "example.com",
+                "domain": "example.com",
+                "text_path": "html/example.com.html",
+                "image_path": None,
+                "date_time_collected": "2024-01-01T12:00:00Z",
+                "model_used": "text/shallalist_ml",
+                "category": "news",
+                "confidence": 0.85,
+                "reason": None,
+                "error": None,
+                "raw_predictions": {"news": 0.85, "sports": 0.15}
+            }
+        ]
+        mock_classify.return_value = mock_result
 
         result = self.classifier.classify_by_text(["example.com"])
 
         # Verify result structure
-        self.assertIsInstance(result, pd.DataFrame)
-        self.assertIn("domain", result.columns)
-        self.assertIn("text_label", result.columns)
-        self.assertIn("text_prob", result.columns)
+        self.assertIsInstance(result, list)
         self.assertEqual(len(result), 1)
-        self.assertEqual(result.iloc[0]["domain"], "example.com")
-        self.assertEqual(result.iloc[0]["text_label"], "news")
+        self.assertEqual(result[0]["domain"], "example.com")
+        self.assertEqual(result[0]["category"], "news")
+        self.assertEqual(result[0]["confidence"], 0.85)
 
-    @patch("piedomains.classifiers.image_classifier.ImageClassifier.predict")
-    def test_classify_by_images_basic(self, mock_predict):
+    @patch("piedomains.image.ImageClassifier.classify_from_data")
+    def test_classify_by_images_basic(self, mock_classify):
         """Test image-only classification."""
         # Mock successful image classification
-        mock_result = pd.DataFrame(
-            [
-                {
-                    "domain": "example.com",
-                    "image_label": "socialnet",
-                    "image_prob": 0.72,
-                    "used_domain_screenshot": True,
-                    "error": None,
-                }
-            ]
-        )
-        mock_predict.return_value = mock_result
+        mock_result = [
+            {
+                "url": "example.com",
+                "domain": "example.com",
+                "text_path": None,
+                "image_path": "images/example.com.png",
+                "date_time_collected": "2024-01-01T12:00:00Z",
+                "model_used": "image/shallalist_ml",
+                "category": "socialnet",
+                "confidence": 0.72,
+                "reason": None,
+                "error": None,
+                "raw_predictions": {"socialnet": 0.72, "news": 0.28}
+            }
+        ]
+        mock_classify.return_value = mock_result
 
         result = self.classifier.classify_by_images(["example.com"])
 
         # Verify result structure
-        self.assertIsInstance(result, pd.DataFrame)
-        self.assertIn("domain", result.columns)
-        self.assertIn("image_label", result.columns)
-        self.assertIn("image_prob", result.columns)
+        self.assertIsInstance(result, list)
         self.assertEqual(len(result), 1)
-        self.assertEqual(result.iloc[0]["domain"], "example.com")
-        self.assertEqual(result.iloc[0]["image_label"], "socialnet")
+        self.assertEqual(result[0]["domain"], "example.com")
+        self.assertEqual(result[0]["category"], "socialnet")
+        self.assertEqual(result[0]["confidence"], 0.72)
 
-    @patch("piedomains.classifiers.combined_classifier.CombinedClassifier.predict")
-    def test_classify_combined_basic(self, mock_predict):
+    @patch("piedomains.text.TextClassifier.classify_from_data")
+    @patch("piedomains.image.ImageClassifier.classify_from_data")
+    def test_classify_combined_basic(self, mock_image_classify, mock_text_classify):
         """Test combined text+image classification."""
-        # Mock successful combined classification
-        mock_result = pd.DataFrame(
-            [
-                {
-                    "domain": "example.com",
-                    "pred_label": "news",
-                    "pred_prob": 0.78,
-                    "text_label": "news",
-                    "text_prob": 0.85,
-                    "image_label": "socialnet",
-                    "image_prob": 0.72,
-                    "used_domain_text": True,
-                    "used_domain_screenshot": True,
-                    "error": None,
-                }
-            ]
-        )
-        mock_predict.return_value = mock_result
+        # Mock text classification results
+        mock_text_result = [
+            {
+                "url": "example.com",
+                "domain": "example.com",
+                "text_path": "html/example.com.html",
+                "image_path": None,
+                "date_time_collected": "2024-01-01T12:00:00Z",
+                "model_used": "text/shallalist_ml",
+                "category": "news",
+                "confidence": 0.85,
+                "reason": None,
+                "error": None,
+                "raw_predictions": {"news": 0.85, "sports": 0.15}
+            }
+        ]
+        mock_text_classify.return_value = mock_text_result
+
+        # Mock image classification results
+        mock_image_result = [
+            {
+                "url": "example.com",
+                "domain": "example.com",
+                "text_path": None,
+                "image_path": "images/example.com.png",
+                "date_time_collected": "2024-01-01T12:00:00Z",
+                "model_used": "image/shallalist_ml",
+                "category": "socialnet",
+                "confidence": 0.72,
+                "reason": None,
+                "error": None,
+                "raw_predictions": {"socialnet": 0.72, "news": 0.28}
+            }
+        ]
+        mock_image_classify.return_value = mock_image_result
 
         result = self.classifier.classify(["example.com"])
 
         # Verify result structure
-        self.assertIsInstance(result, pd.DataFrame)
-        self.assertIn("domain", result.columns)
-        self.assertIn("pred_label", result.columns)
-        self.assertIn("pred_prob", result.columns)
-        self.assertIn("text_label", result.columns)
-        self.assertIn("image_label", result.columns)
+        self.assertIsInstance(result, list)
         self.assertEqual(len(result), 1)
-        self.assertEqual(result.iloc[0]["pred_label"], "news")
+        self.assertEqual(result[0]["domain"], "example.com")
+        self.assertEqual(result[0]["model_used"], "combined/text_image_ml")
+        self.assertIn("text_category", result[0])
+        self.assertIn("image_category", result[0])
+        self.assertIn("confidence", result[0])
 
     def test_classify_empty_domains_error(self):
         """Test error handling for empty domain list."""
@@ -151,59 +170,72 @@ class TestNewAPIIntegration(unittest.TestCase):
         test_date = datetime(2020, 1, 1)
         classifier = DomainClassifier()
 
-        # This should not raise an error (conversion happens internally)
-        # We can't easily test the internal conversion without mocking,
-        # but we can verify the interface accepts datetime objects
-        try:
-            # Mock the classifier to avoid actual API calls
-            with patch(
-                "piedomains.classifiers.combined_classifier.CombinedClassifier.predict"
-            ) as mock_predict:
-                mock_predict.return_value = pd.DataFrame()
-                result = classifier.classify(["example.com"], archive_date=test_date)
-                self.assertIsInstance(result, pd.DataFrame)
-        except Exception as e:
-            # Should not raise ValueError for date format
-            self.assertNotIsInstance(e, ValueError)
+        # Test the internal date normalization method directly
+        normalized_date = classifier._normalize_archive_date(test_date)
+        self.assertEqual(normalized_date, "20200101")
 
-    @patch("piedomains.classifiers.combined_classifier.CombinedClassifier.predict")
-    def test_batch_processing(self, mock_predict):
+        # Test with string date
+        normalized_date = classifier._normalize_archive_date("20200101")
+        self.assertEqual(normalized_date, "20200101")
+
+        # Test with None
+        normalized_date = classifier._normalize_archive_date(None)
+        self.assertIsNone(normalized_date)
+
+    @patch("piedomains.data_collector.DataCollector.collect_batch")
+    @patch("piedomains.text.TextClassifier.classify_from_data")
+    @patch("piedomains.image.ImageClassifier.classify_from_data")
+    def test_batch_processing(self, mock_image_classify, mock_text_classify, mock_collect):
         """Test batch processing functionality."""
-        # Mock batch results
-        mock_result = pd.DataFrame(
-            [
-                {"domain": "example.com", "pred_label": "news", "pred_prob": 0.85},
-                {"domain": "test.org", "pred_label": "education", "pred_prob": 0.92},
+        # Mock data collection
+        mock_collect.return_value = {
+            "collection_id": "test123",
+            "timestamp": "2024-01-01T12:00:00Z",
+            "domains": [
+                {"domain": "example.com", "text_path": "html/example.com.html", "image_path": "images/example.com.png"},
+                {"domain": "test.org", "text_path": "html/test.org.html", "image_path": "images/test.org.png"}
             ]
-        )
-        mock_predict.return_value = mock_result
+        }
 
-        domains = ["example.com", "test.org", "sample.net", "demo.edu"]
-        result = self.classifier.classify_batch(
-            domains, method="combined", batch_size=2, show_progress=False
-        )
+        # Mock classification results
+        mock_text_result = [
+            {"domain": "example.com", "category": "news", "confidence": 0.85, "error": None},
+            {"domain": "test.org", "category": "education", "confidence": 0.92, "error": None},
+        ]
+        mock_text_classify.return_value = mock_text_result
 
-        # Should have called predict twice (2 batches of 2)
-        self.assertEqual(mock_predict.call_count, 2)
+        mock_image_result = [
+            {"domain": "example.com", "category": "news", "confidence": 0.80, "error": None},
+            {"domain": "test.org", "category": "education", "confidence": 0.88, "error": None},
+        ]
+        mock_image_classify.return_value = mock_image_result
 
-        # Result should be a DataFrame
-        self.assertIsInstance(result, pd.DataFrame)
+        domains = ["example.com", "test.org"]
+        result = self.classifier.classify(domains)
+
+        # Result should be a list
+        self.assertIsInstance(result, list)
+        self.assertEqual(len(result), 2)
 
     def test_batch_invalid_method(self):
-        """Test error handling for invalid batch method."""
-        with self.assertRaises(ValueError):
-            self.classifier.classify_batch(["example.com"], method="invalid")
+        """Test error handling for invalid method."""
+        # Mock collection to avoid actual data fetching
+        with patch("piedomains.data_collector.DataCollector.collect") as mock_collect:
+            mock_collect.return_value = {"domains": []}
 
-    @patch("piedomains.api.classify_domains")
+            with self.assertRaises(ValueError):
+                self.classifier.classify_from_collection({"domains": []}, method="invalid")
+
+    @patch("piedomains.api._classify_domains_impl")
     def test_convenience_function(self, mock_classify):
         """Test the convenience classify_domains function."""
-        mock_classify.return_value = pd.DataFrame()
+        mock_classify.return_value = [{"domain": "example.com", "category": "news", "confidence": 0.85}]
 
         # Test the convenience function
         result = classify_domains(["example.com"], method="text")
 
         mock_classify.assert_called_once()
-        self.assertIsInstance(result, pd.DataFrame)
+        self.assertIsInstance(result, list)
 
 
 class TestAPIErrorHandling(unittest.TestCase):
@@ -217,43 +249,44 @@ class TestAPIErrorHandling(unittest.TestCase):
         if os.path.exists(self.temp_dir):
             shutil.rmtree(self.temp_dir)
 
-    @patch("piedomains.classifiers.text_classifier.TextClassifier.predict")
-    def test_text_classification_error_handling(self, mock_predict):
+    @patch("piedomains.text.TextClassifier.classify_from_data")
+    def test_text_classification_error_handling(self, mock_classify):
         """Test error handling in text classification."""
         # Mock text classifier failure
-        mock_predict.side_effect = Exception("Model loading failed")
+        mock_classify.side_effect = Exception("Model loading failed")
 
-        # Should not raise, but return empty DataFrame or handle gracefully
+        # Should not raise, but return empty list or handle gracefully
         try:
             result = self.classifier.classify_by_text(["example.com"])
-            # Result should still be a DataFrame (might be empty or contain error info)
-            self.assertIsInstance(result, pd.DataFrame)
+            # Result should still be a list (might be empty or contain error info)
+            self.assertIsInstance(result, list)
         except Exception:
             # If it does raise, that's also acceptable for now
             pass
 
-    @patch("piedomains.classifiers.combined_classifier.CombinedClassifier.predict")
-    def test_combined_classification_partial_failure(self, mock_predict):
+    @patch("piedomains.text.TextClassifier.classify_from_data")
+    @patch("piedomains.image.ImageClassifier.classify_from_data")
+    def test_combined_classification_partial_failure(self, mock_image_classify, mock_text_classify):
         """Test handling when some domains fail in combined classification."""
         # Mock partial failure scenario
-        mock_result = pd.DataFrame(
-            [
-                {"domain": "example.com", "pred_label": "news", "error": None},
-                {
-                    "domain": "failed.com",
-                    "pred_label": None,
-                    "error": "Network timeout",
-                },
-            ]
-        )
-        mock_predict.return_value = mock_result
+        mock_text_result = [
+            {"domain": "example.com", "category": "news", "confidence": 0.85, "error": None},
+            {"domain": "failed.com", "category": None, "confidence": 0.0, "error": "Network timeout"},
+        ]
+        mock_text_classify.return_value = mock_text_result
+
+        mock_image_result = [
+            {"domain": "example.com", "category": "news", "confidence": 0.80, "error": None},
+            {"domain": "failed.com", "category": None, "confidence": 0.0, "error": "Network timeout"},
+        ]
+        mock_image_classify.return_value = mock_image_result
 
         result = self.classifier.classify(["example.com", "failed.com"])
 
         # Should handle partial failures gracefully
         self.assertEqual(len(result), 2)
-        self.assertIsNone(result.iloc[0]["error"])  # Success case
-        self.assertIsNotNone(result.iloc[1]["error"])  # Failure case
+        self.assertIsNone(result[0]["error"])  # Success case
+        self.assertIsNotNone(result[1]["error"])  # Failure case
 
 
 # Performance and benchmark tests
@@ -269,16 +302,21 @@ class TestAPIPerformance(unittest.TestCase):
         if os.path.exists(self.temp_dir):
             shutil.rmtree(self.temp_dir)
 
-    @patch("piedomains.classifiers.text_classifier.TextClassifier.predict")
-    def test_batch_performance(self, mock_predict):
+    @patch("piedomains.data_collector.DataCollector.collect_batch")
+    @patch("piedomains.text.TextClassifier.classify_from_data")
+    def test_batch_performance(self, mock_classify, mock_collect):
         """Test that batch processing handles large lists efficiently."""
-        # Mock fast prediction
-        mock_predict.return_value = pd.DataFrame(
-            [
-                {"domain": f"test{i}.com", "text_label": "news", "text_prob": 0.8}
-                for i in range(100)
-            ]
-        )
+        # Mock data collection
+        mock_collect.return_value = {
+            "collection_id": "perf_test",
+            "domains": [{"domain": f"test{i}.com"} for i in range(100)]
+        }
+
+        # Mock fast classification
+        mock_classify.return_value = [
+            {"domain": f"test{i}.com", "category": "news", "confidence": 0.8}
+            for i in range(100)
+        ]
 
         # Test with 100 domains
         domains = [f"test{i}.com" for i in range(100)]
@@ -286,9 +324,7 @@ class TestAPIPerformance(unittest.TestCase):
         import time
 
         start_time = time.time()
-        result = self.classifier.classify_batch(
-            domains, method="text", batch_size=25, show_progress=False
-        )
+        result = self.classifier.classify_by_text(domains)
         end_time = time.time()
 
         # Should complete reasonably quickly (mocked, so very fast)

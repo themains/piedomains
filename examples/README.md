@@ -1,24 +1,55 @@
-# Examples
+# Piedomains Examples
 
-This directory contains example scripts demonstrating piedomains functionality:
+This directory contains examples demonstrating the piedomains library's capabilities.
 
-## Traditional ML Classification
-- `new_api_demo.py`: Modern DomainClassifier API demonstration
-- `archive_demo.py`: Basic archive.org classification demo
-- `archive_functionality_demo.py`: Archive functionality testing
-- `final_archive_demo.py`: Final archive integration test
-- `jupyter_demo.py`: Jupyter notebook demonstration
+## 🚀 Quick Start - New JSON API
 
-## LLM-Powered Classification
-- `llm_demo.py`: LLM-based classification with OpenAI, Anthropic, Google models
+The piedomains library now features a clean JSON-only API that separates data collection from inference:
 
-## Running Examples
+```python
+from piedomains import DomainClassifier
 
-```bash
-cd examples
-python new_api_demo.py
-python llm_demo.py  # Requires API key
+# Simple classification - returns JSON instead of DataFrames
+classifier = DomainClassifier()
+results = classifier.classify(["cnn.com", "github.com"])
+
+for result in results:
+    print(f"{result['domain']}: {result['category']} ({result['confidence']:.3f})")
+    print(f"  Model: {result['model_used']}")
+    print(f"  Data: {result['text_path']}, {result['image_path']}")
 ```
+
+## 🔧 Separated Workflow
+
+For advanced use cases, separate data collection from inference:
+
+```python
+from piedomains import DataCollector, DomainClassifier
+
+# Step 1: Collect data (can be reused)
+collector = DataCollector()
+data = collector.collect(["example.com"])
+
+# Step 2: Run inference (try different models on same data)
+classifier = DomainClassifier()
+text_results = classifier.classify_from_collection(data, method="text")
+image_results = classifier.classify_from_collection(data, method="images")
+```
+
+## 📁 Available Examples
+
+### Core Functionality
+- `json_only_demo.py` - **NEW**: JSON-only API demonstration
+- `separated_workflow_demo.py` - **NEW**: Data collection & inference separation
+- `new_api_demo.py` - Traditional API (now returns JSON)
+- `jupyter_demo.py` - Jupyter notebook examples
+
+### Archive & Historical Analysis
+- `final_archive_demo.py` - Archive.org integration
+- Historical snapshots with `archive_date="20200101"`
+
+### LLM-Powered Classification
+- `llm_demo.py` - LLM-based classification with multiple providers
 
 ## 🔒 Security & Sandbox Examples
 

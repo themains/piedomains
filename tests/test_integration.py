@@ -17,7 +17,7 @@ import pytest
 
 from piedomains import DomainClassifier, classify_domains
 from piedomains.archive_org_downloader import download_from_archive_org, get_urls_year
-from piedomains.fetchers import ArchiveFetcher, LiveFetcher, get_fetcher
+from piedomains.fetchers import ArchiveFetcher, PlaywrightFetcher, get_fetcher
 from piedomains.piedomains_logging import configure_logging, get_logger
 from piedomains.processors.content_processor import ContentProcessor
 from piedomains.utils import is_within_directory
@@ -34,7 +34,7 @@ class TestInfrastructureIntegration:
         """Test fetcher factory returns correct implementations."""
         # Test live fetcher
         live_fetcher = get_fetcher()
-        assert isinstance(live_fetcher, LiveFetcher)
+        assert isinstance(live_fetcher, PlaywrightFetcher)
 
         # Test archive fetcher
         archive_fetcher = get_fetcher(archive_date="20200101")
@@ -72,7 +72,7 @@ class TestInfrastructureIntegration:
         mock_chrome.return_value.__enter__ = Mock(return_value=mock_driver)
         mock_chrome.return_value.__exit__ = Mock(return_value=None)
 
-        fetcher = LiveFetcher()
+        fetcher = PlaywrightFetcher()
 
         with tempfile.TemporaryDirectory() as temp_dir:
             output_path = os.path.join(temp_dir, "test_screenshot.png")
@@ -190,7 +190,7 @@ class TestResourceManagement:
         # Don't use context manager to test manual cleanup
         mock_chrome_class.return_value = mock_driver
 
-        fetcher = LiveFetcher()
+        fetcher = PlaywrightFetcher()
 
         with tempfile.TemporaryDirectory() as temp_dir:
             output_path = os.path.join(temp_dir, "test.png")
@@ -253,7 +253,7 @@ class TestLoggingIntegration:
         mock_get_logger.return_value = mock_logger
 
         # Test error logging in fetcher
-        fetcher = LiveFetcher()
+        fetcher = PlaywrightFetcher()
 
         with patch("requests.get", side_effect=Exception("Network error")):
             success, content, error = fetcher.fetch_html("https://invalid-url.com")

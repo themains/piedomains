@@ -10,9 +10,9 @@ import os
 import numpy as np
 from PIL import Image
 
-from ..config import get_config
-from ..fetchers import FetchResult, get_fetcher
-from ..piedomains_logging import get_logger
+from .config import get_config
+from .fetchers import FetchResult, get_fetcher
+from .piedomains_logging import get_logger
 from .text_processor import TextProcessor
 
 logger = get_logger()

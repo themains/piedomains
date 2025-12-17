@@ -4,14 +4,14 @@ Text-based domain classification using HTML content analysis.
 """
 
 import os
+from pathlib import Path
 
 import numpy as np
-import pandas as pd
 
-from ..base import Base
-from ..constants import classes
-from ..piedomains_logging import get_logger
-from ..processors.content_processor import ContentProcessor
+from .base import Base
+from .constants import classes
+from .content_processor import ContentProcessor
+from .piedomains_logging import get_logger
 
 logger = get_logger()
 
@@ -30,9 +30,9 @@ class TextClassifier(Base):
             cache_dir (str, optional): Directory for caching content
             archive_date (str, optional): Date for archive.org snapshots
         """
-        self.cache_dir = cache_dir or "cache"
+        self.cache_dir = Path(cache_dir or "cache")
         self.archive_date = archive_date
-        self.processor = ContentProcessor(cache_dir, archive_date)
+        self.processor = ContentProcessor(str(self.cache_dir), archive_date)
         self._model = None
         self._calibrators = None
 
@@ -133,97 +133,226 @@ class TextClassifier(Base):
             self._calibrators = {c: _DummyCalibrator() for c in classes}
             self._is_dummy_model = True
 
-    def predict(
-        self, domains: list[str], use_cache: bool = True, latest: bool = False
-    ) -> pd.DataFrame:
+    def classify(self, domains: list[str], latest: bool = False) -> list[dict]:
         """
-        Predict domain categories using text content.
+        Classify domains using their cached HTML content.
 
         Args:
-            domains (List[str]): List of domain names or URLs
-            use_cache (bool): Whether to use cached content
-            latest (bool): Whether to download latest model
+            domains: List of domain names to classify
+            latest: Whether to use latest model version
 
         Returns:
-            pd.DataFrame: Predictions with probabilities and metadata
-        """
-        # Validate inputs
-        if not domains:
-            raise ValueError("Provide list of domains")
+            List of classification result dictionaries
 
-        # Load models
+        Example:
+            >>> classifier = TextClassifier()
+            >>> results = classifier.classify(["cnn.com", "bbc.com"])
+            >>> print(results[0]["category"])
+            news
+        """
         self.load_models(latest)
 
-        if getattr(self, "_is_dummy_model", False):
-            data = []
-            for domain in domains:
-                domain_name = self.processor._parse_domain_name(domain)
-                row = {
-                    "domain": domain_name,
-                    "text_label": "unknown",
-                    "text_prob": 0.5,
-                    "text_domain_probs": {c: 1 / len(classes) for c in classes},
-                    "used_domain_text": True,
-                    "extracted_text": None,
-                    "error": None,
-                }
-                if self.archive_date:
-                    row["archive_date"] = self.archive_date
-                data.append(row)
-            return pd.DataFrame(data)
-
-        # Extract and process text content
-        logger.info(f"Processing text content for {len(domains)} domains")
-        text_content, errors = self.processor.extract_text_content(domains, use_cache)
-        logger.info(
-            f"Text extraction results: {len(text_content)} successful, {len(errors)} errors"
-        )
-
-        # Prepare results DataFrame
         results = []
-        for domain in domains:
-            domain_name = self.processor._parse_domain_name(domain)
 
-            result_row = {
-                "domain": domain_name,
-                "text_label": None,
-                "text_prob": None,
-                "text_domain_probs": None,
-                "used_domain_text": False,
-                "extracted_text": None,
+        for domain in domains:
+            result = self._classify_single_domain(domain)
+            results.append(result)
+
+        return results
+
+    def _classify_single_domain(self, domain: str) -> dict:
+        """Classify a single domain using its cached HTML file."""
+        html_path = self.cache_dir / "html" / f"{domain}.html"
+
+        result = {
+            "url": domain,
+            "domain": domain,
+            "text_path": str(html_path.relative_to(self.cache_dir)),
+            "image_path": str(
+                (self.cache_dir / "images" / f"{domain}.png").relative_to(
+                    self.cache_dir
+                )
+            ),
+            "date_time_collected": None,  # Would need to read from metadata if needed
+            "model_used": "text/shallalist_ml",
+            "category": None,
+            "confidence": None,
+            "raw_predictions": None,
+            "reason": None,
+            "error": None,
+        }
+
+        if not html_path.exists():
+            result["error"] = f"HTML file not found: {html_path}"
+            return result
+
+        try:
+            # Load and process HTML content
+            html_content = html_path.read_text(encoding="utf-8")
+
+            # Process HTML to text
+            from .text_processor import TextProcessor
+
+            processed_text = TextProcessor.process_html_to_text(html_content)
+
+            if processed_text.strip():
+                # Get predictions
+                predictions = self._predict_text(processed_text)
+
+                # Convert to JSON format
+                result["category"] = predictions.get("text_label")
+                result["confidence"] = predictions.get("text_prob")
+                result["raw_predictions"] = predictions.get("text_domain_probs")
+            else:
+                result["error"] = "No meaningful text extracted"
+
+        except FileNotFoundError:
+            result["error"] = f"HTML file not found: {html_path}"
+        except Exception as e:
+            result["error"] = f"Classification error: {e}"
+
+        return result
+
+    def classify_from_paths(
+        self, data_paths: list[dict], output_file: str = None, latest: bool = False
+    ) -> list[dict]:
+        """
+        Classify domains using HTML files from collected data paths.
+
+        Args:
+            data_paths: List of dicts with domain data containing text_path, domain, etc.
+            output_file: Optional path to save JSON results
+            latest: Whether to use latest model version
+
+        Returns:
+            List of classification result dictionaries (JSON format)
+
+        Example:
+            >>> classifier = TextClassifier()
+            >>> data = [{"domain": "cnn.com", "text_path": "html/cnn.com.html", ...}]
+            >>> results = classifier.classify_from_paths(data)
+            >>> print(results[0]["category"])
+            news
+        """
+        self.load_models(latest)
+
+        results = []
+
+        for domain_data in data_paths:
+            domain = domain_data.get("domain")
+            text_path = domain_data.get("text_path")
+
+            result = {
+                "url": domain_data.get("url", domain),
+                "domain": domain,
+                "text_path": text_path,
+                "image_path": domain_data.get("image_path"),
+                "date_time_collected": domain_data.get("date_time_collected"),
+                "model_used": "text/shallalist_ml",
+                "category": None,
+                "confidence": None,
+                "raw_predictions": None,
+                "reason": None,
                 "error": None,
             }
 
-            if self.archive_date:
-                result_row["archive_date"] = self.archive_date
-
-            if domain_name in errors:
-                result_row["error"] = errors[domain_name]
-                results.append(result_row)
-                continue
-
-            if domain_name not in text_content:
-                result_row["error"] = "No text content extracted"
-                results.append(result_row)
+            if not domain or not text_path:
+                result["error"] = "Missing domain or text_path"
+                results.append(result)
                 continue
 
             try:
-                processed_text = text_content[domain_name]
-                result_row["extracted_text"] = processed_text
-                result_row["used_domain_text"] = True
+                # Clean path resolution using pathlib
+                if not Path(text_path).is_absolute():
+                    html_path = self.cache_dir / text_path
+                else:
+                    html_path = Path(text_path)
+
+                # Load HTML from file path
+                html_content = html_path.read_text(encoding="utf-8")
+
+                # Process HTML to text
+                from .text_processor import TextProcessor
+
+                processed_text = TextProcessor.process_html_to_text(html_content)
 
                 if processed_text.strip():
+                    # Get predictions
                     predictions = self._predict_text(processed_text)
-                    result_row.update(predictions)
+
+                    # Convert to JSON format
+                    result["category"] = predictions.get("text_label")
+                    result["confidence"] = predictions.get("text_prob")
+                    result["raw_predictions"] = predictions.get("text_domain_probs")
                 else:
-                    result_row["error"] = "No meaningful text extracted"
+                    result["error"] = "No meaningful text extracted"
 
+            except FileNotFoundError:
+                result["error"] = f"HTML file not found: {text_path}"
             except Exception as e:
-                result_row["error"] = f"Prediction error: {e}"
+                result["error"] = f"Classification error: {e}"
 
-            results.append(result_row)
+            results.append(result)
 
-        return pd.DataFrame(results)
+        # Save results if output file specified
+        if output_file:
+            import json
+            from datetime import datetime
+
+            # Create results directory if needed
+            os.makedirs(os.path.dirname(output_file), exist_ok=True)
+
+            # Add metadata
+            output_data = {
+                "inference_timestamp": datetime.utcnow().isoformat() + "Z",
+                "model_used": "text/shallalist_ml",
+                "total_domains": len(data_paths),
+                "successful": len([r for r in results if r["category"] is not None]),
+                "failed": len([r for r in results if r["error"] is not None]),
+                "results": results,
+            }
+
+            with open(output_file, "w", encoding="utf-8") as f:
+                json.dump(output_data, f, indent=2)
+
+            logger.info(f"Saved classification results to {output_file}")
+
+        return results
+
+    def classify_from_data(
+        self, collection_data: dict, output_file: str = None, latest: bool = False
+    ) -> list[dict]:
+        """
+        Classify domains using collection metadata from DataCollector.
+
+        Args:
+            collection_data: Collection metadata dict from DataCollector.collect()
+            output_file: Optional path to save JSON results
+            latest: Whether to use latest model version
+
+        Returns:
+            List of classification result dictionaries (JSON format)
+
+        Example:
+            >>> from piedomains import DataCollector
+            >>> collector = DataCollector()
+            >>> data = collector.collect(["cnn.com"])
+            >>> classifier = TextClassifier()
+            >>> results = classifier.classify_from_data(data)
+        """
+        # Extract domain data from collection metadata
+        domains_data = collection_data.get("domains", [])
+
+        # Filter only successful data collection
+        valid_domains = [
+            d for d in domains_data if d.get("fetch_success") and d.get("text_path")
+        ]
+
+        if not valid_domains:
+            logger.warning("No valid domains with text data found in collection")
+            return []
+
+        return self.classify_from_paths(valid_domains, output_file, latest)
 
     def _predict_text(self, text: str) -> dict:
         """

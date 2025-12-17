@@ -1,45 +1,29 @@
-piedomains.classifiers package
-==============================
+piedomains classifiers
+====================
 
-Submodules
-----------
+Domain Classification Modules
+-----------------------------
 
-piedomains.classifiers.combined\_classifier module
---------------------------------------------------
+piedomains.text module
+----------------------
 
-.. automodule:: piedomains.classifiers.combined_classifier
+.. automodule:: piedomains.text
    :members:
    :show-inheritance:
    :undoc-members:
 
-piedomains.classifiers.image\_classifier module
------------------------------------------------
+piedomains.image module
+-----------------------
 
-.. automodule:: piedomains.classifiers.image_classifier
+.. automodule:: piedomains.image
    :members:
    :show-inheritance:
    :undoc-members:
 
-piedomains.classifiers.llm\_classifier module
----------------------------------------------
+piedomains.llm module
+--------------------
 
-.. automodule:: piedomains.classifiers.llm_classifier
-   :members:
-   :show-inheritance:
-   :undoc-members:
-
-piedomains.classifiers.text\_classifier module
-----------------------------------------------
-
-.. automodule:: piedomains.classifiers.text_classifier
-   :members:
-   :show-inheritance:
-   :undoc-members:
-
-Module contents
----------------
-
-.. automodule:: piedomains.classifiers
+.. automodule:: piedomains.llm
    :members:
    :show-inheritance:
    :undoc-members:

@@ -68,7 +68,7 @@ class TestPerformanceBenchmarks(unittest.TestCase):
         self.assertLess(cleaning_time, 1.0)
         self.assertIsInstance(cleaned_text, str)
 
-    @patch("piedomains.classifiers.text_classifier.TextClassifier.predict")
+    @patch("piedomains.text.TextClassifier.predict")
     def test_batch_processing_scalability(self, mock_predict):
         """Test scalability of batch processing."""
 
@@ -129,7 +129,7 @@ class TestPerformanceBenchmarks(unittest.TestCase):
 
         # Mock the actual prediction to isolate cache performance
         with patch(
-            "piedomains.classifiers.text_classifier.TextClassifier.predict"
+            "piedomains.text.TextClassifier.predict"
         ) as mock_predict:
             mock_predict.return_value = pd.DataFrame(
                 [{"domain": "example.com", "text_label": "news", "text_prob": 0.8}]
@@ -161,7 +161,7 @@ class TestPerformanceBenchmarks(unittest.TestCase):
 
         # Mock to avoid actual model loading
         with patch(
-            "piedomains.classifiers.text_classifier.TextClassifier.predict"
+            "piedomains.text.TextClassifier.predict"
         ) as mock_predict:
             mock_predict.return_value = pd.DataFrame(
                 [
@@ -270,7 +270,7 @@ class TestResourceManagement(unittest.TestCase):
 
         # Mock some operations that might create temporary files
         with patch(
-            "piedomains.classifiers.text_classifier.TextClassifier.predict"
+            "piedomains.text.TextClassifier.predict"
         ) as mock_predict:
             mock_predict.return_value = pd.DataFrame(
                 [{"domain": "test.com", "text_label": "news", "text_prob": 0.8}]

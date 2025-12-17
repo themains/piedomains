@@ -5,12 +5,13 @@
 [![Downloads](https://pepy.tech/badge/piedomains)](https://pepy.tech/project/piedomains)
 [![Documentation](https://img.shields.io/badge/docs-github.io-blue)](https://themains.github.io/piedomains/)
 
-## 🚀 What's New in v0.5.0
+## 🚀 What's New in v0.6.0
 
-- **Playwright Migration**: Complete transition from Selenium to modern Playwright for faster, more reliable web content extraction
-- **12.8x Performance Boost**: Optimized parallel processing (13.2s → 1.0s per domain)
-- **Enhanced Docker Security**: Production-ready containerization with security sandboxing and resource limits
-- **Unified Content Pipeline**: Text and image extraction now use the same Playwright engine for consistency
+- **Streamlined JSON API**: Simple, consistent JSON responses for easy integration with any workflow
+- **Enhanced LLM Support**: Built-in support for OpenAI, Anthropic, and Google AI models with custom category definitions
+- **Advanced Archive Analysis**: Analyze historical website versions from archive.org with intelligent rate limiting
+- **Separated Data Collection**: Collect website content once, run multiple classification approaches (ML + LLM + ensemble)
+- **41 Content Categories**: Comprehensive classification including news, shopping, social media, education, finance, and more
 
 ## Installation
 
@@ -23,17 +24,18 @@ Requires Python 3.11+
 ## Basic Usage
 
 ```python
-from piedomains import DomainClassifier
+from piedomains import DomainClassifier, DataCollector
 
 classifier = DomainClassifier()
-result = classifier.classify(["cnn.com", "amazon.com", "wikipedia.org"])
-print(result[['domain', 'pred_label', 'pred_prob']])
+results = classifier.classify(["cnn.com", "amazon.com", "wikipedia.org"])
+
+for result in results:
+    print(f"{result['domain']}: {result['category']} ({result['confidence']:.3f})")
 
 # Output:
-#        domain    pred_label  pred_prob
-# 0     cnn.com          news   0.876543
-# 1  amazon.com      shopping   0.923456
-# 2 wikipedia.org   education   0.891234
+# cnn.com: news (0.876)
+# amazon.com: shopping (0.923)
+# wikipedia.org: education (0.891)
 ```
 
 ## Classification Methods
@@ -48,8 +50,10 @@ result = classifier.classify_by_text(["news.google.com"])
 # Image-only classification
 result = classifier.classify_by_images(["instagram.com"])
 
-# Batch processing
-results = classifier.classify_batch(domains, method="text", batch_size=50)
+# Batch processing with separated workflow
+collector = DataCollector()
+collection = collector.collect_batch(domains, batch_size=50)
+results = classifier.classify_from_collection(collection, method="text")
 ```
 
 ## Historical Analysis
@@ -60,12 +64,9 @@ old_result = classifier.classify(["facebook.com"], archive_date="20100101")
 
 # Batch processing with archive.org (respects rate limits)
 domains = ["google.com", "wikipedia.org", "cnn.com"]
-historical_results = classifier.classify_batch(
-    domains,
-    archive_date="20050101",
-    method="text",
-    batch_size=10  # Archive.org uses conservative defaults
-)
+collector = DataCollector(archive_date="20050101")
+collection = collector.collect_batch(domains, batch_size=10)  # Archive.org uses conservative defaults
+historical_results = classifier.classify_from_collection(collection, method="text")
 ```
 
 ### Archive.org Rate Limits & Best Practices
