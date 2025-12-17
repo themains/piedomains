@@ -11,6 +11,7 @@ from datetime import datetime
 from pathlib import Path
 from urllib.parse import quote
 
+import aiohttp
 import requests
 from bs4 import BeautifulSoup
 from playwright.async_api import Page, async_playwright
@@ -447,23 +448,29 @@ class PlaywrightFetcher(BaseFetcher):
 class ArchiveFetcher(BaseFetcher):
     """Fetcher for archive.org historical snapshots using Playwright."""
 
-    def __init__(self, target_date: str | datetime, max_parallel: int = 4):
+    def __init__(self, target_date: str | datetime, max_parallel: int = None):
         """
         Initialize archive fetcher.
 
         Args:
             target_date: Target date as 'YYYYMMDD' string or datetime object
-            max_parallel: Maximum number of parallel browser contexts
+            max_parallel: Maximum number of parallel browser contexts (default: 2 for archive.org)
         """
         super().__init__()
         if isinstance(target_date, datetime):
             self.target_date = target_date.strftime("%Y%m%d")
         else:
             self.target_date = target_date
-        self.max_parallel = max_parallel or self.config.get("max_parallel", 4)
+
+        # Use archive-specific defaults
+        self.max_parallel = max_parallel or self.config.get("archive_max_parallel", 2)
+        self.cdx_rate_limit = self.config.get("archive_cdx_rate_limit", 1.0)
+        self.page_delay = self.config.get("archive_page_delay", 0.5)
+        self.retry_on_429 = self.config.get("archive_retry_on_429", True)
+        self.wait_time_429 = self.config.get("archive_429_wait_time", 60)
 
     def _find_closest_snapshot(self, url: str) -> str | None:
-        """Find the closest archived snapshot to the target date."""
+        """Find the closest archived snapshot to the target date (sync version)."""
         try:
             api_url = (
                 f"https://archive.org/wayback/available?"
@@ -491,6 +498,57 @@ class ArchiveFetcher(BaseFetcher):
         except Exception as e:
             logger.error(f"Failed to find archive snapshot for {url}: {e}")
             return None
+
+    async def _async_find_closest_snapshot(self, url: str) -> str | None:
+        """Find the closest archived snapshot to the target date (async version)."""
+        try:
+            api_url = (
+                f"https://archive.org/wayback/available?"
+                f"url={quote(url)}&timestamp={self.target_date}"
+            )
+            logger.debug(
+                f"Searching for archive snapshot of {url} near {self.target_date}"
+            )
+
+            async with aiohttp.ClientSession(
+                timeout=aiohttp.ClientTimeout(total=10)
+            ) as session:
+                async with session.get(api_url) as response:
+                    if response.status == 429 and self.retry_on_429:
+                        logger.warning(
+                            f"Rate limited by archive.org for {url}, waiting {self.wait_time_429}s"
+                        )
+                        await asyncio.sleep(self.wait_time_429)
+                        # Retry once
+                        async with session.get(api_url) as retry_response:
+                            response = retry_response
+
+                    response.raise_for_status()
+                    data = await response.json()
+
+            if data.get("archived_snapshots", {}).get("closest", {}).get("available"):
+                closest_snapshot = data["archived_snapshots"]["closest"]
+                snapshot_url = closest_snapshot["url"]
+                snapshot_date = closest_snapshot.get("timestamp", "unknown")
+                logger.debug(
+                    f"Found closest snapshot for {url}: {snapshot_date} -> {snapshot_url}"
+                )
+                return snapshot_url
+            else:
+                logger.debug(f"No archive snapshots available for {url}")
+                return None
+        except Exception as e:
+            logger.error(f"Failed to find archive snapshot for {url}: {e}")
+            return None
+
+    async def _rate_limited_snapshot_lookup(
+        self, url: str, semaphore: asyncio.Semaphore
+    ) -> tuple[str, str | None]:
+        """Find snapshot with rate limiting."""
+        async with semaphore:
+            await asyncio.sleep(self.cdx_rate_limit)
+            snapshot_url = await self._async_find_closest_snapshot(url)
+            return url, snapshot_url
 
     async def _extract_from_archived_page(
         self, page: Page, url: str, snapshot_url: str, screenshot_path: str | None
@@ -619,6 +677,148 @@ class ArchiveFetcher(BaseFetcher):
             await browser.close()
 
         return result
+
+    async def fetch_batch(
+        self, urls: list[str], cache_dir: str = "cache"
+    ) -> list[FetchResult]:
+        """Fetch multiple URLs from archive.org in parallel with rate limiting."""
+        # Normalize and validate all URLs first
+        validated_urls = []
+        results = []
+
+        for url in urls:
+            # Normalize URL - add https:// if no protocol
+            if not url.startswith(("http://", "https://")):
+                normalized_url = f"https://{url}"
+            else:
+                normalized_url = url
+
+            is_safe, msg = self._validate_url_security(normalized_url)
+            if is_safe:
+                validated_urls.append(normalized_url)
+            else:
+                logger.warning(f"Skipping unsafe URL {normalized_url}: {msg}")
+                results.append(
+                    FetchResult(url=normalized_url, success=False, error=msg)
+                )
+
+        if not validated_urls:
+            return results
+
+        logger.info(
+            f"Starting batch archive fetch for {len(validated_urls)} URLs "
+            f"with {self.max_parallel} parallel workers, rate limit: {self.cdx_rate_limit}s"
+        )
+
+        # Phase 1: Find snapshots in parallel with rate limiting
+        cdx_semaphore = asyncio.Semaphore(1)  # Sequential CDX lookups for rate limiting
+        snapshot_tasks = []
+
+        for url in validated_urls:
+            task = self._rate_limited_snapshot_lookup(url, cdx_semaphore)
+            snapshot_tasks.append(task)
+
+        logger.info(f"Looking up {len(snapshot_tasks)} snapshots from archive.org")
+        snapshot_results = await asyncio.gather(*snapshot_tasks, return_exceptions=True)
+
+        # Collect valid snapshots
+        valid_snapshots = []
+        for i, result in enumerate(snapshot_results):
+            if isinstance(result, Exception):
+                url = validated_urls[i]
+                logger.error(f"Snapshot lookup failed for {url}: {result}")
+                results.append(
+                    FetchResult(
+                        url=url,
+                        success=False,
+                        error=f"Snapshot lookup failed: {result}",
+                    )
+                )
+            else:
+                url, snapshot_url = result
+                if snapshot_url:
+                    valid_snapshots.append((url, snapshot_url))
+                else:
+                    results.append(
+                        FetchResult(
+                            url=url,
+                            success=False,
+                            error=f"No archive snapshot found near {self.target_date}",
+                        )
+                    )
+
+        if not valid_snapshots:
+            logger.warning("No valid snapshots found for any URLs")
+            return results
+
+        # Phase 2: Fetch pages in parallel with controlled concurrency
+        logger.info(f"Fetching {len(valid_snapshots)} pages from archive.org")
+
+        async with async_playwright() as p:
+            browser = await p.chromium.launch(
+                headless=self.config.get("playwright_headless", True)
+            )
+
+            viewport = self.config.get(
+                "playwright_viewport", {"width": 1280, "height": 1024}
+            )
+
+            # Create parallel contexts (limited by max_parallel)
+            contexts = []
+            for i in range(min(self.max_parallel, len(valid_snapshots))):
+                context = await browser.new_context(
+                    user_agent=self.config.user_agent, viewport=viewport
+                )
+                contexts.append(context)
+                logger.debug(f"Created archive context {i + 1}/{self.max_parallel}")
+
+            # Create fetch tasks with round-robin context assignment
+            fetch_tasks = []
+            for i, (url, snapshot_url) in enumerate(valid_snapshots):
+                context = contexts[i % len(contexts)]
+                page = await context.new_page()
+
+                # Generate screenshot path
+                domain_name = (
+                    url.replace("https://", "").replace("http://", "").split("/")[0]
+                )
+                screenshot_path = f"{cache_dir}/images/{domain_name}.png"
+                Path(screenshot_path).parent.mkdir(parents=True, exist_ok=True)
+
+                # Add delay between page creations to respect rate limits
+                if i > 0:
+                    await asyncio.sleep(self.page_delay)
+
+                task = self._extract_from_archived_page(
+                    page, url, snapshot_url, screenshot_path
+                )
+                fetch_tasks.append(task)
+
+            logger.info(f"Executing {len(fetch_tasks)} parallel archive fetch tasks")
+            page_results = await asyncio.gather(*fetch_tasks, return_exceptions=True)
+
+            # Process fetch results
+            for i, result in enumerate(page_results):
+                if isinstance(result, Exception):
+                    url, _ = valid_snapshots[i]
+                    logger.error(f"Archive page fetch failed for {url}: {result}")
+                    results.append(
+                        FetchResult(
+                            url=url, success=False, error=f"Page fetch failed: {result}"
+                        )
+                    )
+                else:
+                    results.append(result)
+
+            # Clean up contexts
+            for context in contexts:
+                await context.close()
+            await browser.close()
+
+        logger.info(
+            f"Archive batch fetch complete. Success: {sum(r.success for r in results)}/{len(results)}"
+        )
+        return results
 
     # Sync wrappers
     def fetch_html(self, url: str, **kwargs) -> tuple[bool, str, str]:

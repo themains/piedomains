@@ -57,6 +57,33 @@ results = classifier.classify_batch(domains, method="text", batch_size=50)
 ```python
 # Analyze archived versions from archive.org
 old_result = classifier.classify(["facebook.com"], archive_date="20100101")
+
+# Batch processing with archive.org (respects rate limits)
+domains = ["google.com", "wikipedia.org", "cnn.com"]
+historical_results = classifier.classify_batch(
+    domains,
+    archive_date="20050101",
+    method="text",
+    batch_size=10  # Archive.org uses conservative defaults
+)
+```
+
+### Archive.org Rate Limits & Best Practices
+
+The library automatically respects archive.org's rate limits:
+- **CDX API**: 1 request per second for snapshot lookups
+- **Page fetching**: Default 2 parallel contexts (vs 4 for live sites)
+- **Auto-retry**: Handles HTTP 429 responses with 60-second backoff
+
+Configure archive-specific settings:
+```python
+from piedomains.fetchers import ArchiveFetcher
+
+# Conservative settings for large batches
+fetcher = ArchiveFetcher("20100101", max_parallel=1)
+
+# More aggressive (use carefully)
+fetcher = ArchiveFetcher("20100101", max_parallel=3)
 ```
 
 ## LLM Classification

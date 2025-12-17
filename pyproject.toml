@@ -47,6 +47,7 @@ dependencies = [
     "tensorflow>=2.12.0",
     "litellm>=1.55.0",
     "requests>=2.25.0",
+    "aiohttp>=3.8.0",
     "scikit-learn>=1.3.0",
 ]
 

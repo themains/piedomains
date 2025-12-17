@@ -24,6 +24,12 @@ class Config:
         "playwright_viewport": {"width": 1280, "height": 1024},
         # Parallel processing
         "max_parallel": 4,
+        # Archive.org specific settings
+        "archive_max_parallel": 2,  # Conservative default for archive.org
+        "archive_cdx_rate_limit": 1.0,  # Seconds between CDX API calls
+        "archive_page_delay": 0.5,  # Delay between page loads
+        "archive_retry_on_429": True,  # Auto-retry on rate limit
+        "archive_429_wait_time": 60,  # Wait 60s on 429 response
         # Block heavy resources
         "block_media": True,
         "block_resources": ["media", "video", "font", "websocket", "manifest"],

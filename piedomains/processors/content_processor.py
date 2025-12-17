@@ -315,23 +315,10 @@ class ContentProcessor:
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         try:
-            # Use the fetcher's batch method
-            from ..fetchers import PlaywrightFetcher
-
-            if isinstance(self.fetcher, PlaywrightFetcher):
-                results = loop.run_until_complete(
-                    self.fetcher.fetch_batch(urls, self.cache_dir)
-                )
-            else:
-                # Fallback for ArchiveFetcher (no batch support yet)
-                results = []
-                for url in urls:
-                    domain_name = self._parse_domain_name(url)
-                    screenshot_path = os.path.join(self.image_dir, f"{domain_name}.png")
-                    result = loop.run_until_complete(
-                        self.fetcher.fetch_single(url, screenshot_path)
-                    )
-                    results.append(result)
+            # Both PlaywrightFetcher and ArchiveFetcher now support fetch_batch
+            results = loop.run_until_complete(
+                self.fetcher.fetch_batch(urls, self.cache_dir)
+            )
             return results
         finally:
             loop.close()
