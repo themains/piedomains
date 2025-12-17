@@ -20,9 +20,9 @@ from pathlib import Path
 
 def print_section(title):
     """Print a section header."""
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f" {title}")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
 
 
 def run_docker_sandbox():

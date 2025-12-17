@@ -62,13 +62,22 @@ try:
     # Print summary
     print("\\n✅ Classification Results:")
     print("=" * 50)
-    print(result[['domain', 'pred_label', 'pred_prob']].to_string(index=False))
+
+    # Determine which columns to use based on method
+    if '{method}' == 'classify_by_text':
+        label_col, prob_col = 'text_label', 'text_prob'
+    elif '{method}' == 'classify_by_images':
+        label_col, prob_col = 'image_label', 'image_prob'
+    else:  # combined classify method
+        label_col, prob_col = 'pred_label', 'pred_prob'
+
+    print(result[['domain', label_col, prob_col]].to_string(index=False))
     print(f"\\n📄 Detailed results saved to output/results.csv")
 
     # Category summary
     print("\\n📊 Category Summary:")
     print("-" * 30)
-    category_counts = result['pred_label'].value_counts()
+    category_counts = result[label_col].value_counts()
     for category, count in category_counts.items():
         print(f"{{category:15s}}: {{count:3d}} domains")
 
@@ -117,6 +126,9 @@ except Exception as e:
                 "/tmp",  # Temporary filesystem
                 "--tmpfs",
                 "/var/tmp",
+                # Use pre-installed browsers (read-only is fine for browsers)
+                "--tmpfs",
+                "/app/cache:rw,uid=995,gid=995",  # piedomains cache with correct playwright user permissions
                 "-v",
                 f"{temp_script}:/app/classify.py",
                 "-v",
@@ -206,7 +218,7 @@ def interactive_mode():
     domains = []
     try:
         while True:
-            domain = input(f"Domain {len(domains)+1}: ").strip()
+            domain = input(f"Domain {len(domains) + 1}: ").strip()
             if domain.lower() in ["quit", "exit", ""]:
                 break
             if domain:

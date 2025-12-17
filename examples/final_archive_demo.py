@@ -130,7 +130,7 @@ for i, case in enumerate(test_cases, 1):
     time.sleep(1)
 
 print("\n=== FINAL SUMMARY ===")
-print(f"Successful fetches: {successful_count}/10 ({successful_count*10}%)")
+print(f"Successful fetches: {successful_count}/10 ({successful_count * 10}%)")
 
 if successful_count > 0:
     success_results = [r for r in results if r.get("status") == "success"]
@@ -140,14 +140,14 @@ if successful_count > 0:
     )
 
     print(
-        f"Correct predictions: {matches}/{successful_count} ({matches/successful_count*100:.1f}%)"
+        f"Correct predictions: {matches}/{successful_count} ({matches / successful_count * 100:.1f}%)"
     )
     print(f"Average content: {avg_length:.0f} chars")
 
     print("\n=== DETAILED RESULTS ===")
     for r in success_results:
         symbol = "✓" if r["match"] else "○"
-        print(f'{symbol} {r["domain"]}: {r["predicted"]} (conf: {r["confidence"]:.3f})')
+        print(f"{symbol} {r['domain']}: {r['predicted']} (conf: {r['confidence']:.3f})")
 
     print("\n=== ARCHIVE INTEGRATION STATUS ===")
     print("✓ Archive.org integration working!")
