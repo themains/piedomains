@@ -12,6 +12,7 @@ import unittest
 
 from piedomains import DomainClassifier
 from piedomains.fetchers import ArchiveFetcher
+from tests.conftest import skip_in_ci
 
 
 class TestArchiveBatch(unittest.TestCase):
@@ -27,6 +28,7 @@ class TestArchiveBatch(unittest.TestCase):
         if os.path.exists(self.temp_dir):
             shutil.rmtree(self.temp_dir)
 
+    @skip_in_ci()
     def test_archive_fetcher_batch_basic(self):
         """Test basic batch functionality with real archive.org URLs."""
         # Use a date from 2010 when these sites existed and were simple
