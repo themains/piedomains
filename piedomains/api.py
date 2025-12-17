@@ -368,8 +368,8 @@ class DomainClassifier:
             ... )
         """
         # Import LLM classes - these are required dependencies
-        from .llm import LLMClassifier
         from .llm.config import LLMConfig
+        from .llm_classifier import LLMClassifier
 
         self._llm_config = LLMConfig(
             provider=provider,
