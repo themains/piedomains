@@ -142,3 +142,9 @@ archive_html_*/
 archive_images_*/
 /cache
 /test_cache
+/demo_cache
+/data
+
+# Development artifacts
+*.backup
+comprehensive_test.py
