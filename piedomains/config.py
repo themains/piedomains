@@ -18,14 +18,18 @@ class Config:
     DEFAULT_CONFIG = {
         # Network timeouts
         "http_timeout": 10,
-        "webdriver_timeout": 30,
-        "page_load_timeout": 30,
+        # Playwright settings
+        "playwright_timeout": 30000,  # milliseconds
+        "playwright_headless": True,
+        "playwright_viewport": {"width": 1280, "height": 1024},
+        # Parallel processing
+        "max_parallel": 4,
+        # Block heavy resources
+        "block_media": True,
+        "block_resources": ["media", "video", "font", "websocket", "manifest"],
         # Retry settings
         "max_retries": 3,
         "retry_delay": 1,  # seconds
-        # WebDriver settings
-        "screenshot_wait_time": 5,  # seconds
-        "webdriver_window_size": "1280,1024",
         # Model settings
         "model_cache_dir": None,  # Will use default if None
         "image_size": (254, 254),
@@ -37,6 +41,9 @@ class Config:
         "image_extension": ".png",
         # User agent for HTTP requests
         "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+        # Legacy WebDriver settings for backward compatibility
+        "webdriver_timeout": 30,
+        "webdriver_window_size": "1280,1024",
         # Logging
         "log_level": "INFO",
         "log_format": "%(asctime)s - %(name)s - %(levelname)s - %(message)s",

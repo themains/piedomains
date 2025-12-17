@@ -2,11 +2,12 @@
 Test error handling and edge cases.
 """
 
-import unittest
-from unittest.mock import patch, MagicMock
-import tempfile
 import os
 import shutil
+import tempfile
+import unittest
+from unittest.mock import MagicMock, patch
+
 from piedomains.piedomain import Piedomain
 
 
@@ -61,7 +62,7 @@ class TestErrorHandling(unittest.TestCase):
         result = Piedomain.validate_input([], self.html_dir, "html")
         self.assertTrue(result)  # Should return True for offline mode
 
-    @patch('requests.get')
+    @patch("requests.get")
     def test_extract_htmls_network_error(self, mock_get):
         """Test HTML extraction with network errors."""
         mock_get.side_effect = Exception("Network error")
@@ -72,7 +73,7 @@ class TestErrorHandling(unittest.TestCase):
         self.assertIn("example.com", errors)
         self.assertIn("Network error", str(errors["example.com"]))
 
-    @patch('requests.get')
+    @patch("requests.get")
     def test_extract_htmls_http_error(self, mock_get):
         """Test HTML extraction with HTTP errors."""
         mock_response = MagicMock()
@@ -84,32 +85,28 @@ class TestErrorHandling(unittest.TestCase):
 
         self.assertIn("nonexistent.com", errors)
 
-    @patch('piedomains.piedomain.Piedomain.get_driver')
-    def test_save_image_webdriver_error(self, mock_get_driver):
-        """Test screenshot capture with WebDriver errors."""
-        mock_driver = MagicMock()
-        mock_driver.get.side_effect = Exception("WebDriver error")
-        mock_get_driver.return_value = mock_driver
-
+    def test_save_image_deprecated_method(self):
+        """Test that deprecated save_image method returns appropriate error."""
         success, error_msg = Piedomain.save_image("example.com", self.image_dir)
 
         self.assertFalse(success)
-        self.assertIn("WebDriver error", error_msg)
-        mock_driver.quit.assert_called_once()
+        self.assertIn("deprecated", error_msg)
+        self.assertIn("PlaywrightFetcher", error_msg)
 
-    @patch('piedomains.piedomain.Piedomain.get_driver')
-    def test_save_image_driver_quit_error(self, mock_get_driver):
-        """Test screenshot capture with driver quit error."""
-        mock_driver = MagicMock()
-        mock_driver.get.side_effect = Exception("WebDriver error")
-        mock_driver.quit.side_effect = Exception("Quit error")
-        mock_get_driver.return_value = mock_driver
+    @patch("piedomains.fetchers.PlaywrightFetcher.fetch_screenshot")
+    def test_playwright_screenshot_error(self, mock_fetch_screenshot):
+        """Test screenshot capture error handling with Playwright fetcher."""
+        # Mock Playwright error
+        mock_fetch_screenshot.return_value = (None, "Playwright navigation error")
 
-        # Should handle quit error gracefully
-        success, error_msg = Piedomain.save_image("example.com", self.image_dir)
+        from piedomains.fetchers import PlaywrightFetcher
 
-        self.assertFalse(success)
-        self.assertIn("WebDriver error", error_msg)
+        fetcher = PlaywrightFetcher()
+
+        screenshot_data, error = fetcher.fetch_screenshot("example.com")
+
+        self.assertIsNone(screenshot_data)
+        self.assertIn("Playwright navigation error", error)
 
     def test_extract_image_tensor_invalid_directory(self):
         """Test image tensor extraction with invalid directory."""
@@ -170,4 +167,3 @@ class TestErrorHandling(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

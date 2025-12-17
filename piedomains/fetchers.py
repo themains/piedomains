@@ -1,25 +1,39 @@
 #!/usr/bin/env python3
 """
-Modular page fetcher interfaces for different content sources.
+Playwright-based page fetcher for content extraction.
 Supports live content fetching and archive.org historical snapshots.
-
-Security-first design: All content is validated before processing to prevent
-security risks from malicious URLs, executables, and binary content.
+Unified pipeline for HTML, text extraction, and screenshots.
 """
 
-import time
+import asyncio
+from dataclasses import dataclass
 from datetime import datetime
-from urllib.parse import quote, urlparse
+from pathlib import Path
+from urllib.parse import quote
 
 import requests
 from bs4 import BeautifulSoup
-from selenium import webdriver
+from playwright.async_api import Page, async_playwright
 
 from .config import get_config
 from .content_validation import ContentValidator
 from .piedomains_logging import get_logger
 
 logger = get_logger()
+
+
+@dataclass
+class FetchResult:
+    """Result from a single fetch operation."""
+
+    url: str
+    success: bool
+    html: str = ""
+    text: str = ""  # Clean extracted text
+    screenshot_path: str = ""
+    title: str = ""
+    meta_description: str = ""
+    error: str = ""
 
 
 class BaseFetcher:
@@ -29,50 +43,6 @@ class BaseFetcher:
         """Initialize fetcher with content validator."""
         self.config = get_config()
         self.validator = ContentValidator(self.config)
-
-    def fetch_html(
-        self,
-        url: str,
-        *,
-        force_fetch: bool = False,
-        allow_content_types: list[str] = None,
-        ignore_extensions: bool = False,
-    ) -> tuple[bool, str, str]:
-        """
-        Fetch HTML content from a URL with security validation.
-
-        Args:
-            url (str): URL to fetch
-            force_fetch (bool): Skip security validation (dangerous)
-            allow_content_types (list): Override allowed content types
-            ignore_extensions (bool): Skip file extension validation
-
-        Returns:
-            tuple: (success, html_content, error_message)
-        """
-        raise NotImplementedError
-
-    def fetch_screenshot(
-        self,
-        url: str,
-        output_path: str,
-        *,
-        force_fetch: bool = False,
-        ignore_extensions: bool = False,
-    ) -> tuple[bool, str]:
-        """
-        Take screenshot of a webpage with security validation.
-
-        Args:
-            url (str): URL to screenshot
-            output_path (str): Path to save screenshot
-            force_fetch (bool): Skip security validation (dangerous)
-            ignore_extensions (bool): Skip file extension validation
-
-        Returns:
-            tuple: (success, error_message)
-        """
-        raise NotImplementedError
 
     def _validate_url_security(
         self,
@@ -112,240 +82,387 @@ class BaseFetcher:
                     f"Sandbox execution recommended for {url}: {sandbox_cmd}"
                 )
 
-            return True, "; ".join(
-                validation_result.warnings
-            ) if validation_result.warnings else ""
+            return True, (
+                "; ".join(validation_result.warnings)
+                if validation_result.warnings
+                else ""
+            )
 
         except Exception as e:
             error_msg = f"Security validation error: {e}"
             logger.error(f"Validation error for {url}: {error_msg}")
             return False, error_msg
 
-
-class LiveFetcher(BaseFetcher):
-    """Fetcher for live web content with security validation."""
-
-    def fetch_html(
-        self,
-        url: str,
-        *,
-        force_fetch: bool = False,
-        allow_content_types: list[str] = None,
-        ignore_extensions: bool = False,
-    ) -> tuple[bool, str, str]:
-        """Fetch HTML from live web with security validation."""
-        # Security validation first
-        is_safe, validation_message = self._validate_url_security(
-            url,
-            force_fetch=force_fetch,
-            allow_content_types=allow_content_types,
-            ignore_extensions=ignore_extensions,
-        )
-
-        if not is_safe:
-            return False, "", validation_message
-
-        try:
-            headers = {"User-Agent": self.config.user_agent}
-            response = requests.get(
-                url,
-                timeout=self.config.http_timeout,
-                headers=headers,
-                allow_redirects=True,
-            )
-            response.raise_for_status()
-
-            # Additional post-fetch validation
-            actual_content_type = (
-                response.headers.get("content-type", "").split(";")[0].strip().lower()
-            )
-            if actual_content_type and not force_fetch:
-                # Verify actual content type matches expectations
-                allowed_types = allow_content_types or self.config.allowed_content_types
-                if not any(
-                    actual_content_type.startswith(allowed.lower())
-                    for allowed in allowed_types
-                ):
-                    error_msg = (
-                        f"Actual Content-Type '{actual_content_type}' differs from validation.\n"
-                        f"This may indicate a redirect to binary content.\n"
-                        f"Use force_fetch=True to override or sandbox execution for safety."
-                    )
-                    return False, "", error_msg
-
-            success_msg = validation_message or ""
-            if actual_content_type:
-                logger.info(
-                    f"Successfully fetched {url} (Content-Type: {actual_content_type})"
-                )
-
-            return True, response.text, success_msg
-
-        except Exception as e:
-            error_msg = f"Failed to fetch {url}: {e}"
-            logger.error(error_msg)
-            return False, "", error_msg
-
-    def fetch_screenshot(
-        self,
-        url: str,
-        output_path: str,
-        *,
-        force_fetch: bool = False,
-        ignore_extensions: bool = False,
-    ) -> tuple[bool, str]:
+    def _parse_domain_name(self, url_or_domain: str) -> str:
         """
-        Take screenshot using Selenium with security validation.
+        Extract clean domain name from URL or domain string.
 
         Args:
-            url (str): URL to capture screenshot from
-            output_path (str): Path where screenshot should be saved
-            force_fetch (bool): Skip security validation (dangerous)
-            ignore_extensions (bool): Skip file extension validation
+            url_or_domain (str): URL or domain name
 
         Returns:
-            tuple[bool, str]: Success status and error message if failed
+            str: Clean domain name
         """
-        # Security validation first
-        is_safe, validation_message = self._validate_url_security(
-            url, force_fetch=force_fetch, ignore_extensions=ignore_extensions
+        # Import here to avoid circular imports
+        from .piedomain import Piedomain
+
+        return Piedomain.parse_url_to_domain(url_or_domain)
+
+
+class PlaywrightFetcher(BaseFetcher):
+    """Unified Playwright fetcher for all content extraction."""
+
+    def __init__(self, max_parallel: int = 4):
+        """
+        Initialize Playwright fetcher.
+
+        Args:
+            max_parallel: Maximum number of parallel browser contexts
+        """
+        super().__init__()
+        self.max_parallel = max_parallel or self.config.get("max_parallel", 4)
+
+    async def _configure_page(self, page: Page) -> None:
+        """Configure page with security and performance settings."""
+        # Block heavy resources
+        blocked_resources = self.config.get(
+            "block_resources", ["media", "video", "font", "websocket", "manifest"]
         )
 
-        if not is_safe:
-            return False, validation_message
-        driver = None
+        async def handle_route(route):
+            if route.request.resource_type in blocked_resources:
+                await route.abort()
+            else:
+                await route.continue_()
+
+        await page.route("**/*", handle_route)
+
+        # Block known video/streaming domains and file extensions
+        video_patterns = [
+            "*youtube.com/*",
+            "*youtube-nocookie.com/*",
+            "*vimeo.com/*",
+            "*dailymotion.com/*",
+            "*twitch.tv/*",
+            "*netflix.com/*",
+            "*hulu.com/*",
+            "*.mp4",
+            "*.webm",
+            "*.avi",
+            "*.mov",
+            "*.mkv",
+            "*.flv",
+            "*.wmv",
+            "*.m4v",
+            "*.mpg",
+            "*.mpeg",
+            "*.3gp",
+        ]
+
+        for pattern in video_patterns:
+            await page.route(pattern, lambda route: route.abort())
+
+        # Set reasonable headers
+        await page.set_extra_http_headers(
+            {
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+                "Accept-Language": "en-US,en;q=0.5",
+            }
+        )
+
+    async def _extract_from_page(
+        self, page: Page, url: str, screenshot_path: str | None = None
+    ) -> FetchResult:
+        """Extract all content from a loaded page."""
+        result = FetchResult(url=url, success=False)
+
         try:
-            from selenium.common.exceptions import (
-                SessionNotCreatedException,
-                TimeoutException,
-                WebDriverException,
+            # Navigate with timeout
+            timeout = self.config.get("playwright_timeout", 30000)
+            await page.goto(url, wait_until="networkidle", timeout=timeout)
+
+            # Extract HTML
+            result.html = await page.content()
+
+            # Extract text content using page evaluation
+            result.text = await page.evaluate(
+                """() => {
+                // Remove script, style, and other non-content elements
+                const elementsToRemove = document.querySelectorAll(
+                    'script, style, noscript, iframe, object, embed, applet'
+                );
+                elementsToRemove.forEach(el => el.remove());
+
+                // Get text content from body
+                const body = document.body;
+                if (!body) return '';
+
+                // Get text but preserve some structure
+                let textContent = body.innerText || body.textContent || '';
+
+                // Clean up excessive whitespace
+                textContent = textContent.replace(/\\n\\n\\n+/g, '\\n\\n');
+                textContent = textContent.trim();
+
+                return textContent;
+            }"""
             )
-            from webdriver_manager.chrome import ChromeDriverManager
 
-            logger.info(f"Taking screenshot of {url}")
-            logger.debug(f"Screenshot output path: {output_path}")
+            # Extract metadata
+            result.title = await page.title()
 
-            # Configure Chrome options for headless operation
-            options = webdriver.ChromeOptions()
-            options.add_argument("--disable-extensions")
-            options.add_argument("--no-sandbox")
-            options.add_argument("--headless")
-            options.add_argument("--disable-gpu")
-            options.add_argument("--disable-dev-shm-usage")  # Prevent memory issues
-            options.add_argument("--disable-background-timer-throttling")
-            options.add_argument("--disable-backgrounding-occluded-windows")
-            options.add_argument("--disable-renderer-backgrounding")
-            options.add_argument(f"--window-size={self.config.webdriver_window_size}")
-            options.add_argument(f"--user-agent={self.config.user_agent}")
+            # Get meta description
+            meta_desc = await page.query_selector('meta[name="description"]')
+            if meta_desc:
+                desc_content = await meta_desc.get_attribute("content")
+                result.meta_description = desc_content or ""
 
-            # Create WebDriver with proper resource management
-            driver = webdriver.Chrome(
-                service=webdriver.ChromeService(ChromeDriverManager().install()),
-                options=options,
+            # Also try og:description if regular description is empty
+            if not result.meta_description:
+                og_desc = await page.query_selector('meta[property="og:description"]')
+                if og_desc:
+                    og_content = await og_desc.get_attribute("content")
+                    result.meta_description = og_content or ""
+
+            # Take screenshot if path provided
+            if screenshot_path:
+                # Ensure directory exists
+                Path(screenshot_path).parent.mkdir(parents=True, exist_ok=True)
+                await page.screenshot(
+                    path=screenshot_path,
+                    full_page=False,  # Just viewport for consistency
+                    type="png",
+                )
+                result.screenshot_path = screenshot_path
+                logger.info(f"Screenshot saved to {screenshot_path}")
+
+            result.success = True
+            logger.info(
+                f"Successfully extracted content from {url} "
+                f"(HTML: {len(result.html)} chars, Text: {len(result.text)} chars)"
             )
-
-            try:
-                # Configure timeouts
-                driver.set_page_load_timeout(self.config.page_load_timeout)
-                driver.implicitly_wait(5)  # Implicit wait for elements
-
-                # Navigate to page and take screenshot
-                logger.debug(f"Navigating to {url}")
-                driver.get(url)
-
-                # Wait for page to settle
-                time.sleep(self.config.screenshot_wait_time)
-
-                # Take screenshot
-                logger.debug(f"Saving screenshot to {output_path}")
-                driver.save_screenshot(output_path)
-
-                logger.info(f"Successfully captured screenshot for {url}")
-                return True, ""
-
-            except TimeoutException as e:
-                logger.error(f"Timeout while loading {url}: {e}")
-                return False, f"Page load timeout: {str(e)}"
-
-            except WebDriverException as e:
-                logger.error(f"WebDriver error for {url}: {e}")
-                return False, f"WebDriver error: {str(e)}"
-
-            finally:
-                # Ensure driver is always cleaned up
-                if driver:
-                    try:
-                        driver.quit()
-                        logger.debug("WebDriver cleaned up successfully")
-                    except Exception as cleanup_error:
-                        logger.warning(
-                            f"Error during WebDriver cleanup: {cleanup_error}"
-                        )
-
-        except SessionNotCreatedException as e:
-            logger.error(f"Failed to create WebDriver session: {e}")
-            return False, f"WebDriver session creation failed: {str(e)}"
 
         except Exception as e:
-            logger.error(f"Unexpected error taking screenshot of {url}: {e}")
-            return False, f"Unexpected error: {str(e)}"
+            result.error = str(e)
+            logger.error(f"Failed to extract content from {url}: {e}")
+
+        return result
+
+    async def fetch_single(
+        self, url: str, screenshot_path: str | None = None
+    ) -> FetchResult:
+        """Fetch content from a single URL."""
+        # Normalize URL - add https:// if no protocol
+        if not url.startswith(("http://", "https://")):
+            url = f"https://{url}"
+
+        # Security validation
+        is_safe, msg = self._validate_url_security(url)
+        if not is_safe:
+            return FetchResult(url=url, success=False, error=msg)
+
+        async with async_playwright() as p:
+            browser = await p.chromium.launch(
+                headless=self.config.get("playwright_headless", True),
+                args=["--disable-blink-features=AutomationControlled"],
+            )
+
+            viewport = self.config.get(
+                "playwright_viewport", {"width": 1280, "height": 1024}
+            )
+            context = await browser.new_context(
+                user_agent=self.config.user_agent,
+                viewport=viewport,
+                ignore_https_errors=False,
+            )
+
+            page = await context.new_page()
+
+            # Configure security and performance
+            await self._configure_page(page)
+
+            # Extract everything
+            result = await self._extract_from_page(page, url, screenshot_path)
+
+            await context.close()
+            await browser.close()
+
+        return result
+
+    async def fetch_batch(
+        self, urls: list[str], cache_dir: str = "cache"
+    ) -> list[FetchResult]:
+        """Fetch multiple URLs in parallel."""
+        # Normalize and validate all URLs first
+        validated_urls = []
+        results = []
+
+        for url in urls:
+            # Normalize URL - add https:// if no protocol
+            if not url.startswith(("http://", "https://")):
+                normalized_url = f"https://{url}"
+            else:
+                normalized_url = url
+
+            is_safe, msg = self._validate_url_security(normalized_url)
+            if is_safe:
+                validated_urls.append(normalized_url)
+            else:
+                logger.warning(f"Skipping unsafe URL {normalized_url}: {msg}")
+                results.append(
+                    FetchResult(url=normalized_url, success=False, error=msg)
+                )
+
+        if not validated_urls:
+            return results
+
+        logger.info(
+            f"Starting batch fetch for {len(validated_urls)} URLs "
+            f"with {self.max_parallel} parallel workers"
+        )
+
+        async with async_playwright() as p:
+            browser = await p.chromium.launch(
+                headless=self.config.get("playwright_headless", True),
+                args=["--disable-blink-features=AutomationControlled"],
+            )
+
+            viewport = self.config.get(
+                "playwright_viewport", {"width": 1280, "height": 1024}
+            )
+
+            # Create parallel contexts
+            contexts = []
+            for i in range(min(self.max_parallel, len(validated_urls))):
+                context = await browser.new_context(
+                    user_agent=self.config.user_agent,
+                    viewport=viewport,
+                    ignore_https_errors=False,
+                )
+                contexts.append(context)
+                logger.debug(f"Created context {i + 1}/{self.max_parallel}")
+
+            # Process URLs in parallel
+            tasks = []
+            for i, url in enumerate(validated_urls):
+                context = contexts[i % len(contexts)]
+                page = await context.new_page()
+                await self._configure_page(page)
+
+                # Generate screenshot path
+                domain = self._parse_domain_name(url)
+                screenshot_path = f"{cache_dir}/images/{domain}.png"
+
+                # Create task
+                task = self._extract_from_page(page, url, screenshot_path)
+                tasks.append(task)
+                logger.debug(f"Created task for {url}")
+
+            # Execute all tasks
+            logger.info(f"Executing {len(tasks)} parallel fetch tasks")
+            batch_results = await asyncio.gather(*tasks, return_exceptions=True)
+
+            # Process results
+            for i, result in enumerate(batch_results):
+                if isinstance(result, Exception):
+                    url = validated_urls[i]
+                    logger.error(f"Task failed for {url}: {result}")
+                    results.append(
+                        FetchResult(url=url, success=False, error=str(result))
+                    )
+                else:
+                    results.append(result)
+
+            # Cleanup
+            logger.debug("Cleaning up browser contexts")
+            for context in contexts:
+                await context.close()
+            await browser.close()
+
+        logger.info(
+            f"Batch fetch complete. Success: {sum(r.success for r in results)}/{len(results)}"
+        )
+        return results
+
+    # Synchronous wrapper methods for compatibility
+    def fetch_html(self, url: str, **kwargs) -> tuple[bool, str, str]:
+        """Sync wrapper for HTML fetching."""
+        # Normalize URL
+        if not url.startswith(("http://", "https://")):
+            url = f"https://{url}"
+
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            result = loop.run_until_complete(self.fetch_single(url))
+            return result.success, result.html, result.error
+        finally:
+            loop.close()
+
+    def fetch_screenshot(
+        self, url: str, output_path: str, **kwargs
+    ) -> tuple[bool, str]:
+        """Sync wrapper for screenshot."""
+        # Normalize URL
+        if not url.startswith(("http://", "https://")):
+            url = f"https://{url}"
+
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            result = loop.run_until_complete(self.fetch_single(url, output_path))
+            return result.success, result.error
+        finally:
+            loop.close()
+
+    def fetch_both(self, url: str, output_path: str, **kwargs) -> FetchResult:
+        """Sync wrapper for both HTML and screenshot."""
+        # Normalize URL
+        if not url.startswith(("http://", "https://")):
+            url = f"https://{url}"
+
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            result = loop.run_until_complete(self.fetch_single(url, output_path))
+            return result
+        finally:
+            loop.close()
 
 
 class ArchiveFetcher(BaseFetcher):
-    """Fetcher for archive.org historical snapshots."""
+    """Fetcher for archive.org historical snapshots using Playwright."""
 
-    def __init__(self, target_date: str | datetime):
+    def __init__(self, target_date: str | datetime, max_parallel: int = 4):
         """
         Initialize archive fetcher.
 
         Args:
             target_date: Target date as 'YYYYMMDD' string or datetime object
+            max_parallel: Maximum number of parallel browser contexts
         """
-        super().__init__()  # Initialize parent class with validator
+        super().__init__()
         if isinstance(target_date, datetime):
             self.target_date = target_date.strftime("%Y%m%d")
         else:
             self.target_date = target_date
+        self.max_parallel = max_parallel or self.config.get("max_parallel", 4)
 
     def _find_closest_snapshot(self, url: str) -> str | None:
-        """
-        Find the closest archived snapshot to the target date using Wayback Machine API.
-
-        This method queries the Internet Archive's availability API to find the snapshot
-        that was captured closest in time to the target date specified during
-        ArchiveFetcher initialization.
-
-        Args:
-            url (str): The original URL to find archived snapshots for.
-                      Should be a valid HTTP/HTTPS URL.
-
-        Returns:
-            str | None: Complete Wayback Machine URL for the closest snapshot
-                       if found, None if no snapshots are available.
-
-        Example:
-            >>> fetcher = ArchiveFetcher("20200101")
-            >>> snapshot = fetcher._find_closest_snapshot("https://example.com")
-            >>> if snapshot:
-            ...     print(f"Found snapshot: {snapshot}")
-
-        Note:
-            - Uses the Wayback Machine availability API for efficient lookup
-            - Preference is given to snapshots after the target date if available
-            - May return None if the domain was never archived or not available
-        """
+        """Find the closest archived snapshot to the target date."""
         try:
-            # Use Wayback Machine availability API
-            api_url = f"https://archive.org/wayback/available?url={quote(url)}&timestamp={self.target_date}"
+            api_url = (
+                f"https://archive.org/wayback/available?"
+                f"url={quote(url)}&timestamp={self.target_date}"
+            )
             logger.info(
                 f"Searching for archive snapshot of {url} near {self.target_date}"
             )
-            logger.info(f"Archive API URL: {api_url}")
+
             response = requests.get(api_url, timeout=10)
             response.raise_for_status()
 
             data = response.json()
-            logger.info(f"Archive API response: {data}")
             if data.get("archived_snapshots", {}).get("closest", {}).get("available"):
                 closest_snapshot = data["archived_snapshots"]["closest"]
                 snapshot_url = closest_snapshot["url"]
@@ -361,194 +478,173 @@ class ArchiveFetcher(BaseFetcher):
             logger.error(f"Failed to find archive snapshot for {url}: {e}")
             return None
 
-    def fetch_html(
-        self,
-        url: str,
-        *,
-        force_fetch: bool = False,
-        allow_content_types: list[str] = None,
-        ignore_extensions: bool = False,
-    ) -> tuple[bool, str, str]:
-        """Fetch HTML from archive.org snapshot with security validation."""
-        # Security validation first
-        is_safe, validation_message = self._validate_url_security(
-            url,
-            force_fetch=force_fetch,
-            allow_content_types=allow_content_types,
-            ignore_extensions=ignore_extensions,
-        )
-
-        if not is_safe:
-            return False, "", validation_message
+    async def _extract_from_archived_page(
+        self, page: Page, url: str, snapshot_url: str, screenshot_path: str | None
+    ) -> FetchResult:
+        """Extract content from an archived page."""
+        result = FetchResult(url=url, success=False)
 
         try:
-            snapshot_url = self._find_closest_snapshot(url)
-            if not snapshot_url:
-                return (
-                    False,
-                    "",
-                    f"No archive snapshot found for {url} near {self.target_date}",
-                )
+            # Navigate to archived page
+            timeout = self.config.get("playwright_timeout", 30000)
+            await page.goto(snapshot_url, wait_until="networkidle", timeout=timeout)
 
-            headers = {"User-Agent": self.config.user_agent}
-            response = requests.get(
-                snapshot_url,
-                timeout=self.config.http_timeout,
-                headers=headers,
-                allow_redirects=True,
-            )
-            response.raise_for_status()
-
-            # Clean up archive.org wrapper content
-            html = response.text
-            # Remove archive.org toolbar/navigation if present
-            soup = BeautifulSoup(html, "html.parser")
+            # Extract HTML and clean archive.org wrapper
+            full_html = await page.content()
+            soup = BeautifulSoup(full_html, "html.parser")
 
             # Remove archive.org specific elements
             for element in soup.find_all(
                 ["script", "link", "div"],
-                attrs={"src": lambda x: x and (urlparse(x).hostname == "archive.org")},
+                attrs={
+                    "src": lambda x: x and "archive.org" in x,
+                    "href": lambda x: x and "archive.org" in x,
+                },
             ):
                 element.decompose()
+
+            # Remove wayback machine toolbar
+            for element in soup.find_all(id=lambda x: x and "wm-" in str(x)):
+                element.decompose()
+
             for element in soup.find_all(
                 attrs={"class": lambda x: x and "wayback" in str(x).lower()}
             ):
                 element.decompose()
 
-            success_msg = validation_message or ""
-            logger.info(f"Successfully fetched archived {url} from {self.target_date}")
-            return True, str(soup), success_msg
+            result.html = str(soup)
+
+            # Extract text content
+            result.text = await page.evaluate(
+                """() => {
+                // Remove archive.org elements first
+                const archiveElements = document.querySelectorAll(
+                    '[id*="wm-"], [class*="wayback"], [src*="archive.org"]'
+                );
+                archiveElements.forEach(el => el.remove());
+
+                // Then remove standard non-content elements
+                const elementsToRemove = document.querySelectorAll(
+                    'script, style, noscript, iframe, object, embed, applet'
+                );
+                elementsToRemove.forEach(el => el.remove());
+
+                const body = document.body;
+                if (!body) return '';
+
+                let textContent = body.innerText || body.textContent || '';
+                textContent = textContent.replace(/\n\n\n+/g, '\n\n');
+                textContent = textContent.trim();
+
+                return textContent;
+            }"""
+            )
+
+            # Extract metadata
+            result.title = await page.title()
+
+            # Get meta description
+            meta_desc = await page.query_selector('meta[name="description"]')
+            if meta_desc:
+                desc_content = await meta_desc.get_attribute("content")
+                result.meta_description = desc_content or ""
+
+            # Take screenshot if needed
+            if screenshot_path:
+                Path(screenshot_path).parent.mkdir(parents=True, exist_ok=True)
+                await page.screenshot(path=screenshot_path, full_page=False, type="png")
+                result.screenshot_path = screenshot_path
+
+            result.success = True
+            logger.info(f"Successfully extracted archived content from {url}")
 
         except Exception as e:
-            error_msg = f"Failed to fetch archived {url}: {e}"
-            logger.error(error_msg)
-            return False, "", error_msg
+            result.error = str(e)
+            logger.error(f"Failed to extract archived content from {url}: {e}")
+
+        return result
+
+    async def fetch_single(
+        self, url: str, screenshot_path: str | None = None
+    ) -> FetchResult:
+        """Fetch content from archive.org snapshot."""
+        # Security validation
+        is_safe, msg = self._validate_url_security(url)
+        if not is_safe:
+            return FetchResult(url=url, success=False, error=msg)
+
+        # Find snapshot
+        snapshot_url = self._find_closest_snapshot(url)
+        if not snapshot_url:
+            return FetchResult(
+                url=url,
+                success=False,
+                error=f"No archive snapshot found near {self.target_date}",
+            )
+
+        async with async_playwright() as p:
+            browser = await p.chromium.launch(
+                headless=self.config.get("playwright_headless", True)
+            )
+
+            viewport = self.config.get(
+                "playwright_viewport", {"width": 1280, "height": 1024}
+            )
+            context = await browser.new_context(
+                user_agent=self.config.user_agent, viewport=viewport
+            )
+
+            page = await context.new_page()
+
+            # No need to configure blocking for archive.org
+            result = await self._extract_from_archived_page(
+                page, url, snapshot_url, screenshot_path
+            )
+
+            await context.close()
+            await browser.close()
+
+        return result
+
+    # Sync wrappers
+    def fetch_html(self, url: str, **kwargs) -> tuple[bool, str, str]:
+        """Sync wrapper for HTML fetching from archive."""
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            result = loop.run_until_complete(self.fetch_single(url))
+            return result.success, result.html, result.error
+        finally:
+            loop.close()
 
     def fetch_screenshot(
-        self,
-        url: str,
-        output_path: str,
-        *,
-        force_fetch: bool = False,
-        ignore_extensions: bool = False,
+        self, url: str, output_path: str, **kwargs
     ) -> tuple[bool, str]:
-        """
-        Take screenshot of archived page with security validation.
-
-        Args:
-            url (str): Original URL to find archived snapshot for
-            output_path (str): Path where screenshot should be saved
-            force_fetch (bool): Skip security validation (dangerous)
-            ignore_extensions (bool): Skip file extension validation
-
-        Returns:
-            tuple[bool, str]: Success status and error message if failed
-        """
-        # Security validation first
-        is_safe, validation_message = self._validate_url_security(
-            url, force_fetch=force_fetch, ignore_extensions=ignore_extensions
-        )
-
-        if not is_safe:
-            return False, validation_message
-        driver = None
+        """Sync wrapper for screenshot from archive."""
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
         try:
-            snapshot_url = self._find_closest_snapshot(url)
-            if not snapshot_url:
-                error_msg = (
-                    f"No archive snapshot found for {url} near {self.target_date}"
-                )
-                logger.warning(error_msg)
-                return False, error_msg
-
-            from selenium.common.exceptions import (
-                SessionNotCreatedException,
-                TimeoutException,
-                WebDriverException,
-            )
-            from webdriver_manager.chrome import ChromeDriverManager
-
-            logger.info(f"Taking screenshot of archived page: {snapshot_url}")
-            logger.debug(f"Screenshot output path: {output_path}")
-
-            # Configure Chrome options for headless operation
-            options = webdriver.ChromeOptions()
-            options.add_argument("--disable-extensions")
-            options.add_argument("--no-sandbox")
-            options.add_argument("--headless")
-            options.add_argument("--disable-gpu")
-            options.add_argument("--disable-dev-shm-usage")  # Prevent memory issues
-            options.add_argument("--disable-background-timer-throttling")
-            options.add_argument("--disable-backgrounding-occluded-windows")
-            options.add_argument("--disable-renderer-backgrounding")
-            options.add_argument(f"--window-size={self.config.webdriver_window_size}")
-            options.add_argument(f"--user-agent={self.config.user_agent}")
-
-            # Create WebDriver with proper resource management
-            driver = webdriver.Chrome(
-                service=webdriver.ChromeService(ChromeDriverManager().install()),
-                options=options,
-            )
-
-            try:
-                # Configure timeouts
-                driver.set_page_load_timeout(self.config.page_load_timeout)
-                driver.implicitly_wait(5)  # Implicit wait for elements
-
-                # Navigate to archived page and take screenshot
-                logger.debug(f"Navigating to archived page: {snapshot_url}")
-                driver.get(snapshot_url)
-
-                # Wait for page to settle (archived pages may be slower)
-                time.sleep(self.config.screenshot_wait_time)
-
-                # Take screenshot
-                logger.debug(f"Saving screenshot to {output_path}")
-                driver.save_screenshot(output_path)
-
-                logger.info(f"Successfully captured screenshot for archived {url}")
-                return True, ""
-
-            except TimeoutException as e:
-                logger.error(f"Timeout while loading archived page {snapshot_url}: {e}")
-                return False, f"Archive page load timeout: {str(e)}"
-
-            except WebDriverException as e:
-                logger.error(f"WebDriver error for archived page {snapshot_url}: {e}")
-                return False, f"WebDriver error: {str(e)}"
-
-            finally:
-                # Ensure driver is always cleaned up
-                if driver:
-                    try:
-                        driver.quit()
-                        logger.debug("WebDriver cleaned up successfully")
-                    except Exception as cleanup_error:
-                        logger.warning(
-                            f"Error during WebDriver cleanup: {cleanup_error}"
-                        )
-
-        except SessionNotCreatedException as e:
-            logger.error(f"Failed to create WebDriver session for archive: {e}")
-            return False, f"WebDriver session creation failed: {str(e)}"
-
-        except Exception as e:
-            logger.error(f"Unexpected error taking screenshot of archived {url}: {e}")
-            return False, f"Unexpected error: {str(e)}"
+            result = loop.run_until_complete(self.fetch_single(url, output_path))
+            return result.success, result.error
+        finally:
+            loop.close()
 
 
-def get_fetcher(archive_date: str | datetime | None = None) -> BaseFetcher:
+def get_fetcher(
+    archive_date: str | datetime | None = None, max_parallel: int = 4
+) -> BaseFetcher:
     """
     Factory function to get appropriate fetcher.
 
     Args:
         archive_date: If provided, returns ArchiveFetcher for this date.
-                     If None, returns LiveFetcher for current content.
+                     If None, returns PlaywrightFetcher for current content.
+        max_parallel: Maximum number of parallel browser contexts
 
     Returns:
         BaseFetcher: Appropriate fetcher instance
     """
     if archive_date:
-        return ArchiveFetcher(archive_date)
+        return ArchiveFetcher(archive_date, max_parallel)
     else:
-        return LiveFetcher()
+        return PlaywrightFetcher(max_parallel)

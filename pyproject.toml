@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "piedomains"
-version = "0.4.2"
+version = "0.5.0"
 description = "Predict categories based on domain names and their content"
 readme = "README.md"
 license = {text = "MIT License"}
@@ -27,26 +27,27 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Topic :: Internet :: WWW/HTTP",
     "Topic :: Scientific/Engineering :: Information Analysis",
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Topic :: Text Processing :: Markup :: HTML",
     "Topic :: Utilities"
 ]
-requires-python = ">=3.11"
+requires-python = ">=3.11,<3.14"
 dependencies = [
-    "pandas>=1.5.0",
-    "numpy>=1.21.0",
-    "scikit-learn>=1.3.0",
+    "pandas>=2.0.0",
+    "numpy>=1.24.0",
     "beautifulsoup4>=4.10.0",
-    "selenium>=4.8.0",
-    "webdriver-manager>=3.8.0",
+    "playwright>=1.40.0",
     "Pillow>=10.0.0",
     "joblib>=1.2.0",
     "tqdm>=4.64.0",
     "nltk>=3.8",
     "tensorflow>=2.12.0",
     "litellm>=1.55.0",
+    "requests>=2.25.0",
+    "scikit-learn>=1.3.0",
 ]
 
 [project.optional-dependencies]
@@ -112,6 +113,7 @@ exclude = [
     ".venv",
     "docs",
     ".eggs",
+    "notebooks",
 ]
 
 [tool.ruff.lint]
@@ -199,3 +201,23 @@ exclude_lines = [
     "if __name__ == .__main__.:",
     "if TYPE_CHECKING:",
 ]
+
+# Deptry configuration
+[tool.deptry]
+extend_exclude = [
+    "notebooks",
+    "examples",
+    "docs",
+    "tests",
+    "piedomains/scripts"
+]
+pep621_dev_dependency_groups = ["test", "docs", "dev"]
+# Use per-rule ignores for specific dependency issues
+[tool.deptry.per_rule_ignores]
+DEP002 = ["scikit-learn"]  # Used via joblib for loading calibrated models
+DEP004 = ["pytest"]        # Test framework used in tests directory
+
+[tool.deptry.package_module_name_map]
+pillow = "PIL"
+beautifulsoup4 = "bs4"
+scikit-learn = "sklearn"

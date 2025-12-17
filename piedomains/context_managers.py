@@ -8,38 +8,59 @@ import tempfile
 from collections.abc import Generator
 from contextlib import contextmanager
 
-from selenium import webdriver
-
-from .piedomain import Piedomain
+from .fetchers import PlaywrightFetcher
 from .piedomains_logging import get_logger
 
 logger = get_logger()
 
 
 @contextmanager
-def webdriver_context() -> Generator[webdriver.Chrome, None, None]:
+def webdriver_context():
     """
-    Context manager for WebDriver instances.
+    DEPRECATED: Use PlaywrightFetcher context manager instead.
+
+    This function is maintained for backward compatibility.
+    """
+    logger.warning(
+        "webdriver_context is deprecated. Use PlaywrightFetcher context manager instead."
+    )
+
+    # Return a mock-like object that has a quit method for compatibility
+    class DeprecatedWebDriverStub:
+        def quit(self):
+            pass
+
+    stub = DeprecatedWebDriverStub()
+    try:
+        yield stub
+    finally:
+        stub.quit()
+
+
+@contextmanager
+def playwright_context() -> Generator[PlaywrightFetcher, None, None]:
+    """
+    Context manager for PlaywrightFetcher instances.
 
     Yields:
-        webdriver.Chrome: Chrome WebDriver instance
+        PlaywrightFetcher: Playwright fetcher instance
 
-    Ensures proper cleanup of WebDriver resources.
+    Ensures proper cleanup of Playwright resources.
     """
-    driver = None
+    fetcher = None
     try:
-        driver = Piedomain.get_driver()
-        yield driver
+        fetcher = PlaywrightFetcher()
+        yield fetcher
     except Exception as e:
-        logger.error(f"WebDriver error: {e}")
+        logger.error(f"Playwright error: {e}")
         raise
     finally:
-        if driver:
+        if fetcher:
             try:
-                driver.quit()
-                logger.debug("WebDriver cleaned up successfully")
+                fetcher.cleanup()
+                logger.debug("Playwright fetcher cleaned up successfully")
             except Exception as cleanup_error:
-                logger.warning(f"Error during WebDriver cleanup: {cleanup_error}")
+                logger.warning(f"Error during Playwright cleanup: {cleanup_error}")
 
 
 @contextmanager
@@ -154,7 +175,7 @@ def batch_progress_tracking(
         if processed["count"] % 10 == 0 or processed["count"] == total_items:
             logger.info(
                 f"{operation_name}: {processed['count']}/{total_items} completed "
-                f"({processed['count']/total_items*100:.1f}%)"
+                f"({processed['count'] / total_items * 100:.1f}%)"
             )
 
     try:
@@ -180,9 +201,16 @@ class ResourceManager:
         self._temp_dirs = []
         self._temp_files = []
 
-    def add_driver(self, driver: webdriver.Chrome):
-        """Add a WebDriver instance for cleanup."""
+    def add_driver(self, driver):
+        """Add a WebDriver/fetcher instance for cleanup (deprecated)."""
+        logger.warning(
+            "add_driver is deprecated. Use add_fetcher for Playwright fetchers."
+        )
         self._drivers.append(driver)
+
+    def add_fetcher(self, fetcher):
+        """Add a PlaywrightFetcher instance for cleanup."""
+        self._drivers.append(fetcher)  # Reuse the same list for compatibility
 
     def add_temp_directory(self, path: str):
         """Add a temporary directory for cleanup."""
@@ -194,13 +222,19 @@ class ResourceManager:
 
     def cleanup_all(self):
         """Clean up all tracked resources."""
-        # Clean up WebDriver instances
-        for driver in self._drivers:
+        # Clean up WebDriver/fetcher instances
+        for driver_or_fetcher in self._drivers:
             try:
-                driver.quit()
-                logger.debug("WebDriver cleaned up")
+                # Try Playwright fetcher cleanup first
+                if hasattr(driver_or_fetcher, "cleanup"):
+                    driver_or_fetcher.cleanup()
+                    logger.debug("Playwright fetcher cleaned up")
+                # Fallback to WebDriver quit for backward compatibility
+                elif hasattr(driver_or_fetcher, "quit"):
+                    driver_or_fetcher.quit()
+                    logger.debug("WebDriver cleaned up")
             except Exception as e:
-                logger.warning(f"Error cleaning up WebDriver: {e}")
+                logger.warning(f"Error cleaning up driver/fetcher: {e}")
         self._drivers.clear()
 
         # Clean up temporary files

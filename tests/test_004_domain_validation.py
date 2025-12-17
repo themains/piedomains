@@ -3,6 +3,7 @@ Test domain validation functionality.
 """
 
 import unittest
+
 from piedomains.piedomain import Piedomain
 
 
@@ -17,7 +18,7 @@ class TestDomainValidation(unittest.TestCase):
             "test-domain.co.uk",
             "example123.net",
             "a.b",
-            "very-long-subdomain.example-domain.com"
+            "very-long-subdomain.example-domain.com",
         ]
 
         for domain in valid_domains:
@@ -36,7 +37,7 @@ class TestDomainValidation(unittest.TestCase):
             "toolong" + "a" * 250 + ".com",
             "spaces in domain.com",
             "special!chars@domain.com",
-            "just-a-string-without-dot"
+            "just-a-string-without-dot",
         ]
 
         for domain in invalid_domains:
@@ -48,7 +49,7 @@ class TestDomainValidation(unittest.TestCase):
         domains_with_protocol = [
             "http://google.com",
             "https://example.org",
-            "https://sub.example.com/path"
+            "https://sub.example.com/path",
         ]
 
         for domain in domains_with_protocol:
@@ -62,7 +63,7 @@ class TestDomainValidation(unittest.TestCase):
             "invalid..domain",
             "facebook.com",
             "",
-            "twitter.com"
+            "twitter.com",
         ]
 
         valid, invalid = Piedomain.validate_domains(mixed_domains)
@@ -80,7 +81,7 @@ class TestDomainValidation(unittest.TestCase):
         domains_to_normalize = [
             "https://example.com",
             "http://test.org/path",
-            "example.net/"
+            "example.net/",
         ]
 
         valid, invalid = Piedomain.validate_domains(domains_to_normalize)
@@ -94,4 +95,3 @@ class TestDomainValidation(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

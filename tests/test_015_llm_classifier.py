@@ -39,7 +39,7 @@ class TestLLMConfig(unittest.TestCase):
             api_key="test-key",
             temperature=0.2,
             max_tokens=1000,
-            categories=["news", "shopping", "tech"]
+            categories=["news", "shopping", "tech"],
         )
 
         self.assertEqual(config.provider, "anthropic")
@@ -56,7 +56,9 @@ class TestLLMConfig(unittest.TestCase):
             LLMConfig(provider="openai", model="", api_key="test-key")
 
         with self.assertRaises(ValueError):
-            LLMConfig(provider="openai", model="gpt-4o", api_key="test-key", max_tokens=0)
+            LLMConfig(
+                provider="openai", model="gpt-4o", api_key="test-key", max_tokens=0
+            )
 
     def test_litellm_params(self):
         """Test conversion to litellm parameters."""
@@ -77,7 +79,7 @@ class TestPrompts(unittest.TestCase):
         prompt = get_classification_prompt(
             domain="example.com",
             content="This is news content about current events.",
-            categories=["news", "shopping", "tech"]
+            categories=["news", "shopping", "tech"],
         )
 
         self.assertIn("example.com", prompt)
@@ -93,7 +95,7 @@ class TestPrompts(unittest.TestCase):
             domain="example.com",
             content="Shopping website content",
             categories=["news", "shopping", "tech"],
-            has_screenshot=True
+            has_screenshot=True,
         )
 
         self.assertIn("example.com", prompt)
@@ -108,7 +110,7 @@ class TestPrompts(unittest.TestCase):
             domain="example.com",
             content=long_content,
             categories=["news"],
-            max_content_length=1000
+            max_content_length=1000,
         )
 
         self.assertIn("truncated", prompt)
@@ -120,23 +122,23 @@ class TestResponseParser(unittest.TestCase):
 
     def test_parse_valid_json_response(self):
         """Test parsing valid JSON response."""
-        response = '''
+        response = """
         {
             "category": "news",
             "confidence": 0.95,
             "reasoning": "The website contains news articles and current events."
         }
-        '''
+        """
 
         result = parse_llm_response(response)
 
-        self.assertEqual(result['category'], "news")
-        self.assertEqual(result['confidence'], 0.95)
-        self.assertIn("news articles", result['reasoning'])
+        self.assertEqual(result["category"], "news")
+        self.assertEqual(result["confidence"], 0.95)
+        self.assertIn("news articles", result["reasoning"])
 
     def test_parse_json_with_markdown(self):
         """Test parsing JSON wrapped in markdown."""
-        response = '''
+        response = """
         Here's my analysis:
 
         ```json
@@ -146,12 +148,12 @@ class TestResponseParser(unittest.TestCase):
             "reasoning": "E-commerce site with product listings."
         }
         ```
-        '''
+        """
 
         result = parse_llm_response(response)
 
-        self.assertEqual(result['category'], "shopping")
-        self.assertEqual(result['confidence'], 0.88)
+        self.assertEqual(result["category"], "shopping")
+        self.assertEqual(result["confidence"], 0.88)
 
     def test_parse_invalid_response(self):
         """Test handling of invalid responses."""
@@ -164,11 +166,11 @@ class TestResponseParser(unittest.TestCase):
     def test_confidence_validation(self):
         """Test confidence value validation."""
         # Test out-of-range confidence
-        response = '''{"category": "news", "confidence": 1.5}'''
+        response = """{"category": "news", "confidence": 1.5}"""
         result = parse_llm_response(response)
 
-        self.assertEqual(result['category'], "news")
-        self.assertEqual(result['confidence'], 1.0)  # Should be clamped
+        self.assertEqual(result["category"], "news")
+        self.assertEqual(result["confidence"], 1.0)  # Should be clamped
 
     def test_missing_fields(self):
         """Test handling of missing required fields."""
@@ -190,7 +192,7 @@ class TestDomainClassifierLLM(unittest.TestCase):
             provider="openai",
             model="gpt-4o",
             api_key="test-key",
-            categories=["news", "tech"]
+            categories=["news", "tech"],
         )
 
         self.assertIsNotNone(self.classifier._llm_config)
@@ -211,37 +213,39 @@ class TestDomainClassifierLLM(unittest.TestCase):
         stats = self.classifier.get_llm_usage_stats()
         self.assertIsNone(stats)
 
-    @patch('piedomains.classifiers.llm_classifier.litellm')
+    @patch("piedomains.classifiers.llm_classifier.litellm")
     def test_classify_by_llm_mock(self, mock_litellm):
         """Test LLM classification with mocked response."""
         # Mock litellm response
         mock_response = MagicMock()
         mock_response.choices = [MagicMock()]
-        mock_response.choices[0].message.content = '''
+        mock_response.choices[0].message.content = """
         {
             "category": "news",
             "confidence": 0.9,
             "reasoning": "Contains news content"
         }
-        '''
+        """
         mock_response.usage.total_tokens = 100
         mock_litellm.completion.return_value = mock_response
 
         # Configure LLM
         self.classifier.configure_llm(
-            provider="openai",
-            model="gpt-4o",
-            api_key="test-key"
+            provider="openai", model="gpt-4o", api_key="test-key"
         )
 
         # Mock text classifier to avoid actual network calls
-        with patch('piedomains.classifiers.text_classifier.TextClassifier.predict') as mock_text:
-            mock_text.return_value = pd.DataFrame([
-                {
-                    'domain': 'example.com',
-                    'extracted_text': 'This is news content about current events.'
-                }
-            ])
+        with patch(
+            "piedomains.classifiers.text_classifier.TextClassifier.predict"
+        ) as mock_text:
+            mock_text.return_value = pd.DataFrame(
+                [
+                    {
+                        "domain": "example.com",
+                        "extracted_text": "This is news content about current events.",
+                    }
+                ]
+            )
 
             result = self.classifier.classify_by_llm(["example.com"])
 
@@ -264,11 +268,11 @@ class TestLLMIntegration(unittest.TestCase):
         # In real usage: classifier.configure_llm("openai", "gpt-4o", api_key="sk-...")
 
         # For now, just test that the methods exist and have correct signatures
-        self.assertTrue(hasattr(classifier, 'configure_llm'))
-        self.assertTrue(hasattr(classifier, 'classify_by_llm'))
-        self.assertTrue(hasattr(classifier, 'classify_by_llm_multimodal'))
-        self.assertTrue(hasattr(classifier, 'get_llm_usage_stats'))
+        self.assertTrue(hasattr(classifier, "configure_llm"))
+        self.assertTrue(hasattr(classifier, "classify_by_llm"))
+        self.assertTrue(hasattr(classifier, "classify_by_llm_multimodal"))
+        self.assertTrue(hasattr(classifier, "get_llm_usage_stats"))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

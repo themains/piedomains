@@ -2,55 +2,61 @@
 Test context managers and resource cleanup.
 """
 
-import unittest
-from unittest.mock import patch, MagicMock
-import tempfile
 import os
 import shutil
+import tempfile
+import unittest
+from unittest.mock import MagicMock, patch
+
 from piedomains.context_managers import (
-    webdriver_context, temporary_directory, file_cleanup,
-    error_recovery, batch_progress_tracking, ResourceManager
+    ResourceManager,
+    batch_progress_tracking,
+    error_recovery,
+    file_cleanup,
+    playwright_context,
+    temporary_directory,
+    webdriver_context,
 )
 
 
 class TestContextManagers(unittest.TestCase):
     """Test context manager functionality."""
 
-    @patch('piedomains.context_managers.Piedomain.get_driver')
-    def test_webdriver_context_success(self, mock_get_driver):
-        """Test successful WebDriver context usage."""
-        mock_driver = MagicMock()
-        mock_get_driver.return_value = mock_driver
-
+    def test_webdriver_context_deprecated(self):
+        """Test deprecated WebDriver context returns stub."""
         with webdriver_context() as driver:
-            self.assertEqual(driver, mock_driver)
+            # Should return a stub object with quit method
+            self.assertIsNotNone(driver)
+            self.assertTrue(hasattr(driver, "quit"))
 
-        mock_driver.quit.assert_called_once()
-
-    @patch('piedomains.context_managers.Piedomain.get_driver')
-    def test_webdriver_context_with_exception(self, mock_get_driver):
-        """Test WebDriver context with exception during usage."""
-        mock_driver = MagicMock()
-        mock_get_driver.return_value = mock_driver
-
+    def test_webdriver_context_with_exception(self):
+        """Test deprecated WebDriver context with exception during usage."""
         with self.assertRaises(RuntimeError):
             with webdriver_context():
                 raise RuntimeError("Test exception")
 
-        mock_driver.quit.assert_called_once()
+    @patch("piedomains.context_managers.PlaywrightFetcher")
+    def test_playwright_context_success(self, mock_playwright_class):
+        """Test successful Playwright context usage."""
+        mock_fetcher = MagicMock()
+        mock_playwright_class.return_value = mock_fetcher
 
-    @patch('piedomains.context_managers.Piedomain.get_driver')
-    def test_webdriver_context_cleanup_error(self, mock_get_driver):
-        """Test WebDriver context with cleanup error."""
-        mock_driver = MagicMock()
-        mock_driver.quit.side_effect = Exception("Cleanup error")
-        mock_get_driver.return_value = mock_driver
+        with playwright_context() as fetcher:
+            self.assertEqual(fetcher, mock_fetcher)
 
-        # Should not raise exception even if cleanup fails
-        with webdriver_context():
-            pass
+        mock_fetcher.cleanup.assert_called_once()
 
-        mock_driver.quit.assert_called_once()
+    @patch("piedomains.context_managers.PlaywrightFetcher")
+    def test_playwright_context_with_exception(self, mock_playwright_class):
+        """Test Playwright context with exception during usage."""
+        mock_fetcher = MagicMock()
+        mock_playwright_class.return_value = mock_fetcher
+
+        with self.assertRaises(RuntimeError):
+            with playwright_context():
+                raise RuntimeError("Test exception")
+
+        mock_fetcher.cleanup.assert_called_once()
 
     def test_temporary_directory_context(self):
         """Test temporary directory context manager."""
@@ -111,20 +117,22 @@ class TestContextManagers(unittest.TestCase):
     def test_error_recovery_success(self):
         """Test error recovery context manager with successful operation."""
         with error_recovery("test_operation", fallback_value="fallback") as result:
-            result['result'] = "success_value"
+            result["result"] = "success_value"
 
-        self.assertTrue(result['success'])
-        self.assertIsNone(result['error'])
-        self.assertEqual(result['result'], "success_value")
+        self.assertTrue(result["success"])
+        self.assertIsNone(result["error"])
+        self.assertEqual(result["result"], "success_value")
 
     def test_error_recovery_with_error_no_reraise(self):
         """Test error recovery context manager with error (no reraise)."""
-        with error_recovery("test_operation", fallback_value="fallback", reraise=False) as result:
+        with error_recovery(
+            "test_operation", fallback_value="fallback", reraise=False
+        ) as result:
             raise ValueError("Test error")
 
-        self.assertFalse(result['success'])
-        self.assertIsInstance(result['error'], ValueError)
-        self.assertEqual(result['result'], "fallback")
+        self.assertFalse(result["success"])
+        self.assertIsInstance(result["error"], ValueError)
+        self.assertEqual(result["result"], "fallback")
 
     def test_error_recovery_with_error_reraise(self):
         """Test error recovery context manager with error (reraise)."""
@@ -132,7 +140,7 @@ class TestContextManagers(unittest.TestCase):
             with error_recovery("test_operation", reraise=True):
                 raise ValueError("Test error")
 
-    @patch('piedomains.context_managers.logger')
+    @patch("piedomains.context_managers.logger")
     def test_batch_progress_tracking(self, mock_logger):
         """Test batch progress tracking context manager."""
         with batch_progress_tracking(25, "Test Operation") as update_progress:
@@ -207,4 +215,3 @@ class TestContextManagers(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-
