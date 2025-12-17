@@ -102,8 +102,17 @@ class ContentProcessor:
                 for url in to_fetch:
                     domain_name = self._parse_domain_name(url)
                     screenshot_path = os.path.join(self.image_dir, f"{domain_name}.png")
-                    result = self.fetcher.fetch_both(url, screenshot_path)
-                    fetch_results.append(result)
+                    try:
+                        result = self.fetcher.fetch_both(url, screenshot_path)
+                        fetch_results.append(result)
+                    except Exception as e:
+                        # Create a failed FetchResult for network errors
+                        from ..fetchers import FetchResult
+
+                        failed_result = FetchResult(
+                            url=url, success=False, error=f"Network error: {str(e)}"
+                        )
+                        fetch_results.append(failed_result)
 
             # Process fetch results
             for result in fetch_results:

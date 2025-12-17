@@ -164,6 +164,8 @@ class TestContextManagers(unittest.TestCase):
     def test_resource_manager_context(self):
         """Test ResourceManager as context manager."""
         mock_driver = MagicMock()
+        # Ensure mock doesn't have cleanup method, so quit will be called
+        del mock_driver.cleanup
         temp_dir = tempfile.mkdtemp()
         temp_file = tempfile.NamedTemporaryFile(delete=False)
         temp_file.close()
@@ -188,6 +190,8 @@ class TestContextManagers(unittest.TestCase):
     def test_resource_manager_cleanup_errors(self):
         """Test ResourceManager handles cleanup errors gracefully."""
         mock_driver = MagicMock()
+        # Ensure mock doesn't have cleanup method, so quit will be called
+        del mock_driver.cleanup
         mock_driver.quit.side_effect = Exception("Cleanup error")
 
         with ResourceManager() as rm:
@@ -201,6 +205,8 @@ class TestContextManagers(unittest.TestCase):
     def test_resource_manager_manual_cleanup(self):
         """Test ResourceManager manual cleanup."""
         mock_driver = MagicMock()
+        # Ensure mock doesn't have cleanup method, so quit will be called
+        del mock_driver.cleanup
         rm = ResourceManager()
 
         rm.add_driver(mock_driver)

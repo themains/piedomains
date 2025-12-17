@@ -399,6 +399,20 @@ class PlaywrightFetcher(BaseFetcher):
         finally:
             loop.close()
 
+    def fetch_content(self, url: str, **kwargs) -> FetchResult:
+        """Sync wrapper for content fetching (alias for fetch_single)."""
+        # Normalize URL
+        if not url.startswith(("http://", "https://")):
+            url = f"https://{url}"
+
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            result = loop.run_until_complete(self.fetch_single(url))
+            return result
+        finally:
+            loop.close()
+
     def fetch_screenshot(
         self, url: str, output_path: str, **kwargs
     ) -> tuple[bool, str]:
