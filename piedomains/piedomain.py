@@ -9,8 +9,8 @@ import numpy as np
 import requests
 from bs4 import BeautifulSoup
 from PIL import Image
-from selenium import webdriver
 
+# from selenium import webdriver  # Removed - using Playwright now
 from .base import Base
 from .config import get_config
 from .constants import classes, most_common_words
@@ -334,31 +334,20 @@ class Piedomain(Base):
     @classmethod
     def get_driver(cls):
         """
+        DEPRECATED: Use PlaywrightFetcher instead.
         Get configured Chrome WebDriver instance for screenshots.
 
         Returns:
             webdriver.Chrome: Headless Chrome driver with optimized settings
         """
-        from webdriver_manager.chrome import ChromeDriverManager
-
-        config = get_config()
-
-        options = webdriver.ChromeOptions()
-        options.add_argument("--disable-extensions")
-        options.add_argument("--no-sandbox")  # linux only
-        options.add_argument("--headless")
-        options.add_argument("--disable-gpu")
-        options.add_argument(f"--window-size={config.webdriver_window_size}")
-        options.add_argument(f"--user-agent={config.user_agent}")
-
-        return webdriver.Chrome(
-            service=webdriver.ChromeService(ChromeDriverManager().install()),
-            options=options,
+        raise NotImplementedError(
+            "get_driver is deprecated. Use PlaywrightFetcher from piedomains.fetchers instead."
         )
 
     @classmethod
     def save_image(cls, url_or_domain: str, image_dir: str) -> tuple[bool, str]:
         """
+        DEPRECATED: Use PlaywrightFetcher.fetch_screenshot instead.
         Save screenshot of URL or domain homepage.
 
         Args:
@@ -368,36 +357,17 @@ class Piedomain(Base):
         Returns:
             tuple[bool, str]: (success, error_message)
         """
-        from .context_managers import webdriver_context
-
-        config = get_config()
-
-        try:
-            # Parse to get domain for file naming
-            domain = cls.parse_url_to_domain(url_or_domain)
-
-            # Determine the URL to screenshot
-            if url_or_domain.startswith(("http://", "https://")):
-                url_to_fetch = url_or_domain
-            else:
-                url_to_fetch = f"https://{url_or_domain}"
-
-            with webdriver_context() as driver:
-                driver.set_page_load_timeout(config.page_load_timeout)
-                driver.get(url_to_fetch)
-                time.sleep(config.screenshot_wait_time)
-                driver.save_screenshot(f"{image_dir}/{domain}.png")
-                return True, ""
-        except Exception as e:
-            error_msg = f"Failed to screenshot {url_or_domain}: {str(e)}"
-            logger.error(error_msg)
-            return False, error_msg
+        return (
+            False,
+            "save_image is deprecated. Use PlaywrightFetcher.fetch_screenshot instead.",
+        )
 
     @classmethod
     def extract_images(
         cls, input: list, use_cache: bool, image_dir: str
     ) -> tuple[list, dict]:
         """
+        DEPRECATED: Use ContentProcessor.extract_image_content instead.
         Extract screenshots for domains.
 
         Args:
@@ -408,23 +378,13 @@ class Piedomain(Base):
         Returns:
             tuple[list, dict]: (used_domain_screenshot, screenshot_errors)
         """
+        # Return all failed for all domains
         domains = input.copy()
-        used_domain_screenshot = []
-        screenshot_errors = {}
-
-        if not os.path.exists(image_dir):
-            os.makedirs(image_dir)
-
-        for domain in domains:
-            if use_cache and os.path.exists(f"{image_dir}/{domain}.png"):
-                used_domain_screenshot.append(True)
-                continue
-
-            success, error_msg = cls.save_image(domain, image_dir)
-            used_domain_screenshot.append(success)
-            if not success:
-                screenshot_errors[domain] = error_msg
-
+        used_domain_screenshot = [False] * len(domains)
+        screenshot_errors = dict.fromkeys(
+            domains,
+            "extract_images is deprecated. Use ContentProcessor.extract_image_content instead.",
+        )
         return used_domain_screenshot, screenshot_errors
 
     @classmethod

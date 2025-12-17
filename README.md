@@ -1,9 +1,16 @@
-# piedomains
+# piedomains: Classify website content using ML Models or LLMs
 
 [![CI](https://github.com/themains/piedomains/actions/workflows/ci.yml/badge.svg)](https://github.com/themains/piedomains/actions/workflows/ci.yml)
 [![PyPI Version](https://img.shields.io/pypi/v/piedomains.svg)](https://pypi.org/project/piedomains)
+[![Downloads](https://pepy.tech/badge/piedomains)](https://pepy.tech/project/piedomains)
+[![Documentation](https://img.shields.io/badge/docs-github.io-blue)](https://themains.github.io/piedomains/)
 
-Classify website content categories using machine learning models or LLMs (GPT-4, Claude, Gemini).
+## 🚀 What's New in v0.5.0
+
+- **Playwright Migration**: Complete transition from Selenium to modern Playwright for faster, more reliable web content extraction
+- **12.8x Performance Boost**: Optimized parallel processing (13.2s → 1.0s per domain)
+- **Enhanced Docker Security**: Production-ready containerization with security sandboxing and resource limits
+- **Unified Content Pipeline**: Text and image extraction now use the same Playwright engine for consistency
 
 ## Installation
 
@@ -84,18 +91,31 @@ export GOOGLE_API_KEY="..."
 
 41 categories: news, finance, shopping, education, government, adult content, gambling, social networks, search engines, and others based on Shallalist taxonomy.
 
-## Security
+## Security & Docker
 
-When analyzing unknown domains, use Docker or isolated environments:
+**v0.5.0** includes production-ready Docker containerization for secure domain analysis:
 
 ```bash
+# Build secure sandbox container
 docker build -t piedomains-sandbox .
-docker run --rm -it piedomains-sandbox python -c "
+
+# Run with security constraints (2GB RAM, 2 CPU, read-only filesystem)
+docker run --rm --memory=2g --cpus=2 --read-only \
+  --tmpfs /tmp --tmpfs /var/tmp \
+  piedomains-sandbox python -c "
 from piedomains import DomainClassifier
 classifier = DomainClassifier()
 result = classifier.classify(['example.com'])
 print(result[['domain', 'pred_label']])
 "
+```
+
+**Batch Processing in Container:**
+```bash
+# Use the included secure classification script
+cd examples/sandbox
+echo -e "wikipedia.org\ngithub.com\ncnn.com" > domains.txt
+python3 secure_classify.py --file domains.txt
 ```
 
 For testing, use known-safe domains: `["wikipedia.org", "github.com", "cnn.com"]`

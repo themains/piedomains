@@ -2,11 +2,12 @@
 Test utility functions.
 """
 
-import unittest
-from unittest.mock import patch, mock_open, MagicMock
-import tempfile
-import tarfile
 import os
+import tarfile
+import tempfile
+import unittest
+from unittest.mock import MagicMock, mock_open, patch
+
 from piedomains import utils
 
 
@@ -37,14 +38,23 @@ class TestUtils(unittest.TestCase):
         result = utils.is_within_directory(directory, target)
         self.assertTrue(result)
 
-    @patch('requests.get')
-    @patch('builtins.open', new_callable=mock_open)
-    @patch('tarfile.open')
-    @patch('os.remove')
-    @patch('pathlib.Path.mkdir')
-    @patch('pathlib.Path.stat')
-    @patch('pathlib.Path.unlink')
-    def test_download_file_success(self, mock_unlink, mock_stat, mock_mkdir, mock_remove, mock_tarfile, mock_file, mock_get):
+    @patch("requests.get")
+    @patch("builtins.open", new_callable=mock_open)
+    @patch("tarfile.open")
+    @patch("os.remove")
+    @patch("pathlib.Path.mkdir")
+    @patch("pathlib.Path.stat")
+    @patch("pathlib.Path.unlink")
+    def test_download_file_success(
+        self,
+        mock_unlink,
+        mock_stat,
+        mock_mkdir,
+        mock_remove,
+        mock_tarfile,
+        mock_file,
+        mock_get,
+    ):
         """Test successful file download and extraction."""
         # Mock successful HTTP response
         mock_response = MagicMock()
@@ -58,25 +68,31 @@ class TestUtils(unittest.TestCase):
         mock_tar = MagicMock()
         mock_tarfile.return_value.__enter__.return_value = mock_tar
 
-        result = utils.download_file("http://example.com/file.tar.gz", "/test", "file.tar.gz")
+        result = utils.download_file(
+            "http://example.com/file.tar.gz", "/test", "file.tar.gz"
+        )
 
         self.assertTrue(result)
-        mock_get.assert_called_once_with("http://example.com/file.tar.gz", allow_redirects=True, timeout=30)
+        mock_get.assert_called_once_with(
+            "http://example.com/file.tar.gz", allow_redirects=True, timeout=30
+        )
         mock_unlink.assert_called_once()
 
-    @patch('requests.get')
+    @patch("requests.get")
     def test_download_file_http_error(self, mock_get):
         """Test file download with HTTP error."""
         with tempfile.TemporaryDirectory() as temp_dir:
             mock_get.side_effect = Exception("HTTP error")
 
-            result = utils.download_file("http://example.com/file.tar.gz", temp_dir, "file.tar.gz")
+            result = utils.download_file(
+                "http://example.com/file.tar.gz", temp_dir, "file.tar.gz"
+            )
 
             self.assertFalse(result)
 
-    @patch('requests.get')
-    @patch('builtins.open', new_callable=mock_open)
-    @patch('tarfile.open')
+    @patch("requests.get")
+    @patch("builtins.open", new_callable=mock_open)
+    @patch("tarfile.open")
     def test_download_file_extraction_error(self, mock_tarfile, mock_file, mock_get):
         """Test file download with extraction error."""
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -88,7 +104,9 @@ class TestUtils(unittest.TestCase):
             # Mock tarfile extraction error
             mock_tarfile.side_effect = Exception("Extraction error")
 
-            result = utils.download_file("http://example.com/file.tar.gz", temp_dir, "file.tar.gz")
+            result = utils.download_file(
+                "http://example.com/file.tar.gz", temp_dir, "file.tar.gz"
+            )
 
             self.assertFalse(result)
 
@@ -143,11 +161,14 @@ class TestUtils(unittest.TestCase):
 
         try:
             # Test with environment variable
-            with patch.dict(os.environ, {'PIEDOMAINS_MODEL_URL': 'http://custom.url/model'}):
+            with patch.dict(
+                os.environ, {"PIEDOMAINS_MODEL_URL": "http://custom.url/model"}
+            ):
                 # Reload the module to pick up the environment variable
                 import importlib
+
                 importlib.reload(utils)
-                self.assertEqual(utils.REPO_BASE_URL, 'http://custom.url/model')
+                self.assertEqual(utils.REPO_BASE_URL, "http://custom.url/model")
         finally:
             # Restore original
             utils.REPO_BASE_URL = original_url
@@ -157,8 +178,12 @@ class TestUtils(unittest.TestCase):
         # Ensure environment variable is not set
         with patch.dict(os.environ, {}, clear=True):
             import importlib
+
             importlib.reload(utils)
-            self.assertEqual(utils.REPO_BASE_URL, "https://dataverse.harvard.edu/api/access/datafile/7081895")
+            self.assertEqual(
+                utils.REPO_BASE_URL,
+                "https://dataverse.harvard.edu/api/access/datafile/7081895",
+            )
 
 
 if __name__ == "__main__":

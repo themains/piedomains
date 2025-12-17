@@ -1,6 +1,7 @@
+import base64
+
 import streamlit as st
 from piedomains import DomainClassifier
-import base64
 
 
 def download_file(df):
@@ -12,7 +13,9 @@ def download_file(df):
 
 def app():
     # Set app title
-    st.title("piedomains: predict the kind of content hosted by a domain based on domain name and content")
+    st.title(
+        "piedomains: predict the kind of content hosted by a domain based on domain name and content"
+    )
 
     # Generic info.
     st.write(
@@ -24,14 +27,16 @@ def app():
     st.sidebar.title("Select Function")
     method_options = {
         "Text analysis only": "text",
-        "Image analysis only": "image", 
-        "Combined analysis": "combined"
+        "Image analysis only": "image",
+        "Combined analysis": "combined",
     }
     selected_method = st.sidebar.selectbox("", list(method_options.keys()))
 
     # Create a form to enter the list of numbers
     with st.form("number_form"):
-        lst_input = st.text_input("Enter a list of domains separated by commas (e.g. cnn.com, amazon.com)")
+        lst_input = st.text_input(
+            "Enter a list of domains separated by commas (e.g. cnn.com, amazon.com)"
+        )
 
         # Add a submit button
         submitted = st.form_submit_button("Submit")
@@ -39,16 +44,16 @@ def app():
     if submitted:
         lst = [s.strip() for s in lst_input.split(",")]
         classifier = DomainClassifier()
-        
+
         method = method_options[selected_method]
-        
+
         if method == "text":
             transformed_df = classifier.classify_by_text(lst)
         elif method == "image":
             transformed_df = classifier.classify_by_images(lst)
         else:
             transformed_df = classifier.classify(lst)
-            
+
         st.dataframe(transformed_df)
         download_file(transformed_df)
 

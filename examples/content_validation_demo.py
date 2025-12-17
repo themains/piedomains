@@ -61,7 +61,7 @@ def test_url_validation():
 
 def test_fetcher_integration():
     """Test content validation integrated with fetchers."""
-    print(f"\n{'='*50}")
+    print(f"\n{'=' * 50}")
     print("🌐 Fetcher Integration Test")
     print("=" * 50)
 
@@ -106,7 +106,7 @@ def test_fetcher_integration():
 
 def test_configuration():
     """Test configuration options for content validation."""
-    print(f"\n{'='*50}")
+    print(f"\n{'=' * 50}")
     print("⚙️ Configuration Test")
     print("=" * 50)
 
@@ -115,7 +115,7 @@ def test_configuration():
     print("Current security settings:")
     print(f"• Content validation enabled: {config.enable_content_validation}")
     print(f"• Safety mode: {config.content_safety_mode}")
-    print(f"• Max content length: {config.max_content_length / (1024*1024):.1f} MB")
+    print(f"• Max content length: {config.max_content_length / (1024 * 1024):.1f} MB")
     print(f"• Sandbox required: {config.sandbox_mode_required}")
     print(f"• Allowed content types: {', '.join(config.allowed_content_types)}")
     print(f"• Blocked extensions: {', '.join(config.blocked_extensions[:5])}...")
@@ -135,7 +135,7 @@ def main():
         test_fetcher_integration()
         test_configuration()
 
-        print(f"\n{'='*50}")
+        print(f"\n{'=' * 50}")
         print("✅ Content Validation Demo Complete")
         print("=" * 50)
         print("\n🛡️ Key takeaways:")

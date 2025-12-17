@@ -217,7 +217,7 @@ class LLMClassifier:
 
                 # Ensure we have results for all domains in batch
                 for j, domain_data in enumerate(batch):
-                    domain = domain_data.get("domain", f"unknown_{i+j}")
+                    domain = domain_data.get("domain", f"unknown_{i + j}")
 
                     if j < len(batch_results):
                         result = batch_results[j]
@@ -231,7 +231,7 @@ class LLMClassifier:
                         )
 
             except Exception as e:
-                logger.error(f"Error processing batch {i}-{i+batch_size}: {e}")
+                logger.error(f"Error processing batch {i}-{i + batch_size}: {e}")
 
                 # Add error results for all domains in failed batch
                 for domain_data in batch:

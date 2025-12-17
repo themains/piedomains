@@ -3,16 +3,20 @@
 # For the full list of built-in configuration values, see the documentation:
 # https://www.sphinx-doc.org/en/master/usage/configuration.html
 
-import os
 import sys
-sys.path.insert(0, os.path.abspath('../'))
-sys.path.insert(1, os.path.abspath('../../'))
+from pathlib import Path
+
+# Add the project root and docs parent to path
+docs_dir = Path(__file__).parent.parent
+project_root = docs_dir.parent
+sys.path.insert(0, str(project_root))
+sys.path.insert(1, str(docs_dir))
 
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
-import importlib.metadata
 import datetime
+import importlib.metadata
 
 # Get metadata from package
 metadata = importlib.metadata.metadata('piedomains')
@@ -31,6 +35,7 @@ for author_email in metadata.get_all('Author-Email') or []:
             authors_list.append(name)
 
 author = ', '.join(set(authors_list)) if authors_list else 'piedomains developers'
+
 copyright = f'{datetime.datetime.now().year}, {author}'
 
 # -- General configuration ---------------------------------------------------
@@ -52,7 +57,10 @@ extensions = [
 # Mock imports for modules that aren't needed for docs
 autodoc_mock_imports = [
     'tensorflow',
-    'keras', 
+    'keras',
+    'playwright',
+    'playwright.sync_api',
+    'playwright.async_api',
     'selenium',
     'webdriver_manager',
     'nltk',
@@ -152,4 +160,3 @@ html_sidebars = {
         "sidebar/scroll-end.html",
     ]
 }
-

@@ -295,7 +295,7 @@ class DomainClassifier:
                 all_results.append(batch_result)
 
             except Exception as e:
-                logger.error(f"Batch {i//batch_size + 1} failed: {e}")
+                logger.error(f"Batch {i // batch_size + 1} failed: {e}")
                 # Create error result for this batch
                 error_result = pd.DataFrame(
                     [

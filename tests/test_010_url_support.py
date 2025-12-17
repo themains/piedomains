@@ -1,11 +1,11 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 
 """
 Tests for URL support functionality.
 """
 
 import unittest
+
 from piedomains.piedomain import Piedomain
 
 
@@ -80,7 +80,7 @@ class TestURLSupport(unittest.TestCase):
             "invalid..domain",
             "https://facebook.com",
             "",
-            "http://twitter.com/user"
+            "http://twitter.com/user",
         ]
 
         valid, invalid, url_map = Piedomain.validate_urls_or_domains(mixed_inputs)
@@ -103,4 +103,3 @@ class TestURLSupport(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

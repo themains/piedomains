@@ -1,0 +1,118 @@
+# Version control
+.git
+.gitignore
+.gitattributes
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+env
+pip-log.txt
+pip-delete-this-directory.txt
+.tox
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.log
+.pytest_cache
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv/
+.env
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Testing and development
+test_*
+*_test.py
+tests/
+/tmp/
+*.tmp
+
+# Documentation
+*.md
+!README.md
+docs/
+*.rst
+*.txt
+LICENSE
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Cache and temporary files
+cache/
+*.cache
+.cache/
+/model/
+/images/
+screenshots/
+*.png
+*.jpg
+*.jpeg
+
+# Jupyter notebooks
+*.ipynb
+.ipynb_checkpoints
+
+# Local configuration
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Backup files
+*.bak
+*.backup
+*.old
+*.orig
+
+# Node modules (if any)
+node_modules/
+npm-debug.log*
+
+# Test environments and outputs
+/tmp/
+/test_*/
+test_*.py
+benchmark_*
+output/
+
+# Development tools
+.pre-commit-config.yaml
+setup.cfg
+.flake8
+.mypy.ini
+.pylintrc
+
+# Don't ignore essential files
+!pyproject.toml
+!piedomains/
+!examples/sandbox/
+!docker-entrypoint.sh

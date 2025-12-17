@@ -3,6 +3,7 @@ Test text processing and HTML parsing functionality.
 """
 
 import unittest
+
 from piedomains.piedomain import Piedomain
 
 
@@ -135,4 +136,3 @@ class TestTextProcessing(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-
