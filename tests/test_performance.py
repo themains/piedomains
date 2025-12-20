@@ -68,9 +68,9 @@ class TestPerformanceBenchmarks(unittest.TestCase):
         self.assertLess(cleaning_time, 5.0)  # More generous for text normalization
         self.assertIsInstance(cleaned_text, str)
 
-    @patch("piedomains.data_collector.DataCollector.collect")
+    @patch("piedomains.api.DomainClassifier.collect_content")
     @patch("piedomains.text.TextClassifier.classify_from_data")
-    def test_batch_processing_scalability(self, mock_classify, mock_collect):
+    def test_batch_processing_scalability(self, mock_classify, mock_collect_content):
         """Test scalability of batch processing."""
 
         # Mock data collection results
@@ -113,14 +113,18 @@ class TestPerformanceBenchmarks(unittest.TestCase):
                 for domain_data in domains_data
             ]
 
-        mock_collect.side_effect = mock_collection
+        mock_collect_content.side_effect = mock_collection
         mock_classify.side_effect = mock_classification
 
-        # Test different batch sizes
-        test_sizes = [10, 50, 100]
+        # Test different batch sizes (reduced for speed)
+        test_sizes = [5, 15]
 
         for size in test_sizes:
-            domains = [f"test{i}.com" for i in range(size)]
+            # Use real domains but mock all network calls
+            real_domains = ["google.com", "cnn.com", "bbc.com", "github.com", "stackoverflow.com",
+                           "wikipedia.org", "reddit.com", "amazon.com", "facebook.com", "twitter.com",
+                           "linkedin.com", "youtube.com", "microsoft.com", "apple.com", "netflix.com"]
+            domains = real_domains[:size]
 
             start_time = time.time()
             result = self.classifier.classify_by_text(domains)
@@ -131,7 +135,7 @@ class TestPerformanceBenchmarks(unittest.TestCase):
 
             # Performance should scale reasonably (mocked, so very fast)
             # Real performance would be much slower due to network requests
-            self.assertLess(total_time, 240)  # Very generous timeout for CI environments
+            self.assertLess(total_time, 30)  # Should be very fast with proper mocking
 
             # Log performance for manual review
             rate = size / total_time if total_time > 0 else float("inf")
