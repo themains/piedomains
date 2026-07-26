@@ -11,7 +11,7 @@
 - **Enhanced LLM Support**: Built-in support for OpenAI, Anthropic, and Google AI models with custom category definitions
 - **Advanced Archive Analysis**: Analyze historical website versions from archive.org with intelligent rate limiting
 - **Separated Data Collection**: Collect website content once, run multiple classification approaches (ML + LLM + ensemble)
-- **41 Content Categories**: Comprehensive classification including news, shopping, social media, education, finance, and more
+- **39 Content Categories**: Comprehensive classification including news, shopping, social media, education, finance, and more
 
 ## Installation
 
@@ -27,9 +27,9 @@ Requires Python 3.11+
 from piedomains import DomainClassifier, DataCollector
 
 classifier = DomainClassifier()
-results = classifier.classify(["cnn.com", "amazon.com", "wikipedia.org"])
+run = classifier.classify(["cnn.com", "amazon.com", "wikipedia.org"])
 
-for result in results:
+for result in run["results"]:
     print(f"{result['domain']}: {result['category']} ({result['confidence']:.3f})")
 
 # Output:
@@ -38,17 +38,66 @@ for result in results:
 # wikipedia.org: education (0.891)
 ```
 
+## Knowing What Failed
+
+Every call returns both the per-domain rows and a run report, so a long URL list
+never fails silently. Each row carries a machine-readable `status`, the `stage` it
+reached, and a stable `error_code`:
+
+```python
+run = classifier.classify(open("domains.txt").read().split())
+
+print(run["report"])
+# {'run_id': '8fe4cc80eeb5', 'total': 500, 'classified': 461, 'failed': 39,
+#  'by_reason': {'dns_error': 12, 'timeout': 9, 'no_archive_snapshot': 11, 'empty_text': 7},
+#  'by_stage': {'fetch': 32, 'infer': 7},
+#  'missing': ['foo.com', 'bar.org', ...],
+#  'started_at': ..., 'finished_at': ..., 'elapsed_ms': 184203}
+
+# Retry only what is worth retrying
+retry = [r["domain"] for r in run["results"] if r.get("retryable")]
+```
+
+`error_code` is a closed, stable set — safe to group on: `invalid_domain`,
+`dns_error`, `connection_error`, `timeout`, `http_error`, `robots_blocked`,
+`content_type_rejected`, `content_too_large`, `no_archive_snapshot`,
+`archive_rate_limited`, `empty_text`, `missing_input_path`, `missing_screenshot`,
+`model_load_error`, `model_error`, `llm_error`, `unknown`.
+
+From the command line:
+
+```bash
+classify_domains --file domains.txt --output json --report run-report.json
+# stdout: {"results": [...], "report": {...}}
+# stderr: 461/500 classified, 39 failed (run 8fe4cc80eeb5)
+#           dns_error: 12
+#           timeout: 9
+# exit status is non-zero if any domain failed
+```
+
+### Structured logs
+
+Human-readable text is the default. For pipelines, opt into JSON lines — every
+record carries the `run_id`, plus `domain`/`stage`/`error_code` where relevant, so
+logs join against the report:
+
+```bash
+PIEDOMAINS_LOG_FORMAT=json classify_domains --file domains.txt
+# {"ts":"...","level":"ERROR","run_id":"8fe4cc80eeb5","domain":"foo.com",
+#  "stage":"fetch","error_code":"timeout","msg":"navigation timed out"}
+```
+
 ## Classification Methods
 
 ```python
 # Combined text + image analysis (most accurate)
-result = classifier.classify(["github.com"])
+run = classifier.classify(["github.com"])
 
 # Text-only classification (faster)
-result = classifier.classify_by_text(["news.google.com"])
+run = classifier.classify_by_text(["news.google.com"])
 
 # Image-only classification
-result = classifier.classify_by_images(["instagram.com"])
+run = classifier.classify_by_images(["instagram.com"])
 
 # Batch processing with separated workflow
 collector = DataCollector()
@@ -60,7 +109,7 @@ results = classifier.classify_from_collection(collection, method="text")
 
 ```python
 # Analyze archived versions from archive.org
-old_result = classifier.classify(["facebook.com"], archive_date="20100101")
+old_run = classifier.classify(["facebook.com"], archive_date="20100101")
 
 # Batch processing with archive.org (respects rate limits)
 domains = ["google.com", "wikipedia.org", "cnn.com"]
@@ -69,23 +118,32 @@ collection = collector.collect_batch(domains, batch_size=10)  # Archive.org uses
 historical_results = classifier.classify_from_collection(collection, method="text")
 ```
 
-### Archive.org Rate Limits & Best Practices
+### How archive analysis works
 
-The library automatically respects archive.org's rate limits:
-- **CDX API**: 1 request per second for snapshot lookups
-- **Page fetching**: Default 2 parallel contexts (vs 4 for live sites)
-- **Auto-retry**: Handles HTTP 429 responses with 60-second backoff
+Snapshot discovery and retrieval go through the
+[`wayback`](https://github.com/edgi-govdata-archiving/wayback) library (CDX + Memento):
 
-Configure archive-specific settings:
-```python
-from piedomains.fetchers import ArchiveFetcher
+- **Only status-200 captures are used.** An archived redirect or 404 is never classified
+  as if it were content; the domain reports `no_archive_snapshot` instead.
+- **The capture actually used is reported** as `snapshot_timestamp` — not the date you
+  asked for. Requesting `20100101` for `cnn.com` yields `20100101041727`.
+- **Text is fetched raw** via Wayback's `id_` playback mode: no injected Wayback
+  JavaScript, no rewritten URLs, and no browser required — so the text path is fast.
+- **Screenshots render via `if_`**, which hides the Wayback toolbar but keeps archived
+  CSS and images, so the page looks as it did. (`id_` would render an unstyled skeleton.)
+- Rate limiting, retries and exponential backoff are handled by the `wayback` session.
 
-# Conservative settings for large batches
-fetcher = ArchiveFetcher("20100101", max_parallel=1)
+The cache key includes the archive date, so a live fetch and snapshots from different
+years coexist rather than overwriting one another:
 
-# More aggressive (use carefully)
-fetcher = ArchiveFetcher("20100101", max_parallel=3)
 ```
+cache/html/cnn.com.html            # live
+cache/html/cnn.com@20050101.html   # 2005 snapshot
+cache/html/cnn.com@20150101.html   # 2015 snapshot
+```
+
+Configure via `piedomains.config`: `archive_max_parallel`, `archive_window_days`,
+`archive_search_rate`, `archive_memento_rate`, `archive_retries`, `archive_backoff`.
 
 ## LLM Classification
 
@@ -117,7 +175,7 @@ export GOOGLE_API_KEY="..."
 
 ## Categories
 
-41 categories: news, finance, shopping, education, government, adult content, gambling, social networks, search engines, and others based on Shallalist taxonomy.
+39 categories: news, finance, shopping, education, government, adult content, gambling, social networks, search engines, and others based on Shallalist taxonomy.
 
 ## Security & Docker
 
@@ -133,8 +191,8 @@ docker run --rm --memory=2g --cpus=2 --read-only \
   piedomains-sandbox python -c "
 from piedomains import DomainClassifier
 classifier = DomainClassifier()
-result = classifier.classify(['example.com'])
-print(result[['domain', 'pred_label']])
+run = classifier.classify(['example.com'])
+print(run['results'][0]['category'])
 "
 ```
 
@@ -151,16 +209,16 @@ For testing, use known-safe domains: `["wikipedia.org", "github.com", "cnn.com"]
 ## Documentation
 
 - [API Reference](https://themains.github.io/piedomains/)
-- [Examples](examples/)
-- [Security Guide](examples/sandbox/)
+- [Examples](https://github.com/themains/piedomains/tree/main/examples)
+- [Security Guide](https://github.com/themains/piedomains/tree/main/examples/sandbox)
 
 ## Development
 
 ```bash
 git clone https://github.com/themains/piedomains
 cd piedomains
-pip install -e ".[dev]"
-pytest tests/ -v
+uv sync --all-groups
+uv run pytest tests/ -v
 ```
 
 ## License

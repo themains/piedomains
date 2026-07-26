@@ -24,6 +24,7 @@ class TestDataCollector(unittest.TestCase):
     def tearDown(self):
         """Clean up temporary files."""
         import shutil
+
         if os.path.exists(self.temp_dir):
             shutil.rmtree(self.temp_dir)
 
@@ -34,7 +35,7 @@ class TestDataCollector(unittest.TestCase):
         self.assertTrue((Path(self.temp_dir) / "images").exists())
         self.assertTrue((Path(self.temp_dir) / "metadata").exists())
 
-    @patch('piedomains.data_collector.get_fetcher')
+    @patch("piedomains.data_collector.get_fetcher")
     def test_collect_single_domain_mock(self, mock_get_fetcher):
         """Test data collection for single domain with mocked fetcher."""
         # Mock fetcher and result
@@ -42,13 +43,14 @@ class TestDataCollector(unittest.TestCase):
         mock_get_fetcher.return_value = mock_fetcher
 
         from piedomains.fetchers import FetchResult
+
         mock_result = FetchResult(
             url="https://example.com",
             success=True,
             html="<html><head><title>Test</title></head><body>Test content</body></html>",
             screenshot_path=str(Path(self.temp_dir) / "images" / "example.com.png"),
             title="Test Site",
-            error=None
+            error=None,
         )
         mock_fetcher.fetch_both.return_value = mock_result
 
@@ -88,9 +90,9 @@ class TestDataCollector(unittest.TestCase):
                     "domain": "test.com",
                     "fetch_success": True,
                     "text_path": "html/test.com.html",
-                    "image_path": "images/test.com.png"
+                    "image_path": "images/test.com.png",
                 }
-            ]
+            ],
         }
 
         # Save manually
@@ -115,7 +117,7 @@ class TestDataCollector(unittest.TestCase):
             "collection_id": "test-456",
             "timestamp": "2024-12-17T11:00:00Z",
             "summary": {"total_domains": 1, "successful": 1, "failed": 0},
-            "config": {"cache_dir": self.temp_dir}
+            "config": {"cache_dir": self.temp_dir},
         }
 
         metadata_file = Path(self.temp_dir) / "metadata" / "collection_test-456.json"
@@ -138,6 +140,7 @@ class TestSeparatedWorkflow(unittest.TestCase):
     def tearDown(self):
         """Clean up temporary files."""
         import shutil
+
         if os.path.exists(self.temp_dir):
             shutil.rmtree(self.temp_dir)
 
@@ -145,16 +148,18 @@ class TestSeparatedWorkflow(unittest.TestCase):
         """Test DomainClassifier.collect_content method."""
         classifier = DomainClassifier(cache_dir=self.temp_dir)
 
-        with patch.object(classifier, '_normalize_archive_date') as mock_normalize:
+        with patch.object(classifier, "_normalize_archive_date") as mock_normalize:
             mock_normalize.return_value = None
 
-            with patch('piedomains.data_collector.DataCollector') as mock_collector_class:
+            with patch(
+                "piedomains.data_collector.DataCollector"
+            ) as mock_collector_class:
                 mock_collector = MagicMock()
                 mock_collector_class.return_value = mock_collector
 
                 mock_collector.collect.return_value = {
                     "collection_id": "test-789",
-                    "domains": [{"domain": "test.com", "fetch_success": True}]
+                    "domains": [{"domain": "test.com", "fetch_success": True}],
                 }
 
                 # Test collect_content
@@ -162,19 +167,16 @@ class TestSeparatedWorkflow(unittest.TestCase):
 
                 # Verify collector was called correctly
                 mock_collector_class.assert_called_once_with(
-                    cache_dir=self.temp_dir,
-                    archive_date=None
+                    cache_dir=self.temp_dir, archive_date=None
                 )
                 mock_collector.collect.assert_called_once_with(
-                    ["test.com"],
-                    collection_id=None,
-                    use_cache=True
+                    ["test.com"], collection_id=None, use_cache=True
                 )
 
                 self.assertEqual(result["collection_id"], "test-789")
 
-    @patch('piedomains.text.TextClassifier.load_models')
-    @patch('piedomains.text_processor.TextProcessor.process_html_to_text')
+    @patch("piedomains.text.TextClassifier.load_models")
+    @patch("piedomains.text_processor.TextProcessor.process_html_to_text")
     def test_text_classifier_from_paths(self, mock_process_html, mock_load_models):
         """Test TextClassifier.classify_from_paths method."""
         mock_process_html.return_value = "processed text content"
@@ -188,23 +190,25 @@ class TestSeparatedWorkflow(unittest.TestCase):
             f.write("<html><body>Test content</body></html>")
 
         # Create test data
-        data_paths = [{
-            "domain": "test.com",
-            "url": "test.com",
-            "text_path": str(html_file),
-            "image_path": "images/test.com.png",
-            "date_time_collected": "2024-12-17T12:00:00Z",
-            "fetch_success": True
-        }]
+        data_paths = [
+            {
+                "domain": "test.com",
+                "url": "test.com",
+                "text_path": str(html_file),
+                "image_path": "images/test.com.png",
+                "date_time_collected": "2024-12-17T12:00:00Z",
+                "fetch_success": True,
+            }
+        ]
 
         classifier = TextClassifier()
 
         # Mock the _predict_text method to avoid model loading
-        with patch.object(classifier, '_predict_text') as mock_predict:
+        with patch.object(classifier, "_predict_text") as mock_predict:
             mock_predict.return_value = {
                 "text_label": "test_category",
                 "text_prob": 0.85,
-                "text_domain_probs": {"test_category": 0.85, "other": 0.15}
+                "text_domain_probs": {"test_category": 0.85, "other": 0.15},
             }
 
             # Test classification
@@ -226,31 +230,37 @@ class TestSeparatedWorkflow(unittest.TestCase):
         # Mock collection data
         collection_data = {
             "collection_id": "test-integration",
-            "domains": [{
-                "domain": "test.com",
-                "url": "test.com",
-                "text_path": "html/test.com.html",
-                "image_path": "images/test.com.png",
-                "date_time_collected": "2024-12-17T12:00:00Z",
-                "fetch_success": True
-            }]
+            "domains": [
+                {
+                    "domain": "test.com",
+                    "url": "test.com",
+                    "text_path": "html/test.com.html",
+                    "image_path": "images/test.com.png",
+                    "date_time_collected": "2024-12-17T12:00:00Z",
+                    "fetch_success": True,
+                }
+            ],
         }
 
         # Mock the TextClassifier import inside the api.py method
-        with patch('piedomains.text.TextClassifier') as mock_text_classifier_class:
+        with patch("piedomains.text.TextClassifier") as mock_text_classifier_class:
             mock_text_classifier = MagicMock()
             mock_text_classifier_class.return_value = mock_text_classifier
 
-            mock_text_classifier.classify_from_data.return_value = [{
-                "domain": "test.com",
-                "category": "test_category",
-                "confidence": 0.9,
-                "model_used": "text/shallalist_ml",
-                "error": None
-            }]
+            mock_text_classifier.classify_from_data.return_value = [
+                {
+                    "domain": "test.com",
+                    "category": "test_category",
+                    "confidence": 0.9,
+                    "model_used": "text/shallalist_ml",
+                    "error": None,
+                }
+            ]
 
             # Test classify_from_collection
-            results = classifier.classify_from_collection(collection_data, method="text")
+            results = classifier.classify_from_collection(
+                collection_data, method="text"
+            )
 
             # Verify results
             self.assertEqual(len(results), 1)
@@ -267,26 +277,30 @@ class TestSeparatedWorkflow(unittest.TestCase):
             "config": {
                 "cache_dir": "/tmp/test",
                 "archive_date": None,
-                "fetcher_type": "live"
+                "fetcher_type": "live",
             },
-            "domains": [{
-                "url": "example.com",
-                "domain": "example.com",
-                "text_path": "html/example.com.html",
-                "image_path": "images/example.com.png",
-                "date_time_collected": "2024-12-17T10:30:15Z",
-                "fetch_success": True,
-                "error": None
-            }],
-            "summary": {
-                "total_domains": 1,
-                "successful": 1,
-                "failed": 0
-            }
+            "domains": [
+                {
+                    "url": "example.com",
+                    "domain": "example.com",
+                    "text_path": "html/example.com.html",
+                    "image_path": "images/example.com.png",
+                    "date_time_collected": "2024-12-17T10:30:15Z",
+                    "fetch_success": True,
+                    "error": None,
+                }
+            ],
+            "summary": {"total_domains": 1, "successful": 1, "failed": 0},
         }
 
         # Verify required fields exist
-        required_collection_fields = ["collection_id", "timestamp", "config", "domains", "summary"]
+        required_collection_fields = [
+            "collection_id",
+            "timestamp",
+            "config",
+            "domains",
+            "summary",
+        ]
         for field in required_collection_fields:
             self.assertIn(field, collection_data)
 
@@ -301,7 +315,7 @@ class TestSeparatedWorkflow(unittest.TestCase):
             "confidence": 0.87,
             "reason": None,
             "error": None,
-            "raw_predictions": {"news": 0.87, "sports": 0.13}
+            "raw_predictions": {"news": 0.87, "sports": 0.13},
         }
 
         # Verify required fields exist

@@ -10,12 +10,12 @@ updates:
     cooldown:
       default-days: 7
     groups:
-      minor-and-patch:
+      python-minor-and-patch:
         applies-to: version-updates
         update-types:
           - "minor"
           - "patch"
-      security:
+      python-security:
         applies-to: security-updates
         patterns:
           - "*"

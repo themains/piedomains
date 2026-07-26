@@ -424,6 +424,15 @@ wheels = [
 ]
 
 [[package]]
+name = "docstring-parser-fork"
+version = "0.0.16"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/04/ce/48b17c6c24d0af112f73721a90fac245450e548b82b53169260720f60d07/docstring_parser_fork-0.0.16.tar.gz", hash = "sha256:9ecf861ceab8b87d1297a71001c15a1956ad02e87434ee6473643a5988094f7c", size = 36360, upload-time = "2026-07-03T07:27:46.668Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/c1/69/427c34e61827818942b48ececd7c892b8f58ba4ce4cfc89ba9fd8dbe8a8d/docstring_parser_fork-0.0.16-py3-none-any.whl", hash = "sha256:c024c97af582d6acf85a14f0b332b3a2ab08626648d251c25e47191f33064386", size = 25253, upload-time = "2026-07-03T07:27:45.591Z" },
+]
+
+[[package]]
 name = "docutils"
 version = "0.21.2"
 source = { registry = "https://pypi.org/simple" }
@@ -1574,7 +1583,6 @@ wheels = [
 
 [[package]]
 name = "piedomains"
-version = "0.6.0"
 source = { editable = "." }
 dependencies = [
     { name = "aiohttp" },
@@ -1590,6 +1598,7 @@ dependencies = [
     { name = "scikit-learn" },
     { name = "tensorflow" },
     { name = "tqdm" },
+    { name = "wayback" },
 ]
 
 [package.optional-dependencies]
@@ -1619,6 +1628,22 @@ test = [
     { name = "pytest-cov" },
     { name = "pytest-mock" },
     { name = "ruff" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "pydoclint" },
+    { name = "pyright" },
+    { name = "pytest" },
+    { name = "ruff" },
+]
+docs = [
+    { name = "furo" },
+    { name = "myst-parser" },
+    { name = "py-canon" },
+    { name = "sphinx", version = "9.0.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
+    { name = "sphinx", version = "9.1.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
+    { name = "sphinx-copybutton" },
 ]
 
 [package.metadata]
@@ -1656,8 +1681,24 @@ requires-dist = [
     { name = "sphinx-copybutton", marker = "extra == 'docs'", specifier = ">=0.5" },
     { name = "tensorflow", specifier = ">=2.20.0" },
     { name = "tqdm", specifier = ">=4.64.0" },
+    { name = "wayback", specifier = ">=0.5.1" },
 ]
-provides-extras = ["docs", "test", "dev"]
+provides-extras = ["dev", "docs", "test"]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "pydoclint", specifier = ">=0.5" },
+    { name = "pyright", specifier = ">=1.1.390" },
+    { name = "pytest", specifier = ">=8" },
+    { name = "ruff", specifier = ">=0.14" },
+]
+docs = [
+    { name = "furo" },
+    { name = "myst-parser" },
+    { name = "py-canon", git = "https://github.com/gojiplus/py-canon?rev=v1" },
+    { name = "sphinx", specifier = ">=8" },
+    { name = "sphinx-copybutton" },
+]
 
 [[package]]
 name = "pillow"
@@ -1862,6 +1903,11 @@ wheels = [
 ]
 
 [[package]]
+name = "py-canon"
+version = "1.post3.dev0+2ad101f"
+source = { git = "https://github.com/gojiplus/py-canon?rev=v1#2ad101f5b1cb1eee4c429e2c0a21efcda7284bd4" }
+
+[[package]]
 name = "pydantic"
 version = "2.12.5"
 source = { registry = "https://pypi.org/simple" }
@@ -1946,6 +1992,19 @@ wheels = [
 ]
 
 [[package]]
+name = "pydoclint"
+version = "0.9.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "click" },
+    { name = "docstring-parser-fork" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/4c/46/e5043a43a127627c4eb901f511787096fe2b50d27bdf5e36dcc21e502dec/pydoclint-0.9.1.tar.gz", hash = "sha256:eb699ecf95124b8d0b881d55cd53cccaa567172005d1223ec91a0259b51a5650", size = 206434, upload-time = "2026-07-03T08:17:08.879Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/bc/35/e2fa913ba2d692ccefbf2e21337fe3fd44200efd9a6ee1ba65766eff7d14/pydoclint-0.9.1-py3-none-any.whl", hash = "sha256:685b4a1c3c852045e4523b61d9c3f789672dfab3a454fe51a9e346c9e21dfcdb", size = 84702, upload-time = "2026-07-03T08:17:07.827Z" },
+]
+
+[[package]]
 name = "pyee"
 version = "13.0.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1964,6 +2023,19 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/b0/77/a5b8c569bf593b0140bde72ea885a803b82086995367bf2037de0159d924/pygments-2.19.2.tar.gz", hash = "sha256:636cb2477cec7f8952536970bc533bc43743542f70392ae026374600add5b887", size = 4968631, upload-time = "2025-06-21T13:39:12.283Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/c7/21/705964c7812476f378728bdf590ca4b771ec72385c533964653c68e86bdc/pygments-2.19.2-py3-none-any.whl", hash = "sha256:86540386c03d588bb81d44bc3928634ff26449851e99741617ecb9037ee5ec0b", size = 1225217, upload-time = "2025-06-21T13:39:07.939Z" },
+]
+
+[[package]]
+name = "pyright"
+version = "1.1.411"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "nodeenv" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/7e/ab/265f7dc69d28113ebba19092e57b075f41543b2ed048429c5f56e2b88eac/pyright-1.1.411.tar.gz", hash = "sha256:d885a0551f2e763b089a02702174e7f4ba77548cddabc972ab86d1f7f1b0f998", size = 4112861, upload-time = "2026-06-25T02:14:06.37Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/0a/49/385be530a6a5b78d1cbcd5c2e38debc8959a2fc6bdb716f4e581002979fc/pyright-1.1.411-py3-none-any.whl", hash = "sha256:dc7c72a8e2700c55baa127554040e067041ea53ccfd50bf96308cc4291c7d5d9", size = 6181526, upload-time = "2026-06-25T02:14:04.691Z" },
 ]
 
 [[package]]
@@ -2858,6 +2930,19 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/aa/a3/4d310fa5f00863544e1d0f4de93bddec248499ccf97d4791bc3122c9d4f3/virtualenv-20.36.1.tar.gz", hash = "sha256:8befb5c81842c641f8ee658481e42641c68b5eab3521d8e092d18320902466ba", size = 6032239, upload-time = "2026-01-09T18:21:01.296Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/6a/2a/dc2228b2888f51192c7dc766106cd475f1b768c10caaf9727659726f7391/virtualenv-20.36.1-py3-none-any.whl", hash = "sha256:575a8d6b124ef88f6f51d56d656132389f961062a9177016a50e4f507bbcc19f", size = 6008258, upload-time = "2026-01-09T18:20:59.425Z" },
+]
+
+[[package]]
+name = "wayback"
+version = "0.5.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "requests" },
+    { name = "urllib3" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/32/15/982759b391a04fbf812cd70d027511e5d95e62475cf653c9907efa2f131e/wayback-0.5.1.tar.gz", hash = "sha256:4c62391e69a43378dd3012d0de6b7fe564895c1671150a81220c807ebf6da6a2", size = 884611, upload-time = "2026-06-19T16:40:41.726Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/c7/e3/1a19763d407f0f4c24872b93c27e858ef94898a8638d7c904a6e8571b877/wayback-0.5.1-py3-none-any.whl", hash = "sha256:f941bdd1b885a32f4b02ad77a807a779ef5b49919a3fdef52d3c6b91b8b3c017", size = 31788, upload-time = "2026-06-19T16:40:40.272Z" },
 ]
 
 [[package]]

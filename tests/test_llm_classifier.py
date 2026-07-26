@@ -247,9 +247,9 @@ class TestDomainClassifierLLM(unittest.TestCase):
                         "date_time_collected": "2025-12-17T12:00:00Z",
                         "fetch_success": True,
                         "cached": False,
-                        "error": None
+                        "error": None,
                     }
-                ]
+                ],
             }
 
             result = self.classifier.classify_by_llm(["example.com"])
@@ -259,6 +259,87 @@ class TestDomainClassifierLLM(unittest.TestCase):
 
             # Check that litellm.completion was called
             mock_litellm.completion.assert_called()
+
+
+class TestClassifyFromPaths(unittest.TestCase):
+    """Regression tests for classify_from_paths result unpacking."""
+
+    def _classifier(self):
+        from piedomains.llm_classifier import LLMClassifier
+
+        with patch.object(LLMClassifier, "_test_connection", lambda self: None):
+            return LLMClassifier(
+                LLMConfig(provider="openai", model="gpt-4o", api_key="test-key")
+            )
+
+    def test_text_mode_unpacks_list_results(self):
+        """classify_text returns list[dict]; results must be read positionally.
+
+        Regression: the caller used the pandas ``.empty``/``.iloc[0]`` API on a
+        list, so every classification degraded to an error result.
+        """
+        import tempfile
+        from pathlib import Path
+
+        from piedomains.llm_classifier import LLMClassifier
+
+        cache_dir = tempfile.mkdtemp()
+        (Path(cache_dir) / "example.com.html").write_text(
+            "<html><body>news sports weather</body></html>", encoding="utf-8"
+        )
+
+        classifier = self._classifier()
+        payload = [
+            {
+                "domain": "example.com",
+                "category": "news",
+                "confidence": 0.9,
+                "reasoning": "looks like news",
+            }
+        ]
+        with patch.object(LLMClassifier, "classify_text", return_value=payload):
+            results = classifier.classify_from_paths(
+                [{"domain": "example.com", "text_path": "example.com.html"}],
+                mode="text",
+                cache_dir=cache_dir,
+            )
+
+        self.assertEqual(len(results), 1)
+        self.assertIsNone(results[0]["error"])
+        self.assertEqual(results[0]["category"], "news")
+        self.assertEqual(results[0]["confidence"], 0.9)
+        self.assertEqual(results[0]["reason"], "looks like news")
+
+    def test_output_file_without_directory_component(self):
+        """A bare output filename must not blow up on os.makedirs("")."""
+        import json
+        import os
+        import tempfile
+        from pathlib import Path
+
+        from piedomains.llm_classifier import LLMClassifier
+
+        cache_dir = tempfile.mkdtemp()
+        (Path(cache_dir) / "example.com.html").write_text(
+            "<html><body>hello</body></html>", encoding="utf-8"
+        )
+
+        classifier = self._classifier()
+        cwd = os.getcwd()
+        os.chdir(cache_dir)
+        try:
+            with patch.object(LLMClassifier, "classify_text", return_value=[]):
+                classifier.classify_from_paths(
+                    [{"domain": "example.com", "text_path": "example.com.html"}],
+                    output_file="results.json",
+                    mode="text",
+                    cache_dir=cache_dir,
+                )
+            saved = json.loads(Path("results.json").read_text(encoding="utf-8"))
+        finally:
+            os.chdir(cwd)
+
+        self.assertEqual(saved["total_domains"], 1)
 
 
 @pytest.mark.slow
