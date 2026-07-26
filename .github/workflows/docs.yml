@@ -10,7 +10,9 @@ permissions:
 
 concurrency:
   group: docs-${{ github.ref }}
-  cancel-in-progress: true
+  # Cancel superseded PR builds, but never cancel a main-branch build midway
+  # through a Pages deploy (from origin/main, commit 044b602).
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   docs:
