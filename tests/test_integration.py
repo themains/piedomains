@@ -256,6 +256,7 @@ class TestLoggingIntegration:
         current_level = get_effective_level()
         assert current_level in ["DEBUG", "INFO", "WARNING", "ERROR"]
 
+    @skip_if_no_browser()
     def test_error_logging_integration(self):
         """Test that errors are properly logged across components."""
         # Test error logging in fetcher with invalid domain

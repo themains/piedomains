@@ -614,6 +614,10 @@ class ArchiveFetcher(BaseFetcher):
             return None, ""
         with self._client() as client:
             memento = client.get_memento(record, mode=Mode.original)
+            if memento is None:
+                # CDX listed the capture but playback returned nothing; treat it
+                # as "no usable snapshot" rather than dereferencing None.
+                return None, ""
             try:
                 return record, memento.text
             finally:
