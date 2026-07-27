@@ -1,161 +1,107 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Guidance for Claude Code (claude.ai/code) working in this repository.
 
 ## Commands
 
-### Testing
-- Run all tests: `pytest tests/ -v`
-- Run tests without ML models: `pytest tests/ -v -m "not ml"`
-- Run specific test: `pytest tests/test_001_pred_domain_text.py`
-- Run with coverage: `pytest tests/ --cov=piedomains`
+This repo follows the **py-canon** fleet standard and uses `uv` for everything.
 
-### Linting and Code Quality
-- Run pylint: `pylint piedomains/` (uses configuration from `pylintrc`)
-- Run flake8 (CI configuration): 
-  - Syntax errors: `flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics`
-  - General linting: `flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics`
+```bash
+uv sync --all-groups          # set up
+uv run pytest tests/ -v       # all tests
+uv run pytest tests/ -m "not ml and not archive"   # offline only
+uv run pytest tests/ -m archive                    # hits live archive.org
 
-### Installation and Development
-- Install package: `pip install -e .` (from repository root)
-- Install with dev dependencies: `pip install -e ".[dev]"`
-- Console script: `classify_domains` (entry point defined in pyproject.toml)
+uv run ruff check .           # lint  (the only linter; no black/isort/flake8)
+uv run ruff format .          # format
+uv run pyright                # types (the only type checker; no mypy)
+uv run pydoclint --config pyproject.toml src/      # docstring/signature match
+uvx zizmor --min-severity high .github/workflows/  # workflow security
+uvx preen check --strict      # fleet conformance
+```
 
-### Package Management
-- Build package: `python -m build`
-- Upload to PyPI: `python -m twine upload dist/*`
-- Validate README: `python -c "import docutils.core; docutils.core.publish_doctree(open('README.rst').read())"`
+`pydoclint` and the docs `doctest` builder both run in CI and are easy to forget
+locally — run them before claiming a change is green.
 
-### Documentation
-- Build docs: `cd docs && make html`
-- Documentation is built with Sphinx and deployed to ReadTheDocs
+Docs:
+
+```bash
+uv run sphinx-build -W -b html docs _site    # warnings are errors in CI
+uv run sphinx-build -b doctest docs _doctest
+```
 
 ## Architecture
 
-### v0.3.0+ Modern Architecture
+Flat modules under `src/piedomains/`. There is no `classifiers/` or
+`processors/` package.
 
-**New API Design (`api.py`)**: Modern, user-friendly interface
-- `DomainClassifier`: Main class with intuitive methods
-  - `.classify()`: Combined text + image analysis (most accurate)
-  - `.classify_by_text()`: Text-only analysis (faster)
-  - `.classify_by_images()`: Image-only analysis (visual content)
-  - `.classify_batch()`: Batch processing with progress tracking
-- `classify_domains()`: Convenience function for quick usage
-- Archive.org integration for historical analysis
+| Module | Role |
+|---|---|
+| `api.py` | `DomainClassifier` facade; `_run` collects, classifies, annotates, reports |
+| `data_collector.py` | `DataCollector` — fetch + cache HTML/screenshots |
+| `fetchers.py` | `PlaywrightFetcher` (live), `ArchiveFetcher` (archive.org via `wayback`) |
+| `text.py` / `image.py` | TensorFlow inference paths |
+| `text_processor.py` | The live HTML→text cleaner |
+| `outcomes.py` | `Stage`/`ErrorCode` taxonomy and run-report builder |
+| `llm_classifier.py`, `llm/` | litellm-based classification |
+| `piedomain.py` | **Legacy.** Only the static URL/domain validators are live |
+| `cli.py` | `classify_domains` console script |
 
-**Modular Classifiers (`classifiers/`)**:
-- `TextClassifier`: Specialized text content analysis
-- `ImageClassifier`: Screenshot-based visual analysis  
-- `CombinedClassifier`: Ensemble approach combining both modalities
+### Return shape
 
-**Content Processors (`processors/`)**:
-- `TextProcessor`: HTML parsing, text extraction and cleaning
-- `ContentProcessor`: Content fetching and caching logic
+`classify()`, `classify_by_text()` and `classify_by_images()` return
+`{"results": [...], "report": {...}}` — **not** a bare list. Every row carries
+`status`, `stage`, `error_code` and `retryable`; the report gives counts by
+reason and stage plus `missing`, the domains that produced nothing. Results are
+reconciled against the requested list, so a domain the pipeline drops still
+appears.
 
+### Archive.org
 
-**Core Engine (`piedomain.py`)**: Low-level prediction engine with ML pipeline
-- TensorFlow model inference with proper memory management
-- Batch processing with configurable sizes
-- Resource cleanup with context managers
+Uses the `wayback` library (CDX + Memento), not hand-rolled availability-API
+calls. Text is fetched with `Mode.original` (`id_`) — raw capture, no browser
+needed. Screenshots render the `if_` URL, which hides the Wayback toolbar but
+keeps archived CSS/images. Only `statuscode:200` captures are used, and the
+realized capture is reported as `snapshot_timestamp`. The cache key includes the
+archive date.
 
-### Machine Learning Pipeline
+## Categories
 
-1. **Content Fetching**: 
-   - Live content: HTTP requests with retry logic and connection pooling
-   - Historical content: Archive.org integration with `ArchiveFetcher`
-   - Caching: Automatic file-based caching for reuse
-2. **Text Processing**: 
-   - HTML parsing with BeautifulSoup
-   - Text extraction and cleaning (removing non-English words, stopwords, punctuation)
-   - NLTK-based text preprocessing with fallbacks
-3. **Image Processing**: 
-   - Screenshot capture via Selenium WebDriver with proper resource management
-   - Image resizing to 254x254 with PIL
-   - Tensor preprocessing for CNN model
-4. **Model Inference**: 
-   - TensorFlow 2.11+ models with explicit memory cleanup
-   - Batch processing with configurable sizes for scalability
-   - Text model calibration using isotonic regression
-5. **Ensemble**: Final predictions combine text and image probabilities with equal weighting
+**39** categories, defined in `constants.py` — not 41, despite what older docs
+said. `piedomains.constants.classes` is the source of truth.
 
-### Data Flow Architecture
-- **Input**: List of domain names or URLs, optional archive dates
-- **Fetching**: Modular fetcher system (`LiveFetcher`/`ArchiveFetcher`)
-- **Processing**: Separate text and image processing pipelines
-- **Inference**: TensorFlow models with batch optimization and memory management
-- **Output**: Pandas DataFrame with predictions, probabilities, and comprehensive metadata
-- **Cleanup**: Automatic resource cleanup (WebDriver, temp files, tensors)
+## Model state — read before trusting any accuracy number
 
-### Categories
-The model predicts among 41 Shallalist categories defined in `constants.py` including: adv, alcohol, automobile, dating, downloads, drugs, education, finance, forum, gamble, government, news, politics, porn, recreation, shopping, socialnet, etc.
+Measured by `training/evaluate.py` against `tests/eval/labels.csv`:
 
-### Model Storage
-- **Download**: Models automatically downloaded from Harvard Dataverse on first use
-- **Cache Structure**: `model/shallalist/` directory structure
-- **Text Model**: `saved_model/piedomains/` (TensorFlow SavedModel format)
-- **Image Model**: `saved_model/pydomains_images/` (TensorFlow SavedModel format)  
-- **Calibrators**: `calibrate/text/*.sav` files (scikit-learn isotonic regression)
-- **Version Management**: `latest=True` parameter forces model updates
+- **Text model: accuracy 0.267, macro-F1 0.191** — against a training-time
+  figure of 71.3% (`notebooks/04_train_model.ipynb`). Baseline recorded in
+  `tests/eval/baseline_text_tf.json`.
+- **Calibration is inactive.** All 39 pickled isotonic calibrators unpickle
+  cleanly under scikit-learn 1.9 but predict `NaN`, so every one is dropped and
+  confidences are raw model outputs. Logged as a WARNING.
+- **The image model is not trustworthy.** It labels Khan Academy and Yahoo as
+  `porn` under both `/255` and raw-0-255 scaling. Do not "fix" the
+  preprocessing line without re-measuring — the audit's premise that
+  `resnet50.preprocess_input` is baked into the graph did not reproduce.
 
-### Key Dependencies & Architecture
-- **TensorFlow 2.11-2.15**: Neural network inference with memory management
-- **Selenium 4.8**: WebDriver automation with context manager cleanup
-- **NLTK**: Text processing with lazy initialization and fallbacks
-- **scikit-learn 1.5**: Model calibration and post-processing
-- **BeautifulSoup4**: HTML parsing and content extraction
-- **Pillow 10.3**: Image processing and tensor conversion
-- **webdriver-manager**: Automatic ChromeDriver management
-- **pandas 1.4**: DataFrame output and data manipulation
+Do not add accuracy claims to docs without a number from `training/evaluate.py`.
 
-## Usage Patterns
+## Versioning
 
-### Modern API (Recommended)
-```python
-from piedomains import DomainClassifier
+The **git tag is the version** (`uv-dynamic-versioning`); no version strings in
+source, and `__version__` comes from `importlib.metadata`. Tags stop at v0.3.2
+for 0.4.0–0.5.0 because those were published by manual `workflow_dispatch`; the
+baseline was re-established at `v0.6.0`.
 
-classifier = DomainClassifier()
-result = classifier.classify(["cnn.com", "amazon.com"])
-```
+Publishing stays in `python-publish.yml`, **not** `release.yml`: this project's
+PyPI trusted publisher predates py-canon adoption and is keyed to that filename.
+OIDC claims reference the workflow file, so moving it breaks trusted publishing.
 
+## Conventions
 
-### Archive Analysis
-```python
-# Historical content from 2020
-result = classifier.classify(["facebook.com"], archive_date="20200101")
-```
-
-## Performance & Scaling
-- **Batch Size**: Default 32, configurable via environment variables
-- **Memory Management**: Explicit TensorFlow tensor cleanup in batch operations
-- **Resource Cleanup**: Automatic WebDriver and temp file cleanup via context managers
-- **Caching**: File-based caching for HTML and images reduces repeated fetching
-- **Network**: HTTP connection pooling with session reuse for improved performance
-- **Reliability**: Retry logic with exponential backoff and proper error handling
-
-## Critical Quality Assurance
-
-### Security Features
-- **Input Sanitization**: Comprehensive validation for URLs/domains and archive dates
-- **Path Traversal Protection**: Safe tar extraction in `utils.safe_extract()`
-- **Resource Limits**: Configurable timeouts and batch sizes prevent resource exhaustion
-- **Error Isolation**: Robust error handling prevents crashes from malformed inputs
-
-### Debugging and Logging
-- **Comprehensive Logging**: Detailed logging throughout all classifiers and processors
-- **Model Output Debugging**: Logs model output keys, tensor stats, and prediction details
-- **Processing Pipeline Visibility**: Tracks HTML fetching, screenshot capture, and tensor conversion
-- **Calibration Monitoring**: Shows calibrator usage and prediction confidence
-- **Error Tracking**: Detailed error messages for debugging network, model, and processing issues
-
-### Performance Monitoring
-- **Memory Usage**: TensorFlow tensor cleanup and resource management
-- **Network Efficiency**: Connection pooling reduces overhead for batch operations
-- **Progress Tracking**: Built-in progress monitoring for long-running operations
-- **Cache Optimization**: Intelligent caching reduces redundant network requests
-
-### Testing Strategy
-- **Unit Tests**: 14 test modules covering all components
-- **Integration Tests**: End-to-end testing with mock and real scenarios
-- **Performance Tests**: Memory usage and batch processing validation
-- **Security Tests**: Input validation and edge case handling
-- **ML Tests**: Marked with `@pytest.mark.ml` for optional model testing
+- No backward-compatibility shims unless explicitly asked for.
+- Model artifacts under `src/piedomains/model/shallalist/` are gitignored (491MB,
+  downloaded on first use); the isotonic `calibrate/` files are tracked.
+- Tests are unittest-style; `tests/**` per-file-ignores in `pyproject.toml`
+  cover the resulting ruff idioms.

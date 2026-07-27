@@ -39,7 +39,6 @@ class TextClassifier(Base):
         """Load text classification model and calibrators."""
         if self._model is not None and not latest:
             return
-        self._is_dummy_model = False
 
         try:
             # Load model data
@@ -106,31 +105,39 @@ class TextClassifier(Base):
                             )
 
             if calibrators_loaded == 0:
-                logger.info(
-                    "No working calibrators found due to version incompatibility, using raw probabilities"
+                # Not an INFO-level detail: the isotonic calibrators are pickled
+                # sklearn objects, and under a newer sklearn they unpickle fine
+                # but predict NaN, so every one gets dropped and the model runs
+                # entirely uncalibrated. That went unnoticed for exactly this
+                # reason -- it was logged as though it were routine.
+                logger.warning(
+                    "No usable calibrators (%d found on disk): confidences are "
+                    "RAW model outputs, not calibrated. This usually means the "
+                    "pickled sklearn calibrators are incompatible with the "
+                    "installed scikit-learn.",
+                    len(classes),
+                )
+            elif calibrators_loaded < len(classes):
+                logger.warning(
+                    f"Only {calibrators_loaded}/{len(classes)} calibrators usable; "
+                    "the rest fall back to raw probabilities"
                 )
             else:
                 logger.info(
-                    f"Successfully loaded {calibrators_loaded}/39 working calibrators"
+                    f"Successfully loaded {calibrators_loaded}/{len(classes)} calibrators"
                 )
 
             logger.info(f"Loaded text model and {len(self._calibrators)} calibrators")
 
         except Exception as e:
+            # Deliberately fatal. This used to substitute a model returning all
+            # zeros, which made max() pick the first class: every domain came
+            # back as `adv` with confidence 0.0, indistinguishable from a real
+            # prediction. `_is_dummy_model` was set but never read anywhere.
             logger.error(f"Failed to load text models: {e}")
-
-            class _DummyModel:
-                def predict(self, inputs):
-                    n = len(inputs)
-                    return np.zeros((n, len(classes)))
-
-            class _DummyCalibrator:
-                def predict(self, x):
-                    return x
-
-            self._model = _DummyModel()
-            self._calibrators = {c: _DummyCalibrator() for c in classes}
-            self._is_dummy_model = True
+            raise RuntimeError(
+                f"Could not load the text classification model: {e}"
+            ) from e
 
     def classify(self, domains: list[str], latest: bool = False) -> list[dict]:
         """Classify domains using their cached HTML content.
@@ -157,6 +164,25 @@ class TextClassifier(Base):
             results.append(result)
 
         return results
+
+    @staticmethod
+    def _model_input(domain: str, processed_text: str) -> str:
+        """Build the model input exactly as training did.
+
+        Training fed ``df['domain'] + ' ' + df['text']`` where ``domain`` was
+        the name with its TLD stripped (notebooks/04_train_model.ipynb). Serving
+        omitted the prefix entirely, so a feature the model was trained on was
+        missing at inference.
+
+        Args:
+            domain: Domain name, e.g. ``"yahoo.com"``.
+            processed_text: Cleaned page text.
+
+        Returns:
+            str: The text to feed the model.
+        """
+        stem = domain.rsplit(".", 1)[0] if "." in domain else domain
+        return f"{stem} {processed_text}"
 
     def _classify_single_domain(self, domain: str) -> dict:
         """Classify a single domain using its cached HTML file."""
@@ -195,7 +221,9 @@ class TextClassifier(Base):
 
             if processed_text.strip():
                 # Get predictions
-                predictions = self._predict_text(processed_text)
+                predictions = self._predict_text(
+                    self._model_input(domain, processed_text)
+                )
 
                 # Convert to JSON format
                 result["category"] = predictions.get("text_label")
@@ -278,7 +306,9 @@ class TextClassifier(Base):
 
                 if processed_text.strip():
                     # Get predictions
-                    predictions = self._predict_text(processed_text)
+                    predictions = self._predict_text(
+                        self._model_input(domain, processed_text)
+                    )
 
                     # Convert to JSON format
                     result["category"] = predictions.get("text_label")

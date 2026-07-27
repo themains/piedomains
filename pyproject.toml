@@ -100,13 +100,15 @@ convention = "google"
 # S108/S103 are fixture temp paths, SIM115/SIM117/RUF059/PT018/S110 test idioms.
 "tests/**" = [
     "S101", "D", "PT009", "PT027", "PT018", "T201",
-    "S103", "S108", "S110", "SIM115", "SIM117", "RUF059",
+    "S103", "S108", "S110", "S112", "SIM115", "SIM117", "RUF059",
 ]
 "docs/**" = ["D"]
 # Demo scripts: printing to stdout is the point, and the "/tmp" literals are
 # `docker run --tmpfs` arguments rather than paths this process writes to.
 "examples/**" = ["T201", "D", "S101", "S603", "S607", "S108", "RUF059"]
 "streamlit/**" = ["T201", "D"]
+# Training/eval scripts are CLIs: printing the report is their whole purpose.
+"training/**" = ["T201"]
 
 [tool.pytest.ini_options]
 minversion = "7.0"

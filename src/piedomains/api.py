@@ -219,6 +219,7 @@ class DomainClassifier:
                 collection_data=collection_data, method=method, latest=latest
             )
             results = _annotate_results(results, collection_data)
+            results = _reconcile_with_requested(results, domains)
             report = build_report(
                 results,
                 run_id=run_id,
@@ -713,6 +714,62 @@ class DomainClassifier:
         from .piedomain import Piedomain
 
         return Piedomain.parse_url_to_domain(url_or_domain)
+
+
+def _reconcile_with_requested(results: list[dict], requested: list[str]) -> list[dict]:
+    """Ensure every requested domain has a row, even if the pipeline lost it.
+
+    Domains can drop out between collection and classification -- a fetch that
+    fails hard, a batch path that returns fewer rows than it was given. Without
+    this, such a domain is absent from both the results and the report, so
+    "what is missing?" cannot be answered: the report only ever counted the rows
+    it was handed.
+
+    Args:
+        results: Rows produced by classification, already annotated.
+        requested: The domains the caller asked about, in input order.
+
+    Returns:
+        list[dict]: One row per requested domain, in the requested order,
+        with synthesized failure rows for any that never came back.
+    """
+    from .piedomain import Piedomain
+
+    by_key: dict[str, dict] = {}
+    for row in results:
+        for key in (row.get("domain"), row.get("url")):
+            if key:
+                by_key.setdefault(str(key), row)
+
+    reconciled: list[dict] = []
+    seen: set[int] = set()
+    for name in requested:
+        row = by_key.get(name) or by_key.get(Piedomain.parse_url_to_domain(name))
+        if row is not None:
+            if id(row) not in seen:
+                seen.add(id(row))
+                reconciled.append(row)
+            continue
+        reconciled.append(
+            annotate(
+                {
+                    "url": name,
+                    "domain": Piedomain.parse_url_to_domain(name),
+                    "category": None,
+                    "confidence": None,
+                    "error": "no result returned by the pipeline",
+                    "status": "failed",
+                    "stage": Stage.FETCH.value,
+                    "error_code": ErrorCode.UNKNOWN.value,
+                }
+            )
+        )
+    # Anything the pipeline returned that we did not ask for is still reported.
+    for row in results:
+        if id(row) not in seen:
+            reconciled.append(row)
+            seen.add(id(row))
+    return reconciled
 
 
 def _annotate_results(

@@ -214,5 +214,56 @@ class TestApiRunReport(unittest.TestCase):
         self.assertTrue(self._run()["report"]["run_id"])
 
 
+class TestReconciliation(unittest.TestCase):
+    """Every requested domain gets a row, even if the pipeline lost it."""
+
+    def _run(self, requested, returned_domains):
+        from unittest.mock import patch
+
+        from piedomains.api import DomainClassifier
+
+        collection = {
+            "domains": [
+                {"domain": d, "url": d, "fetch_success": True} for d in returned_domains
+            ]
+        }
+        rows = [
+            {"domain": d, "category": "news", "confidence": 0.9}
+            for d in returned_domains
+        ]
+        classifier = DomainClassifier(cache_dir="/tmp/pd-reconcile-test")
+        with (
+            patch.object(DomainClassifier, "collect_content", return_value=collection),
+            patch.object(
+                DomainClassifier, "classify_from_collection", return_value=rows
+            ),
+        ):
+            return classifier.classify(requested)
+
+    def test_dropped_domains_are_reported_not_silently_lost(self):
+        """A domain the pipeline never returns must still appear as failed.
+
+        Regression: an eval run asked for 44 domains and got 33 rows back; the
+        other 11 appeared in neither the results nor the report, because the
+        report counted rows returned rather than domains requested.
+        """
+        run = self._run(["a.com", "b.com", "c.com"], ["a.com"])
+        self.assertEqual(run["report"]["total"], 3)
+        self.assertEqual(run["report"]["failed"], 2)
+        self.assertEqual(sorted(run["report"]["missing"]), ["b.com", "c.com"])
+
+    def test_results_preserve_requested_order(self):
+        run = self._run(["z.com", "y.com", "x.com"], ["y.com"])
+        self.assertEqual(
+            [r["domain"] for r in run["results"]], ["z.com", "y.com", "x.com"]
+        )
+
+    def test_nothing_dropped_means_no_synthetic_rows(self):
+        run = self._run(["a.com", "b.com"], ["a.com", "b.com"])
+        self.assertEqual(run["report"]["total"], 2)
+        self.assertEqual(run["report"]["failed"], 0)
+        self.assertEqual(run["report"]["missing"], [])
+
+
 if __name__ == "__main__":
     unittest.main()

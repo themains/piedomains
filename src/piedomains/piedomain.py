@@ -24,72 +24,28 @@ from .piedomains_logging import get_logger
 
 logger = get_logger()
 
-# Global variables for NLTK data - will be initialized when needed
+# NLTK corpora live in text_processor, which is the cleaner the live pipeline
+# uses. This module previously kept a second copy with a *different* failure
+# fallback -- a 30-word stoplist here versus an empty set there -- so when NLTK
+# was unavailable the two cleaners silently produced different text. These names
+# are kept because the legacy validators and their tests still read them.
 words = None
 stop_words = None
 
 
 def _initialize_nltk():
-    """Initialize NLTK data with proper error handling."""
+    """Initialize NLTK data by delegating to the live text processor.
+
+    Mirrors ``text_processor``'s module globals into this module so the two
+    cleaners can never diverge under an NLTK failure.
+    """
     global words, stop_words
 
-    if words is not None and stop_words is not None:
-        return  # Already initialized
+    from . import text_processor
 
-    try:
-        import nltk  # pyright: ignore[reportMissingImports]
-
-        # Download required NLTK data
-        nltk.download("stopwords", quiet=True)
-        nltk.download("words", quiet=True)
-        nltk.download("wordnet", quiet=True)
-        nltk.download("punkt", quiet=True)
-
-        # Import and initialize corpora
-        from nltk.corpus import (  # pyright: ignore[reportMissingImports]
-            stopwords,
-        )
-
-        words = set(nltk.corpus.words.words())
-        stop_words = set(stopwords.words("english"))
-
-    except Exception as e:
-        logger.warning(f"NLTK initialization failed: {e}")
-        # Fallback to basic word sets if NLTK fails
-        words = set()
-        stop_words = {
-            "the",
-            "a",
-            "an",
-            "and",
-            "or",
-            "but",
-            "in",
-            "on",
-            "at",
-            "to",
-            "for",
-            "of",
-            "with",
-            "by",
-            "is",
-            "are",
-            "was",
-            "were",
-            "be",
-            "been",
-            "being",
-            "have",
-            "has",
-            "had",
-            "do",
-            "does",
-            "did",
-            "will",
-            "would",
-            "could",
-            "should",
-        }
+    text_processor._initialize_nltk()
+    words = text_processor.words
+    stop_words = text_processor.stop_words
 
 
 def _get_tensorflow():
