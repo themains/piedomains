@@ -5,13 +5,23 @@
 [![Downloads](https://pepy.tech/badge/piedomains)](https://pepy.tech/project/piedomains)
 [![Documentation](https://img.shields.io/badge/docs-github.io-blue)](https://themains.github.io/piedomains/)
 
-## 🚀 What's New in v0.6.0
+## What's New in v0.8.0
 
-- **Streamlined JSON API**: Simple, consistent JSON responses for easy integration with any workflow
-- **Enhanced LLM Support**: Built-in support for OpenAI, Anthropic, and Google AI models with custom category definitions
-- **Advanced Archive Analysis**: Analyze historical website versions from archive.org with intelligent rate limiting
-- **Separated Data Collection**: Collect website content once, run multiple classification approaches (ML + LLM + ensemble)
-- **39 Content Categories**: Comprehensive classification including news, shopping, social media, education, finance, and more
+- **New text model, in PyTorch.** A fine-tuned [mmBERT](https://github.com/JHU-CLSP/mmBERT)
+  encoder replaces the bag-of-embeddings TensorFlow model. Confidence is now a real
+  probability: temperature-scaled softmax, rather than 39 per-class isotonic
+  regressions applied elementwise and never renormalized.
+- **TensorFlow is gone**, so Python 3.14 works.
+- **Bot walls are recovered from archive.org** rather than classified as if the challenge
+  page were the site.
+- **Failures are named.** Every row carries a stable `error_code`; the run report
+  aggregates by reason, stage and source.
+
+**Breaking:** image classification is unavailable while the screenshot model is retrained,
+so `classify()` is text-only and `classify_by_images()` raises. This changes no labels —
+the old "combined" path returned the text label every time and only averaged the
+confidences, so the image model could not affect an answer. See
+[CHANGELOG.md](CHANGELOG.md).
 
 ## Installation
 
@@ -19,7 +29,7 @@
 pip install piedomains
 ```
 
-Requires Python 3.11+
+Requires Python 3.11+ (3.14 supported).
 
 ## Basic Usage
 
@@ -117,14 +127,10 @@ PIEDOMAINS_LOG_FORMAT=json classify_domains --file domains.txt
 ## Classification Methods
 
 ```python
-# Combined text + image analysis (most accurate)
+# Text-only. `classify` and `classify_by_text` are the same thing in this
+# version -- see the note on image classification above.
 run = classifier.classify(["github.com"])
-
-# Text-only classification (faster)
 run = classifier.classify_by_text(["news.google.com"])
-
-# Image-only classification
-run = classifier.classify_by_images(["instagram.com"])
 
 # Batch processing with separated workflow
 collector = DataCollector()

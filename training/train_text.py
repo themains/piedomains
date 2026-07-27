@@ -357,6 +357,12 @@ def main(argv: list[str] | None = None) -> int:
                 scheduler.step()
                 optimizer.zero_grad()
 
+            # MPS does not release cached blocks aggressively, and on a 16GB
+            # unified-memory machine that accumulation is enough to push the
+            # process into swap and wedge it in uninterruptible IO wait.
+            if step % 50 == 0 and device == "mps":
+                torch.mps.empty_cache()
+
             if step % 100 == 0:
                 done = step + 1
                 print(
