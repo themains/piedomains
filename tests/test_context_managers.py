@@ -31,9 +31,8 @@ class TestContextManagers(unittest.TestCase):
 
     def test_webdriver_context_with_exception(self):
         """Test deprecated WebDriver context with exception during usage."""
-        with self.assertRaises(RuntimeError):
-            with webdriver_context():
-                raise RuntimeError("Test exception")
+        with self.assertRaises(RuntimeError), webdriver_context():
+            raise RuntimeError("Test exception")
 
     @patch("piedomains.context_managers.PlaywrightFetcher")
     def test_playwright_context_success(self, mock_playwright_class):
@@ -52,9 +51,8 @@ class TestContextManagers(unittest.TestCase):
         mock_fetcher = MagicMock()
         mock_playwright_class.return_value = mock_fetcher
 
-        with self.assertRaises(RuntimeError):
-            with playwright_context():
-                raise RuntimeError("Test exception")
+        with self.assertRaises(RuntimeError), playwright_context():
+            raise RuntimeError("Test exception")
 
         mock_fetcher.cleanup.assert_called_once()
 
@@ -75,11 +73,10 @@ class TestContextManagers(unittest.TestCase):
         """Test temporary directory context with exception."""
         created_dir = None
 
-        with self.assertRaises(RuntimeError):
-            with temporary_directory() as temp_dir:
-                created_dir = temp_dir
-                self.assertTrue(os.path.exists(temp_dir))
-                raise RuntimeError("Test exception")
+        with self.assertRaises(RuntimeError), temporary_directory() as temp_dir:
+            created_dir = temp_dir
+            self.assertTrue(os.path.exists(temp_dir))
+            raise RuntimeError("Test exception")
 
         # Directory should still be cleaned up after exception
         self.assertFalse(os.path.exists(created_dir))

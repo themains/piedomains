@@ -15,8 +15,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from piedomains import DomainClassifier, classify_domains
-from piedomains.archive_org_downloader import download_from_archive_org, get_urls_year
+from piedomains import DomainClassifier
 from piedomains.content_processor import ContentProcessor
 from piedomains.fetchers import ArchiveFetcher, PlaywrightFetcher
 from piedomains.piedomains_logging import configure_logging, get_logger
@@ -54,7 +53,7 @@ class TestInfrastructureIntegration:
             html="<html><body><h1>Test Content</h1><p>Sample text for testing.</p></body></html>",
             text="Test Content Sample text for testing.",
             screenshot_path="/tmp/example.com.png",
-            error=None
+            error=None,
         )
         mock_fetch.return_value = mock_result
 
@@ -107,36 +106,56 @@ class TestInfrastructureIntegration:
 
 
 class TestArchiveOrgIntegration:
-    """Test Archive.org integration with retry logic."""
+    """Live archive.org integration through the wayback-backed fetcher."""
 
+    @pytest.mark.archive
     @skip_in_ci()
-    def test_archive_with_retry_success(self):
-        """Test real archive.org API calls - uses actual network."""
-        # Use a real domain that definitely has archive snapshots
-        # Wikipedia has been archived extensively
-        urls = get_urls_year("wikipedia.org", year=2010, limit=2)
+    def test_finds_closest_200_capture(self):
+        """A real CDX lookup returns a status-200 capture near the target."""
+        from datetime import UTC, datetime
 
-        # Should get at least 1 URL from 2010
-        assert len(urls) >= 1
-        assert "web.archive.org/web/" in urls[0]
-        assert "/wikipedia.org" in urls[0]
+        from piedomains.fetchers import ArchiveFetcher
 
+        fetcher = ArchiveFetcher("20100101")
+        record = fetcher.find_closest_record("wikipedia.org")
+        if record is None:
+            pytest.skip("archive.org unavailable")
+
+        assert record.status_code == 200
+        # Should land within the configured search window of the target
+        delta = abs(record.timestamp - datetime(2010, 1, 1, tzinfo=UTC))
+        assert delta <= fetcher.search_window
+
+    @pytest.mark.archive
     @skip_in_ci()
-    def test_archive_download_with_retry(self):
-        """Test real archive.org content download - uses actual network."""
-        # Use a real archived URL - example.com from 2010 should be simple and stable
-        # First get a real archive URL
-        urls = get_urls_year("example.com", year=2010, limit=1)
+    def test_archived_html_is_raw_not_rewritten(self):
+        """`id_` playback must yield the raw capture, not the Wayback wrapper."""
+        from piedomains.fetchers import ArchiveFetcher
 
-        if urls:  # Only test if we got a URL
-            content = download_from_archive_org(urls[0])
+        result = ArchiveFetcher("20100101").fetch_both("cnn.com", "")
+        if not result.success:
+            pytest.skip(f"archive.org unavailable: {result.error}")
 
-            # Should have gotten some HTML content
-            assert len(content) > 100  # At least some content
-            assert "<" in content and ">" in content  # Has HTML tags
-        else:
-            # If archive.org is down, skip the test
-            pytest.skip("Could not get archive URL - archive.org may be unavailable")
+        assert len(result.html) > 1000
+        assert "<" in result.html and ">" in result.html
+        # The toolbar is injected by this script; id_ must not carry it.
+        assert "bundle-playback" not in result.html
+        # Nor should asset URLs be rewritten to point back at the Wayback host.
+        assert "web.archive.org/web/" not in result.html
+
+    @pytest.mark.archive
+    @skip_in_ci()
+    def test_reports_the_realized_snapshot_timestamp(self):
+        """The capture actually used is reported, not the requested date."""
+        from piedomains.fetchers import ArchiveFetcher
+
+        result = ArchiveFetcher("20100101").fetch_both("cnn.com", "")
+        if not result.success:
+            pytest.skip(f"archive.org unavailable: {result.error}")
+
+        assert result.snapshot_timestamp
+        assert len(result.snapshot_timestamp) == 14
+        assert result.snapshot_timestamp.startswith("20")
 
 
 class TestSecurityIntegration:
@@ -187,13 +206,14 @@ class TestResourceManagement:
             # Use a URL that will definitely fail - invalid domain
             # This tests real error handling without mocking
             success, error = fetcher.fetch_screenshot(
-                "https://this-domain-definitely-does-not-exist-12345.invalid", output_path
+                "https://this-domain-definitely-does-not-exist-12345.invalid",
+                output_path,
             )
 
             assert success is False
             assert error is not None
             # The error should mention the connection/resolution failure
-            assert ("ERR_NAME_NOT_RESOLVED" in error or "not resolve" in error.lower())
+            assert "ERR_NAME_NOT_RESOLVED" in error or "not resolve" in error.lower()
 
     def test_temporary_file_cleanup(self):
         """Test that temporary files are properly cleaned up."""
@@ -236,13 +256,16 @@ class TestLoggingIntegration:
         current_level = get_effective_level()
         assert current_level in ["DEBUG", "INFO", "WARNING", "ERROR"]
 
+    @skip_if_no_browser()
     def test_error_logging_integration(self):
         """Test that errors are properly logged across components."""
         # Test error logging in fetcher with invalid domain
         fetcher = PlaywrightFetcher()
 
         # Use a domain that will definitely fail
-        success, content, error = fetcher.fetch_html("https://invalid-domain-that-does-not-exist-12345.invalid")
+        success, content, error = fetcher.fetch_html(
+            "https://invalid-domain-that-does-not-exist-12345.invalid"
+        )
 
         # Should fail with this invalid domain
         assert success is False
@@ -270,9 +293,7 @@ class TestEndToEndWorkflows:
             # Test that the infrastructure works even if models aren't available
             # This verifies the content fetching and processing pipeline
             # Mock the classify_from_collection method to avoid model loading
-            with patch.object(
-                classifier, "classify_from_collection"
-            ) as mock_classify:
+            with patch.object(classifier, "classify_from_collection") as mock_classify:
                 mock_classify.return_value = [
                     {
                         "domain": "example.com",
@@ -284,12 +305,12 @@ class TestEndToEndWorkflows:
                         "model_used": "text/shallalist_ml",
                         "date_time_collected": "2025-12-17T12:00:00Z",
                         "reason": None,
-                        "raw_predictions": {}
+                        "raw_predictions": {},
                     }
                 ]
 
                 # Test the content collection works
-                result = classifier.classify(["example.com"])
+                result = classifier.classify(["example.com"])["results"]
 
                 assert result is not None
                 assert len(result) == 1

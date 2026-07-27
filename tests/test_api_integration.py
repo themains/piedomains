@@ -56,12 +56,12 @@ class TestNewAPIIntegration(unittest.TestCase):
                 "confidence": 0.85,
                 "reason": None,
                 "error": None,
-                "raw_predictions": {"news": 0.85, "sports": 0.15}
+                "raw_predictions": {"news": 0.85, "sports": 0.15},
             }
         ]
         mock_classify.return_value = mock_result
 
-        result = self.classifier.classify_by_text(["example.com"])
+        result = self.classifier.classify_by_text(["example.com"])["results"]
 
         # Verify result structure
         self.assertIsInstance(result, list)
@@ -86,12 +86,12 @@ class TestNewAPIIntegration(unittest.TestCase):
                 "confidence": 0.72,
                 "reason": None,
                 "error": None,
-                "raw_predictions": {"socialnet": 0.72, "news": 0.28}
+                "raw_predictions": {"socialnet": 0.72, "news": 0.28},
             }
         ]
         mock_classify.return_value = mock_result
 
-        result = self.classifier.classify_by_images(["example.com"])
+        result = self.classifier.classify_by_images(["example.com"])["results"]
 
         # Verify result structure
         self.assertIsInstance(result, list)
@@ -117,7 +117,7 @@ class TestNewAPIIntegration(unittest.TestCase):
                 "confidence": 0.85,
                 "reason": None,
                 "error": None,
-                "raw_predictions": {"news": 0.85, "sports": 0.15}
+                "raw_predictions": {"news": 0.85, "sports": 0.15},
             }
         ]
         mock_text_classify.return_value = mock_text_result
@@ -135,12 +135,12 @@ class TestNewAPIIntegration(unittest.TestCase):
                 "confidence": 0.72,
                 "reason": None,
                 "error": None,
-                "raw_predictions": {"socialnet": 0.72, "news": 0.28}
+                "raw_predictions": {"socialnet": 0.72, "news": 0.28},
             }
         ]
         mock_image_classify.return_value = mock_image_result
 
-        result = self.classifier.classify(["example.com"])
+        result = self.classifier.classify(["example.com"])["results"]
 
         # Verify result structure
         self.assertIsInstance(result, list)
@@ -185,33 +185,63 @@ class TestNewAPIIntegration(unittest.TestCase):
     @patch("piedomains.data_collector.DataCollector.collect_batch")
     @patch("piedomains.text.TextClassifier.classify_from_data")
     @patch("piedomains.image.ImageClassifier.classify_from_data")
-    def test_batch_processing(self, mock_image_classify, mock_text_classify, mock_collect):
+    def test_batch_processing(
+        self, mock_image_classify, mock_text_classify, mock_collect
+    ):
         """Test batch processing functionality."""
         # Mock data collection
         mock_collect.return_value = {
             "collection_id": "test123",
             "timestamp": "2024-01-01T12:00:00Z",
             "domains": [
-                {"domain": "example.com", "text_path": "html/example.com.html", "image_path": "images/example.com.png"},
-                {"domain": "test.org", "text_path": "html/test.org.html", "image_path": "images/test.org.png"}
-            ]
+                {
+                    "domain": "example.com",
+                    "text_path": "html/example.com.html",
+                    "image_path": "images/example.com.png",
+                },
+                {
+                    "domain": "test.org",
+                    "text_path": "html/test.org.html",
+                    "image_path": "images/test.org.png",
+                },
+            ],
         }
 
         # Mock classification results
         mock_text_result = [
-            {"domain": "example.com", "category": "news", "confidence": 0.85, "error": None},
-            {"domain": "test.org", "category": "education", "confidence": 0.92, "error": None},
+            {
+                "domain": "example.com",
+                "category": "news",
+                "confidence": 0.85,
+                "error": None,
+            },
+            {
+                "domain": "test.org",
+                "category": "education",
+                "confidence": 0.92,
+                "error": None,
+            },
         ]
         mock_text_classify.return_value = mock_text_result
 
         mock_image_result = [
-            {"domain": "example.com", "category": "news", "confidence": 0.80, "error": None},
-            {"domain": "test.org", "category": "education", "confidence": 0.88, "error": None},
+            {
+                "domain": "example.com",
+                "category": "news",
+                "confidence": 0.80,
+                "error": None,
+            },
+            {
+                "domain": "test.org",
+                "category": "education",
+                "confidence": 0.88,
+                "error": None,
+            },
         ]
         mock_image_classify.return_value = mock_image_result
 
         domains = ["example.com", "test.org"]
-        result = self.classifier.classify(domains)
+        result = self.classifier.classify(domains)["results"]
 
         # Result should be a list
         self.assertIsInstance(result, list)
@@ -224,12 +254,16 @@ class TestNewAPIIntegration(unittest.TestCase):
             mock_collect.return_value = {"domains": []}
 
             with self.assertRaises(ValueError):
-                self.classifier.classify_from_collection({"domains": []}, method="invalid")
+                self.classifier.classify_from_collection(
+                    {"domains": []}, method="invalid"
+                )
 
     @patch("piedomains.api._classify_domains_impl")
     def test_convenience_function(self, mock_classify):
         """Test the convenience classify_domains function."""
-        mock_classify.return_value = [{"domain": "example.com", "category": "news", "confidence": 0.85}]
+        mock_classify.return_value = [
+            {"domain": "example.com", "category": "news", "confidence": 0.85}
+        ]
 
         # Test the convenience function
         result = classify_domains(["example.com"], method="text")
@@ -266,22 +300,44 @@ class TestAPIErrorHandling(unittest.TestCase):
 
     @patch("piedomains.text.TextClassifier.classify_from_data")
     @patch("piedomains.image.ImageClassifier.classify_from_data")
-    def test_combined_classification_partial_failure(self, mock_image_classify, mock_text_classify):
+    def test_combined_classification_partial_failure(
+        self, mock_image_classify, mock_text_classify
+    ):
         """Test handling when some domains fail in combined classification."""
         # Mock partial failure scenario
         mock_text_result = [
-            {"domain": "example.com", "category": "news", "confidence": 0.85, "error": None},
-            {"domain": "failed.com", "category": None, "confidence": 0.0, "error": "Network timeout"},
+            {
+                "domain": "example.com",
+                "category": "news",
+                "confidence": 0.85,
+                "error": None,
+            },
+            {
+                "domain": "failed.com",
+                "category": None,
+                "confidence": 0.0,
+                "error": "Network timeout",
+            },
         ]
         mock_text_classify.return_value = mock_text_result
 
         mock_image_result = [
-            {"domain": "example.com", "category": "news", "confidence": 0.80, "error": None},
-            {"domain": "failed.com", "category": None, "confidence": 0.0, "error": "Network timeout"},
+            {
+                "domain": "example.com",
+                "category": "news",
+                "confidence": 0.80,
+                "error": None,
+            },
+            {
+                "domain": "failed.com",
+                "category": None,
+                "confidence": 0.0,
+                "error": "Network timeout",
+            },
         ]
         mock_image_classify.return_value = mock_image_result
 
-        result = self.classifier.classify(["example.com", "failed.com"])
+        result = self.classifier.classify(["example.com", "failed.com"])["results"]
 
         # Should handle partial failures gracefully
         self.assertEqual(len(result), 2)
@@ -309,7 +365,7 @@ class TestAPIPerformance(unittest.TestCase):
         # Mock data collection
         mock_collect.return_value = {
             "collection_id": "perf_test",
-            "domains": [{"domain": f"test{i}.com"} for i in range(100)]
+            "domains": [{"domain": f"test{i}.com"} for i in range(100)],
         }
 
         # Mock fast classification
@@ -324,7 +380,7 @@ class TestAPIPerformance(unittest.TestCase):
         import time
 
         start_time = time.time()
-        result = self.classifier.classify_by_text(domains)
+        result = self.classifier.classify_by_text(domains)["results"]
         end_time = time.time()
 
         # Should complete reasonably quickly (mocked, so very fast)

@@ -1,0 +1,24 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    uses: gojiplus/py-canon/.github/workflows/reusable-release.yml@v1
+    permissions:
+      contents: write
+      id-token: write
+
+  # NOTE: no publish job here on purpose. piedomains is a py-canon "legacy
+  # publisher": its PyPI trusted publisher predates adoption and is keyed to
+  # workflow `python-publish.yml`, environment `pypi`. OIDC claims reference
+  # the workflow *filename*, so publishing must stay in that file — see
+  # python-publish.yml. This job builds and creates the GitHub Release only.
+  #
+  # If the PyPI publisher is ever migrated to `release.yml`/`pypi`, restore the
+  # template's publish job here and delete python-publish.yml.

@@ -45,7 +45,9 @@ import os
 sys.path.insert(0, '/app')
 
 from piedomains import DomainClassifier
-import pandas as pd
+import csv
+import json
+from collections import Counter
 
 domains = {domains}
 print(f"🔍 Analyzing {{len(domains)}} domains using {method}...")
@@ -53,38 +55,55 @@ print(f"🔍 Analyzing {{len(domains)}} domains using {method}...")
 classifier = DomainClassifier()
 
 try:
-    result = classifier.{method}(domains)
+    run = classifier.{method}(domains)
+    results, report = run["results"], run["report"]
 
-    # Save results
+    # Save results and the run report
     os.makedirs('/app/output', exist_ok=True)
-    result.to_csv('/app/output/results.csv', index=False)
+    fields = [
+        "domain", "category", "confidence", "status", "stage",
+        "error_code", "retryable", "error",
+    ]
+    with open('/app/output/results.csv', 'w', newline='', encoding='utf-8') as fh:
+        writer = csv.DictWriter(fh, fieldnames=fields, extrasaction='ignore')
+        writer.writeheader()
+        writer.writerows(results)
+    with open('/app/output/report.json', 'w', encoding='utf-8') as fh:
+        json.dump(report, fh, indent=2, default=str)
 
-    # Print summary
     print("\\n✅ Classification Results:")
     print("=" * 50)
-
-    # Determine which columns to use based on method
-    if '{method}' == 'classify_by_text':
-        label_col, prob_col = 'text_label', 'text_prob'
-    elif '{method}' == 'classify_by_images':
-        label_col, prob_col = 'image_label', 'image_prob'
-    else:  # combined classify method
-        label_col, prob_col = 'pred_label', 'pred_prob'
-
-    print(result[['domain', label_col, prob_col]].to_string(index=False))
-    print(f"\\n📄 Detailed results saved to output/results.csv")
+    for row in results:
+        confidence = row.get('confidence')
+        shown = f"{{confidence:.3f}}" if isinstance(confidence, float) else "n/a"
+        print(
+            f"{{row.get('domain', ''):30s}} {{str(row.get('category')):15s}} {{shown:>7s}}"
+            f"  {{row.get('error_code') or ''}}"
+        )
+    print("\\n📄 Results saved to output/results.csv, report to output/report.json")
 
     # Category summary
     print("\\n📊 Category Summary:")
     print("-" * 30)
-    category_counts = result[label_col].value_counts()
-    for category, count in category_counts.items():
+    counts = Counter(r['category'] for r in results if r.get('category'))
+    for category, count in counts.most_common():
         print(f"{{category:15s}}: {{count:3d}} domains")
+
+    # What did not classify, and why
+    if report['failed']:
+        print(f"\\n⚠️  {{report['failed']}}/{{report['total']}} produced no result:")
+        for reason, count in report['by_reason'].items():
+            print(f"  {{reason:22s}}: {{count:3d}}")
+        print(f"  domains: {{', '.join(report['missing'])}}")
+        sys.exit(1)
 
 except Exception as e:
     print(f"❌ Error during classification: {{e}}")
-    error_df = pd.DataFrame({{'domain': domains, 'error': str(e)}})
-    error_df.to_csv('/app/output/errors.csv', index=False)
+    with open('/app/output/errors.csv', 'w', newline='', encoding='utf-8') as fh:
+        writer = csv.writer(fh)
+        writer.writerow(['domain', 'error'])
+        for domain in domains:
+            writer.writerow([domain, str(e)])
     sys.exit(1)
 """
 
@@ -322,10 +341,7 @@ Examples:
 
     # Choose sandboxing method
     if args.method == "auto":
-        if check_docker():
-            method = "docker"
-        else:
-            method = "macos-sandbox"
+        method = "docker" if check_docker() else "macos-sandbox"
     else:
         method = args.method
 

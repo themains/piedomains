@@ -1,0 +1,56 @@
+# Seed evaluation set: domains with a defensible single Shallalist label.
+#
+# Deliberately small and hand-checked rather than large and noisy. It exists so
+# that "did this model change help?" has an answer today; PR 5 replaces it with
+# a Tranco-sampled set labelled from UT-Capitole (UT1), which is the maintained
+# successor to the discontinued Shallalist.
+#
+# Labels must be one of the 39 names in piedomains.constants.classes.
+# Only domains whose homepage is unambiguously of one category belong here --
+# if reasonable people would disagree, leave it out rather than encode a
+# coin-flip as ground truth.
+domain,expected
+cnn.com,news
+bbc.com,news
+reuters.com,news
+theguardian.com,news
+amazon.com,shopping
+ebay.com,shopping
+etsy.com,shopping
+walmart.com,shopping
+khanacademy.org,education
+coursera.org,education
+mit.edu,education
+harvard.edu,education
+facebook.com,socialnet
+linkedin.com,socialnet
+reddit.com,socialnet
+google.com,searchengines
+bing.com,searchengines
+duckduckgo.com,searchengines
+chase.com,finance
+paypal.com,finance
+bankofamerica.com,finance
+irs.gov,government
+usa.gov,government
+nasa.gov,government
+spotify.com,music
+last.fm,music
+imdb.com,movies
+netflix.com,movies
+indeed.com,jobsearch
+monster.com,jobsearch
+webmd.com,hospitals
+mayoclinic.org,hospitals
+nature.com,science
+sciencemag.org,science
+gmail.com,webmail
+outlook.com,webmail
+bitly.com,urlshortener
+tinyurl.com,urlshortener
+imgur.com,imagehosting
+flickr.com,imagehosting
+stackoverflow.com,forum
+quora.com,forum
+espn.com,recreation
+nih.gov,government

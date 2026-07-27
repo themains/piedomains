@@ -59,6 +59,7 @@ class TestCriticalIntegration(unittest.TestCase):
     @patch("piedomains.text.TextClassifier.classify_from_data")
     def test_domain_validation_edge_cases(self, mock_classify, mock_collect):
         """Test domain validation with edge cases and security inputs."""
+
         # Mock successful classification
         def mock_collection(domains, *args, **kwargs):
             return {
@@ -73,10 +74,10 @@ class TestCriticalIntegration(unittest.TestCase):
                         "date_time_collected": "2025-12-17T12:00:00Z",
                         "fetch_success": True,
                         "cached": False,
-                        "error": None
+                        "error": None,
                     }
                     for domain in domains
-                ]
+                ],
             }
 
         def mock_classification(collection_data, *args, **kwargs):
@@ -93,7 +94,7 @@ class TestCriticalIntegration(unittest.TestCase):
                     "confidence": 0.85,
                     "reason": None,
                     "error": None,
-                    "raw_predictions": {"news": 0.85, "other": 0.15}
+                    "raw_predictions": {"news": 0.85, "other": 0.15},
                 }
                 for domain_data in domains_data
             ]
@@ -120,7 +121,7 @@ class TestCriticalIntegration(unittest.TestCase):
         for domain in edge_cases:
             with self.subTest(domain=domain):
                 try:
-                    result = classifier.classify_by_text([domain])
+                    result = classifier.classify_by_text([domain])["results"]
                     # Should handle gracefully without crashing
                     self.assertIsInstance(result, list)
                 except Exception as e:
@@ -129,10 +130,9 @@ class TestCriticalIntegration(unittest.TestCase):
 
     @patch("piedomains.data_collector.DataCollector.collect")
     @patch("piedomains.text.TextClassifier.classify_from_data")
-    def test_batch_processing_memory_management(
-        self, mock_classify, mock_collect
-    ):
+    def test_batch_processing_memory_management(self, mock_classify, mock_collect):
         """Test batch processing doesn't leak memory."""
+
         # Mock data collection and classification
         def mock_collection(domains, *args, **kwargs):
             return {
@@ -147,10 +147,10 @@ class TestCriticalIntegration(unittest.TestCase):
                         "date_time_collected": "2025-12-17T12:00:00Z",
                         "fetch_success": True,
                         "cached": False,
-                        "error": None
+                        "error": None,
                     }
                     for domain in domains
-                ]
+                ],
             }
 
         def mock_classification(collection_data, *args, **kwargs):
@@ -167,7 +167,7 @@ class TestCriticalIntegration(unittest.TestCase):
                     "confidence": 0.8,
                     "reason": None,
                     "error": None,
-                    "raw_predictions": {"news": 0.8, "other": 0.2}
+                    "raw_predictions": {"news": 0.8, "other": 0.2},
                 }
                 for domain_data in domains_data
             ]
@@ -179,12 +179,15 @@ class TestCriticalIntegration(unittest.TestCase):
         domains = [f"test{i}.com" for i in range(100)]  # Large batch
 
         # Test batch processing completes without memory issues
-        result = classifier.classify_by_text(domains)
+        result = classifier.classify_by_text(domains)["results"]
 
         self.assertIsInstance(result, list)
         self.assertEqual(len(result), 100)
         self.assertTrue(
-            all("domain" in res and "category" in res and "confidence" in res for res in result)
+            all(
+                "domain" in res and "category" in res and "confidence" in res
+                for res in result
+            )
         )
 
     def test_error_handling_network_failures(self):
@@ -196,7 +199,7 @@ class TestCriticalIntegration(unittest.TestCase):
             "piedomains.fetchers.PlaywrightFetcher.fetch_both",
             side_effect=Exception("Network unreachable"),
         ):
-            result = classifier.classify_by_text(["unreachable.invalid"])
+            result = classifier.classify_by_text(["unreachable.invalid"])["results"]
 
             # Should return list with error information rather than crash
             self.assertIsInstance(result, list)
@@ -210,8 +213,10 @@ class TestCriticalIntegration(unittest.TestCase):
         classifier = DomainClassifier(cache_dir=self.temp_dir)
 
         # Mock at the module level BEFORE starting threads
-        with patch("piedomains.data_collector.DataCollector.collect") as mock_collect, \
-             patch("piedomains.text.TextClassifier.classify_from_data") as mock_classify:
+        with (
+            patch("piedomains.data_collector.DataCollector.collect") as mock_collect,
+            patch("piedomains.text.TextClassifier.classify_from_data") as mock_classify,
+        ):
 
             def mock_collection(domains, *args, **kwargs):
                 return {
@@ -226,10 +231,10 @@ class TestCriticalIntegration(unittest.TestCase):
                             "date_time_collected": "2025-12-17T12:00:00Z",
                             "fetch_success": True,
                             "cached": False,
-                            "error": None
+                            "error": None,
                         }
                         for domain in domains
-                    ]
+                    ],
                 }
 
             def mock_classification(collection_data, *args, **kwargs):
@@ -246,7 +251,7 @@ class TestCriticalIntegration(unittest.TestCase):
                         "confidence": 0.8,
                         "reason": None,
                         "error": None,
-                        "raw_predictions": {"news": 0.8, "other": 0.2}
+                        "raw_predictions": {"news": 0.8, "other": 0.2},
                     }
                     for domain_data in domains_data
                 ]
@@ -256,7 +261,7 @@ class TestCriticalIntegration(unittest.TestCase):
 
             def classify_worker(domains):
                 try:
-                    result = classifier.classify_by_text(domains)
+                    result = classifier.classify_by_text(domains)["results"]
                     results_queue.put(("success", result))
                 except Exception as e:
                     results_queue.put(("error", str(e)))
@@ -310,11 +315,11 @@ class TestCriticalIntegration(unittest.TestCase):
                     # Accept validation errors, Playwright browser errors, or general exceptions
                     # The key is that malicious inputs don't cause crashes or security issues
                     self.assertTrue(
-                        isinstance(e, (ValueError, TypeError)) or
-                        "Executable doesn't exist" in str(e) or
-                        "Browser" in str(e) or
-                        "Error" in type(e).__name__,
-                        f"Unexpected error type for input '{malicious_input}': {type(e).__name__}: {e}"
+                        isinstance(e, (ValueError, TypeError))
+                        or "Executable doesn't exist" in str(e)
+                        or "Browser" in str(e)
+                        or "Error" in type(e).__name__,
+                        f"Unexpected error type for input '{malicious_input}': {type(e).__name__}: {e}",
                     )
 
     @skip_in_ci()

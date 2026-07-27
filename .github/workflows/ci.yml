@@ -2,46 +2,24 @@ name: CI
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [main]
   pull_request:
-    branches: [ main, master ]
-  workflow_dispatch:
+  schedule:
+    - cron: "17 6 * * 1"  # weekly: surface ecosystem drift on quiet repos
 
 permissions:
   contents: read
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  test:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: ['3.11', '3.12']
-
-    steps:
-      - uses: actions/checkout@v7
-
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v6.3.0
-        with:
-          python-version: ${{ matrix.python-version }}
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v8.3.2
-        with:
-          version: "latest"
-
-      - name: Install dependencies
-        run: |
-          uv pip install --system -e ".[test]"
-
-      - name: Install Playwright browsers
-        run: |
-          playwright install chromium
-
-      - name: Run linting with ruff
-        run: |
-          ruff check piedomains/
-
-      - name: Run tests
-        run: |
-          pytest tests/ -v -m "not ml and not performance" --cov=piedomains --cov-report=term-missing
+  ci:
+    uses: gojiplus/py-canon/.github/workflows/reusable-ci.yml@v1
+    with:
+      wheel-import: piedomains
+      coverage-floor: 0
+      # TensorFlow ships no cp314 wheels, so the standard 3.11 + 3.14 matrix is
+      # not reachable yet. Restore it once torch replaces tensorflow.
+      python-versions: '["3.11", "3.13"]'

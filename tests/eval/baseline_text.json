@@ -1,0 +1,578 @@
+{
+  "method": "text",
+  "summary": {
+    "n_total": 44,
+    "n_scored": 38,
+    "n_unclassified": 6,
+    "accuracy": 0.39473684210526316,
+    "macro_f1": 0.261976911976912,
+    "ece": 0.20962870787633092,
+    "mean_confidence": 0.5769378829159235,
+    "per_class": {
+      "education": {
+        "precision": 0.3333333333333333,
+        "recall": 0.25,
+        "f1": 0.28571428571428575,
+        "support": 4
+      },
+      "finance": {
+        "precision": 0.6,
+        "recall": 1.0,
+        "f1": 0.7499999999999999,
+        "support": 3
+      },
+      "forum": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "support": 1
+      },
+      "government": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "support": 4
+      },
+      "hospitals": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "support": 2
+      },
+      "imagehosting": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "support": 2
+      },
+      "jobsearch": {
+        "precision": 0.3333333333333333,
+        "recall": 1.0,
+        "f1": 0.5,
+        "support": 2
+      },
+      "movies": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "support": 2
+      },
+      "music": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "support": 2
+      },
+      "news": {
+        "precision": 0.5,
+        "recall": 1.0,
+        "f1": 0.6666666666666666,
+        "support": 4
+      },
+      "porn": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "support": 0
+      },
+      "radiotv": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "support": 0
+      },
+      "recreation": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "support": 0
+      },
+      "redirector": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "support": 0
+      },
+      "science": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "support": 1
+      },
+      "searchengines": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "support": 3
+      },
+      "shopping": {
+        "precision": 0.5714285714285714,
+        "recall": 1.0,
+        "f1": 0.7272727272727273,
+        "support": 4
+      },
+      "socialnet": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "support": 2
+      },
+      "urlshortener": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "support": 2
+      }
+    },
+    "top_confusions": [
+      [
+        "education",
+        "jobsearch",
+        2
+      ],
+      [
+        "government",
+        "finance",
+        2
+      ],
+      [
+        "education",
+        "news",
+        1
+      ],
+      [
+        "socialnet",
+        "jobsearch",
+        1
+      ],
+      [
+        "socialnet",
+        "porn",
+        1
+      ],
+      [
+        "searchengines",
+        "shopping",
+        1
+      ],
+      [
+        "searchengines",
+        "porn",
+        1
+      ],
+      [
+        "searchengines",
+        "redirector",
+        1
+      ],
+      [
+        "government",
+        "news",
+        1
+      ],
+      [
+        "music",
+        "shopping",
+        1
+      ]
+    ]
+  },
+  "rows": [
+    {
+      "domain": "cnn.com",
+      "expected": "news",
+      "predicted": "news",
+      "confidence": 0.8211010694503784,
+      "status": "ok",
+      "stage": "infer",
+      "error_code": null
+    },
+    {
+      "domain": "bbc.com",
+      "expected": "news",
+      "predicted": "news",
+      "confidence": 0.9400451183319092,
+      "status": "ok",
+      "stage": "infer",
+      "error_code": null
+    },
+    {
+      "domain": "reuters.com",
+      "expected": "news",
+      "predicted": "news",
+      "confidence": 0.9964505434036255,
+      "status": "ok",
+      "stage": "infer",
+      "error_code": null
+    },
+    {
+      "domain": "theguardian.com",
+      "expected": "news",
+      "predicted": "news",
+      "confidence": 0.9915697574615479,
+      "status": "ok",
+      "stage": "infer",
+      "error_code": null
+    },
+    {
+      "domain": "amazon.com",
+      "expected": "shopping",
+      "predicted": "shopping",
+      "confidence": 0.994778037071228,
+      "status": "ok",
+      "stage": "infer",
+      "error_code": null
+    },
+    {
+      "domain": "ebay.com",
+      "expected": "shopping",
+      "predicted": "shopping",
+      "confidence": 0.9948429465293884,
+      "status": "ok",
+      "stage": "infer",
+      "error_code": null
+    },
+    {
+      "domain": "etsy.com",
+      "expected": "shopping",
+      "predicted": "shopping",
+      "confidence": 0.7431159615516663,
+      "status": "ok",
+      "stage": "infer",
+      "error_code": null
+    },
+    {
+      "domain": "walmart.com",
+      "expected": "shopping",
+      "predicted": "shopping",
+      "confidence": 0.9771247506141663,
+      "status": "ok",
+      "stage": "infer",
+      "error_code": null
+    },
+    {
+      "domain": "khanacademy.org",
+      "expected": "education",
+      "predicted": "jobsearch",
+      "confidence": 0.25150272250175476,
+      "status": "ok",
+      "stage": "infer",
+      "error_code": null
+    },
+    {
+      "domain": "coursera.org",
+      "expected": "education",
+      "predicted": "jobsearch",
+      "confidence": 0.7293896675109863,
+      "status": "ok",
+      "stage": "infer",
+      "error_code": null
+    },
+    {
+      "domain": "mit.edu",
+      "expected": "education",
+      "predicted": "news",
+      "confidence": 0.43335363268852234,
+      "status": "ok",
+      "stage": "infer",
+      "error_code": null
+    },
+    {
+      "domain": "harvard.edu",
+      "expected": "education",
+      "predicted": "education",
+      "confidence": 0.48372745513916016,
+      "status": "ok",
+      "stage": "infer",
+      "error_code": null
+    },
+    {
+      "domain": "facebook.com",
+      "expected": "socialnet",
+      "predicted": null,
+      "confidence": null,
+      "status": "failed",
+      "stage": "process",
+      "error_code": "thin_content"
+    },
+    {
+      "domain": "linkedin.com",
+      "expected": "socialnet",
+      "predicted": "jobsearch",
+      "confidence": 0.4880486726760864,
+      "status": "ok",
+      "stage": "infer",
+      "error_code": null
+    },
+    {
+      "domain": "reddit.com",
+      "expected": "socialnet",
+      "predicted": "porn",
+      "confidence": 0.26655152440071106,
+      "status": "ok",
+      "stage": "infer",
+      "error_code": null
+    },
+    {
+      "domain": "google.com",
+      "expected": "searchengines",
+      "predicted": "shopping",
+      "confidence": 0.2817623019218445,
+      "status": "ok",
+      "stage": "infer",
+      "error_code": null
+    },
+    {
+      "domain": "bing.com",
+      "expected": "searchengines",
+      "predicted": "porn",
+      "confidence": 0.18545594811439514,
+      "status": "ok",
+      "stage": "infer",
+      "error_code": null
+    },
+    {
+      "domain": "duckduckgo.com",
+      "expected": "searchengines",
+      "predicted": "redirector",
+      "confidence": 0.21401916444301605,
+      "status": "ok",
+      "stage": "infer",
+      "error_code": null
+    },
+    {
+      "domain": "chase.com",
+      "expected": "finance",
+      "predicted": "finance",
+      "confidence": 0.999903678894043,
+      "status": "ok",
+      "stage": "infer",
+      "error_code": null
+    },
+    {
+      "domain": "paypal.com",
+      "expected": "finance",
+      "predicted": "finance",
+      "confidence": 0.9706826210021973,
+      "status": "ok",
+      "stage": "infer",
+      "error_code": null
+    },
+    {
+      "domain": "bankofamerica.com",
+      "expected": "finance",
+      "predicted": "finance",
+      "confidence": 0.9997727274894714,
+      "status": "ok",
+      "stage": "infer",
+      "error_code": null
+    },
+    {
+      "domain": "irs.gov",
+      "expected": "government",
+      "predicted": "finance",
+      "confidence": 0.7324998378753662,
+      "status": "ok",
+      "stage": "infer",
+      "error_code": null
+    },
+    {
+      "domain": "usa.gov",
+      "expected": "government",
+      "predicted": "finance",
+      "confidence": 0.4715002477169037,
+      "status": "ok",
+      "stage": "infer",
+      "error_code": null
+    },
+    {
+      "domain": "nasa.gov",
+      "expected": "government",
+      "predicted": "news",
+      "confidence": 0.4430863857269287,
+      "status": "ok",
+      "stage": "infer",
+      "error_code": null
+    },
+    {
+      "domain": "spotify.com",
+      "expected": "music",
+      "predicted": "shopping",
+      "confidence": 0.20956876873970032,
+      "status": "ok",
+      "stage": "infer",
+      "error_code": null
+    },
+    {
+      "domain": "last.fm",
+      "expected": "music",
+      "predicted": "radiotv",
+      "confidence": 0.1388000249862671,
+      "status": "ok",
+      "stage": "infer",
+      "error_code": null
+    },
+    {
+      "domain": "imdb.com",
+      "expected": "movies",
+      "predicted": "news",
+      "confidence": 0.3187337815761566,
+      "status": "ok",
+      "stage": "infer",
+      "error_code": null
+    },
+    {
+      "domain": "netflix.com",
+      "expected": "movies",
+      "predicted": "recreation",
+      "confidence": 0.34548506140708923,
+      "status": "ok",
+      "stage": "infer",
+      "error_code": null
+    },
+    {
+      "domain": "indeed.com",
+      "expected": "jobsearch",
+      "predicted": "jobsearch",
+      "confidence": 0.9098617434501648,
+      "status": "ok",
+      "stage": "infer",
+      "error_code": null
+    },
+    {
+      "domain": "monster.com",
+      "expected": "jobsearch",
+      "predicted": "jobsearch",
+      "confidence": 0.7708330154418945,
+      "status": "ok",
+      "stage": "infer",
+      "error_code": null
+    },
+    {
+      "domain": "webmd.com",
+      "expected": "hospitals",
+      "predicted": "porn",
+      "confidence": 0.31555742025375366,
+      "status": "ok",
+      "stage": "infer",
+      "error_code": null
+    },
+    {
+      "domain": "mayoclinic.org",
+      "expected": "hospitals",
+      "predicted": "education",
+      "confidence": 0.3856475353240967,
+      "status": "ok",
+      "stage": "infer",
+      "error_code": null
+    },
+    {
+      "domain": "nature.com",
+      "expected": "science",
+      "predicted": "news",
+      "confidence": 0.7731358408927917,
+      "status": "ok",
+      "stage": "infer",
+      "error_code": null
+    },
+    {
+      "domain": "sciencemag.org",
+      "expected": "science",
+      "predicted": null,
+      "confidence": null,
+      "status": "failed",
+      "stage": "fetch",
+      "error_code": "cannot_classify"
+    },
+    {
+      "domain": "gmail.com",
+      "expected": "webmail",
+      "predicted": null,
+      "confidence": null,
+      "status": "failed",
+      "stage": "process",
+      "error_code": "thin_content"
+    },
+    {
+      "domain": "outlook.com",
+      "expected": "webmail",
+      "predicted": null,
+      "confidence": null,
+      "status": "failed",
+      "stage": "fetch",
+      "error_code": "thin_content"
+    },
+    {
+      "domain": "bitly.com",
+      "expected": "urlshortener",
+      "predicted": "jobsearch",
+      "confidence": 0.4165703058242798,
+      "status": "ok",
+      "stage": "infer",
+      "error_code": null
+    },
+    {
+      "domain": "tinyurl.com",
+      "expected": "urlshortener",
+      "predicted": "porn",
+      "confidence": 0.18299686908721924,
+      "status": "ok",
+      "stage": "infer",
+      "error_code": null
+    },
+    {
+      "domain": "imgur.com",
+      "expected": "imagehosting",
+      "predicted": "recreation",
+      "confidence": 0.2015933096408844,
+      "status": "ok",
+      "stage": "infer",
+      "error_code": null
+    },
+    {
+      "domain": "flickr.com",
+      "expected": "imagehosting",
+      "predicted": "shopping",
+      "confidence": 0.41447481513023376,
+      "status": "ok",
+      "stage": "infer",
+      "error_code": null
+    },
+    {
+      "domain": "stackoverflow.com",
+      "expected": "forum",
+      "predicted": "forum",
+      "confidence": 0.8827413320541382,
+      "status": "ok",
+      "stage": "infer",
+      "error_code": null
+    },
+    {
+      "domain": "quora.com",
+      "expected": "forum",
+      "predicted": null,
+      "confidence": null,
+      "status": "failed",
+      "stage": "process",
+      "error_code": "thin_content"
+    },
+    {
+      "domain": "espn.com",
+      "expected": "recreation",
+      "predicted": null,
+      "confidence": null,
+      "status": "failed",
+      "stage": "fetch",
+      "error_code": "thin_content"
+    },
+    {
+      "domain": "nih.gov",
+      "expected": "government",
+      "predicted": "education",
+      "confidence": 0.24735495448112488,
+      "status": "ok",
+      "stage": "infer",
+      "error_code": null
+    }
+  ]
+}

@@ -11,7 +11,8 @@ from piedomains import DomainClassifier
 
 # Simple classification - returns JSON instead of DataFrames
 classifier = DomainClassifier()
-results = classifier.classify(["cnn.com", "github.com"])
+run = classifier.classify(["cnn.com", "github.com"])
+results, report = run["results"], run["report"]
 
 for result in results:
     print(f"{result['domain']}: {result['category']} ({result['confidence']:.3f})")

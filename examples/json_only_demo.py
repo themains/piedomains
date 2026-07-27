@@ -35,15 +35,20 @@ def demo_json_api():
 
     try:
         # Test the new JSON-only classify method
-        results = classifier.classify(domains)
+        run = classifier.classify(domains)
+        results, report = run["results"], run["report"]
 
         print("\n✅ Classification complete!")
         print(f"Result type: {type(results)}")
         print(f"Number of results: {len(results)}")
+        print(
+            f"Report: {report['classified']}/{report['total']} classified, "
+            f"{report['failed']} failed; reasons={report['by_reason']}"
+        )
 
         print("\n📊 Results:")
         for i, result in enumerate(results):
-            print(f"\n{i+1}. Domain: {result.get('domain', 'unknown')}")
+            print(f"\n{i + 1}. Domain: {result.get('domain', 'unknown')}")
             print(f"   URL: {result.get('url', 'unknown')}")
             print(f"   Category: {result.get('category', 'unknown')}")
             print(f"   Confidence: {result.get('confidence', 0.0):.3f}")
@@ -61,7 +66,7 @@ def demo_json_api():
 
         # Test different classification methods
         print("\n🔤 Testing text-only classification...")
-        text_results = classifier.classify_by_text(domains)
+        text_results = classifier.classify_by_text(domains)["results"]
         print(f"Text results: {len(text_results)} domains")
         for result in text_results:
             print(
@@ -70,7 +75,7 @@ def demo_json_api():
             )
 
         print("\n🖼️  Testing image-only classification...")
-        image_results = classifier.classify_by_images(domains)
+        image_results = classifier.classify_by_images(domains)["results"]
         print(f"Image results: {len(image_results)} domains")
         for result in image_results:
             print(

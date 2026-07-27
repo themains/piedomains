@@ -18,6 +18,7 @@ def browser_available() -> bool:
     """Check if Playwright browsers are available."""
     try:
         from playwright.sync_api import sync_playwright
+
         with sync_playwright() as p:
             browser = p.chromium.launch()
             browser.close()
@@ -29,8 +30,7 @@ def browser_available() -> bool:
 def skip_if_no_browser():
     """Skip test if Playwright browsers are not available."""
     return pytest.mark.skipif(
-        not browser_available(),
-        reason="Playwright browsers not available"
+        not browser_available(), reason="Playwright browsers not available"
     )
 
 
@@ -38,7 +38,7 @@ def skip_in_ci():
     """Skip test in CI environment."""
     return pytest.mark.skipif(
         os.getenv("CI") == "true" or os.getenv("GITHUB_ACTIONS") == "true",
-        reason="Skipped in CI environment"
+        reason="Skipped in CI environment",
     )
 
 
@@ -49,6 +49,7 @@ def temp_dir():
     yield temp_dir
     # Cleanup
     import shutil
+
     if os.path.exists(temp_dir):
         shutil.rmtree(temp_dir)
 
@@ -64,14 +65,11 @@ def temp_cache_dir():
     os.makedirs(html_dir, exist_ok=True)
     os.makedirs(image_dir, exist_ok=True)
 
-    yield {
-        "root": temp_dir,
-        "html": html_dir,
-        "images": image_dir
-    }
+    yield {"root": temp_dir, "html": html_dir, "images": image_dir}
 
     # Cleanup
     import shutil
+
     if os.path.exists(temp_dir):
         shutil.rmtree(temp_dir)
 
@@ -94,7 +92,7 @@ def mock_classifier():
             "confidence": 0.9,
             "reason": None,
             "error": None,
-            "raw_predictions": {"test": 0.9, "other": 0.1}
+            "raw_predictions": {"test": 0.9, "other": 0.1},
         }
     ]
 
@@ -112,12 +110,13 @@ def mock_fetcher():
 
     # Mock FetchResult
     from piedomains.fetchers import FetchResult
+
     mock_result = FetchResult(
         url="http://test.com",
         success=True,
         html="<html><head><title>Test</title></head><body>Test content</body></html>",
         screenshot_path="/tmp/test.png",
-        error=None
+        error=None,
     )
 
     fetcher.fetch_single.return_value = mock_result
@@ -136,7 +135,7 @@ def sample_domains():
         "wikipedia.org",
         "github.com",
         "stackoverflow.com",
-        "amazon.com"
+        "amazon.com",
     ]
 
 
@@ -204,7 +203,9 @@ def sample_html_content():
 def pytest_configure(config):
     """Configure custom pytest markers."""
     config.addinivalue_line("markers", "ml: tests that require ML models")
-    config.addinivalue_line("markers", "integration: integration tests that may use real services")
+    config.addinivalue_line(
+        "markers", "integration: integration tests that may use real services"
+    )
     config.addinivalue_line("markers", "slow: tests that take a long time to run")
     config.addinivalue_line("markers", "archive: tests that use archive.org")
     config.addinivalue_line("markers", "llm: tests that require LLM API access")
@@ -218,7 +219,7 @@ def setup_test_environment():
     original_env = {}
     test_env_vars = {
         "PIEDOMAINS_LOG_LEVEL": "WARNING",  # Reduce logging noise in tests
-        "PLAYWRIGHT_HEADLESS": "true",      # Force headless mode in tests
+        "PLAYWRIGHT_HEADLESS": "true",  # Force headless mode in tests
     }
 
     # Set test environment
@@ -239,9 +240,11 @@ def setup_test_environment():
 @pytest.fixture
 def skip_if_no_models():
     """Skip test if ML models are not available."""
+
     def _skip_if_no_models():
         try:
             from piedomains.config import get_config
+
             config = get_config()
             model_dir = Path(config.get("model_cache_dir", "model"))
             if not (model_dir / "shallalist").exists():
@@ -255,9 +258,11 @@ def skip_if_no_models():
 @pytest.fixture
 def skip_if_no_network():
     """Skip test if network is not available."""
+
     def _skip_if_no_network():
         try:
             import requests
+
             requests.get("https://httpbin.org/get", timeout=5)
         except Exception:
             pytest.skip("Network not available")

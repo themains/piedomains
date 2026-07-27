@@ -25,6 +25,7 @@ class TestArchiveBatch(unittest.TestCase):
     def tearDown(self):
         """Clean up temporary files."""
         import shutil
+
         if os.path.exists(self.temp_dir):
             shutil.rmtree(self.temp_dir)
 
@@ -35,11 +36,7 @@ class TestArchiveBatch(unittest.TestCase):
         fetcher = ArchiveFetcher(target_date="20100101", max_parallel=1)
 
         # Test with a few well-known domains that should have snapshots
-        test_urls = [
-            "google.com",
-            "wikipedia.org",
-            "cnn.com"
-        ]
+        test_urls = ["google.com", "wikipedia.org", "cnn.com"]
 
         # This is a real integration test - will make actual API calls
         print(f"Testing archive batch fetch with {len(test_urls)} URLs...")
@@ -47,6 +44,7 @@ class TestArchiveBatch(unittest.TestCase):
 
         results = []
         import asyncio
+
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         try:
@@ -61,10 +59,14 @@ class TestArchiveBatch(unittest.TestCase):
 
         # Check that at least some succeeded (archive.org might not have all)
         successful_results = [r for r in results if r.success]
-        print(f"Successfully fetched {len(successful_results)}/{len(test_urls)} archive snapshots")
+        print(
+            f"Successfully fetched {len(successful_results)}/{len(test_urls)} archive snapshots"
+        )
 
         # Should have at least one success for this test to be meaningful
-        self.assertGreater(len(successful_results), 0, "No archive snapshots found - test inconclusive")
+        self.assertGreater(
+            len(successful_results), 0, "No archive snapshots found - test inconclusive"
+        )
 
         # Verify successful results have content
         for result in successful_results:
@@ -82,9 +84,11 @@ class TestArchiveBatch(unittest.TestCase):
         self.assertEqual(fetcher1.max_parallel, 2)  # Default archive setting
         self.assertEqual(fetcher2.max_parallel, 1)  # Explicit setting
 
-        # Check rate limiting config
-        self.assertEqual(fetcher1.cdx_rate_limit, 1.0)  # 1 second between CDX calls
-        self.assertEqual(fetcher1.page_delay, 0.5)  # 0.5 second between page loads
+        # Rate limiting is delegated to the wayback session rather than
+        # hand-rolled sleeps; assert the session is configured, not the sleeps.
+        self.assertIn("search_calls_per_second", fetcher1._session_kwargs)
+        self.assertIn("memento_calls_per_second", fetcher1._session_kwargs)
+        self.assertGreater(fetcher1.search_window.days, 0)
 
     def test_domain_classifier_with_archive_batch(self):
         """Test high-level API with archive batch processing."""
@@ -97,10 +101,7 @@ class TestArchiveBatch(unittest.TestCase):
 
         try:
             # This should use the new batch processing internally
-            result = classifier.classify_by_text(
-                test_domains,
-                archive_date="20100101"
-            )
+            result = classifier.classify_by_text(test_domains, archive_date="20100101")
 
             # Verify we got a list back
             self.assertIsInstance(result, list)
@@ -109,8 +110,10 @@ class TestArchiveBatch(unittest.TestCase):
             print(f"✓ DomainClassifier archive batch returned {len(result)} results")
 
             # Check that at least one domain was processed
-            successful_domains = [r for r in result if r.get('category') is not None]
-            print(f"✓ Successfully classified {len(successful_domains)}/{len(result)} domains from archives")
+            successful_domains = [r for r in result if r.get("category") is not None]
+            print(
+                f"✓ Successfully classified {len(successful_domains)}/{len(result)} domains from archives"
+            )
 
         except Exception as e:
             # Archive.org may be unavailable - this is acceptable for the test

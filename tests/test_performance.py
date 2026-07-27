@@ -87,10 +87,10 @@ class TestPerformanceBenchmarks(unittest.TestCase):
                         "date_time_collected": "2025-12-17T12:00:00Z",
                         "fetch_success": True,
                         "cached": False,
-                        "error": None
+                        "error": None,
                     }
                     for domain in domains
-                ]
+                ],
             }
 
         # Mock classification results
@@ -108,7 +108,7 @@ class TestPerformanceBenchmarks(unittest.TestCase):
                     "confidence": 0.8,
                     "reason": None,
                     "error": None,
-                    "raw_predictions": {"news": 0.8, "other": 0.2}
+                    "raw_predictions": {"news": 0.8, "other": 0.2},
                 }
                 for domain_data in domains_data
             ]
@@ -121,13 +121,27 @@ class TestPerformanceBenchmarks(unittest.TestCase):
 
         for size in test_sizes:
             # Use real domains but mock all network calls
-            real_domains = ["google.com", "cnn.com", "bbc.com", "github.com", "stackoverflow.com",
-                           "wikipedia.org", "reddit.com", "amazon.com", "facebook.com", "twitter.com",
-                           "linkedin.com", "youtube.com", "microsoft.com", "apple.com", "netflix.com"]
+            real_domains = [
+                "google.com",
+                "cnn.com",
+                "bbc.com",
+                "github.com",
+                "stackoverflow.com",
+                "wikipedia.org",
+                "reddit.com",
+                "amazon.com",
+                "facebook.com",
+                "twitter.com",
+                "linkedin.com",
+                "youtube.com",
+                "microsoft.com",
+                "apple.com",
+                "netflix.com",
+            ]
             domains = real_domains[:size]
 
             start_time = time.time()
-            result = self.classifier.classify_by_text(domains)
+            result = self.classifier.classify_by_text(domains)["results"]
             total_time = time.time() - start_time
 
             # Verify results
@@ -172,9 +186,9 @@ class TestPerformanceBenchmarks(unittest.TestCase):
                         "date_time_collected": "2025-12-17T12:00:00Z",
                         "fetch_success": True,
                         "cached": use_cache,  # Simulate cache usage
-                        "error": None
+                        "error": None,
                     }
-                ]
+                ],
             }
 
         # Mock classification
@@ -191,7 +205,7 @@ class TestPerformanceBenchmarks(unittest.TestCase):
                     "confidence": 0.8,
                     "reason": None,
                     "error": None,
-                    "raw_predictions": {"news": 0.8, "other": 0.2}
+                    "raw_predictions": {"news": 0.8, "other": 0.2},
                 }
             ]
 
@@ -200,12 +214,16 @@ class TestPerformanceBenchmarks(unittest.TestCase):
 
         # First call (should use cache)
         start_time = time.time()
-        result1 = self.classifier.classify_by_text(["example.com"], use_cache=True)
+        result1 = self.classifier.classify_by_text(["example.com"], use_cache=True)[
+            "results"
+        ]
         cached_time = time.time() - start_time
 
         # Second call (should also use cache)
         start_time = time.time()
-        result2 = self.classifier.classify_by_text(["example.com"], use_cache=True)
+        result2 = self.classifier.classify_by_text(["example.com"], use_cache=True)[
+            "results"
+        ]
         cached_time2 = time.time() - start_time
 
         # Both should be fast since we're using cache
@@ -228,8 +246,10 @@ class TestPerformanceBenchmarks(unittest.TestCase):
         initial_memory = process.memory_info().rss / 1024 / 1024  # MB
 
         # Mock to avoid actual model loading
-        with patch("piedomains.data_collector.DataCollector.collect") as mock_collect, \
-             patch("piedomains.text.TextClassifier.classify_from_data") as mock_classify:
+        with (
+            patch("piedomains.data_collector.DataCollector.collect") as mock_collect,
+            patch("piedomains.text.TextClassifier.classify_from_data") as mock_classify,
+        ):
 
             def mock_collection(domains, *args, **kwargs):
                 return {
@@ -244,10 +264,10 @@ class TestPerformanceBenchmarks(unittest.TestCase):
                             "date_time_collected": "2025-12-17T12:00:00Z",
                             "fetch_success": True,
                             "cached": False,
-                            "error": None
+                            "error": None,
                         }
                         for domain in domains
-                    ]
+                    ],
                 }
 
             def mock_classification(collection_data, *args, **kwargs):
@@ -264,7 +284,7 @@ class TestPerformanceBenchmarks(unittest.TestCase):
                         "confidence": 0.8,
                         "reason": None,
                         "error": None,
-                        "raw_predictions": {"news": 0.8, "other": 0.2}
+                        "raw_predictions": {"news": 0.8, "other": 0.2},
                     }
                     for domain_data in domains_data
                 ]
@@ -385,10 +405,10 @@ class TestResourceManagement(unittest.TestCase):
                         "date_time_collected": "2025-12-17T12:00:00Z",
                         "fetch_success": True,
                         "cached": False,
-                        "error": None
+                        "error": None,
                     }
                     for domain in domains
-                ]
+                ],
             }
 
         def mock_classification(collection_data, *args, **kwargs):
@@ -405,7 +425,7 @@ class TestResourceManagement(unittest.TestCase):
                     "confidence": 0.8,
                     "reason": None,
                     "error": None,
-                    "raw_predictions": {"news": 0.8, "other": 0.2}
+                    "raw_predictions": {"news": 0.8, "other": 0.2},
                 }
                 for domain_data in domains_data
             ]
