@@ -118,7 +118,7 @@ def get_logger(name: str | None = None) -> logging.Logger:
     """Get a logger instance for piedomains with proper configuration.
 
     Args:
-        name (str, optional): Logger name. If None, uses 'piedomains' as the base logger.
+        name: Logger name. If None, uses 'piedomains' as the base logger.
                              For module-specific loggers, pass __name__.
 
     Returns:
@@ -150,23 +150,20 @@ def configure_logging(
     """Configure logging for the piedomains package with comprehensive options.
 
     Args:
-        level (Union[str, int]): Console logging level. Can be string ('DEBUG', 'INFO', etc.)
+        level: Console logging level. Can be string ('DEBUG', 'INFO', etc.)
                                 or logging constant (logging.INFO, etc.). Defaults to 'INFO'.
-        console_format (str): Console log format style. Options:
+        console_format: Console log format style. Options:
                              - 'default': Standard format with timestamp and level
                              - 'detailed': Detailed format with module/function/line info
                              - 'simple': Simple format with just level and message
                              Defaults to 'default'.
-        file_path (str, optional): Path to log file. If provided, enables file logging.
+        file_path: Path to log file. If provided, enables file logging.
                                   Directory will be created if it doesn't exist.
-        file_level (Union[str, int]): File logging level (if file_path provided).
+        file_level: File logging level (if file_path provided).
                                      Defaults to 'DEBUG' for comprehensive file logs.
-        force_reconfigure (bool): If True, reconfigure even if already configured.
+        force_reconfigure: If True, reconfigure even if already configured.
                                  Defaults to False.
 
-    Raises:
-        ValueError: If an invalid format style or log level is provided.
-        OSError: If the log file directory cannot be created.
 
     Example:
         >>> # Basic console logging
@@ -179,6 +176,10 @@ def configure_logging(
         ...     file_path="/var/log/piedomains/app.log",
         ...     file_level="DEBUG"
         ... )
+
+
+    Raises:
+        ValueError: If an argument is invalid.
     """
     global _configured
 
@@ -261,7 +262,7 @@ def set_level(level: str | int) -> None:
     """Change the logging level for all existing piedomains loggers.
 
     Args:
-        level (Union[str, int]): New logging level. Can be string ('DEBUG', 'INFO', etc.)
+        level: New logging level. Can be string ('DEBUG', 'INFO', etc.)
                                 or logging constant (logging.INFO, etc.).
 
     Example:

@@ -116,7 +116,7 @@ class Config:
         """Initialize configuration.
 
         Args:
-            config_dict (Dict[str, Any]): Optional configuration overrides
+            config_dict: Optional configuration overrides
         """
         self._config = self.DEFAULT_CONFIG.copy()
 
@@ -167,7 +167,7 @@ class Config:
         """Get configuration value.
 
         Args:
-            key (str): Configuration key
+            key: Configuration key
             default: Default value if key not found
 
         Returns:
@@ -179,8 +179,8 @@ class Config:
         """Set configuration value.
 
         Args:
-            key (str): Configuration key
-            value (Any): Configuration value
+            key: Configuration key
+            value: Configuration value
         """
         self._config[key] = value
 
@@ -188,7 +188,7 @@ class Config:
         """Update multiple configuration values.
 
         Args:
-            config_dict (dict[str, Any]): Configuration updates
+            config_dict: Configuration updates
         """
         self._config.update(config_dict)
 
@@ -316,13 +316,13 @@ def set_config(config: Config):
     """Set global configuration instance.
 
     Args:
-        config (Config): Configuration instance to set as global
+        config: Configuration instance to set as global
     """
     global _global_config
     _global_config = config
 
 
-def configure(**kwargs):
+def configure(**kwargs: Any):
     """Configure global settings.
 
     Args:

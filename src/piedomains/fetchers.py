@@ -71,6 +71,12 @@ class BaseFetcher:
     ) -> tuple[bool, str]:
         """Validate URL security before fetching content.
 
+        Args:
+            url: URL to validate.
+            force_fetch: Skip content-safety validation.
+            allow_content_types: Override the allowed content types.
+            ignore_extensions: Skip file-extension validation.
+
         Returns:
             tuple: (is_safe, error_message_or_warnings)
         """
@@ -113,7 +119,7 @@ class BaseFetcher:
         """Extract clean domain name from URL or domain string.
 
         Args:
-            url_or_domain (str): URL or domain name
+            url_or_domain: URL or domain name
 
         Returns:
             str: Clean domain name

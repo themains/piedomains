@@ -38,8 +38,7 @@ class LLMClassifier:
         Args:
             config: LLM configuration object
 
-        Raises:
-            ValueError: If configuration is invalid
+
         """
         self.config = config
         self.usage_stats = {
@@ -614,6 +613,10 @@ class LLMClassifier:
             >>> data = collector.collect(["cnn.com"])
             >>> classifier = LLMClassifier(config)
             >>> results = classifier.classify_from_data(data, mode="multimodal")
+
+
+        Raises:
+            ValueError: If an argument is invalid.
         """
         # Extract domain data from collection metadata
         domains_data = collection_data.get("domains", [])

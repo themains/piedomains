@@ -135,7 +135,7 @@ class Piedomain(Base):
         """Extract domain name from a URL.
 
         Args:
-            url (str): Full URL or domain name
+            url: Full URL or domain name
 
         Returns:
             str: Domain name extracted from URL
@@ -159,7 +159,7 @@ class Piedomain(Base):
         """Validate if input is a valid URL or domain name.
 
         Args:
-            url_or_domain (str): URL or domain name to validate
+            url_or_domain: URL or domain name to validate
 
         Returns:
             bool: True if valid URL or domain, False otherwise
@@ -176,7 +176,7 @@ class Piedomain(Base):
         """Validate if a domain name is properly formatted.
 
         Args:
-            domain (str): Domain name to validate
+            domain: Domain name to validate
 
         Returns:
             bool: True if domain is valid, False otherwise
@@ -234,7 +234,7 @@ class Piedomain(Base):
         """Validate a list of domain names and separate valid from invalid.
 
         Args:
-            domains (list): List of domain names to validate
+            domains: List of domain names to validate
 
         Returns:
             tuple: (valid_domains, invalid_domains)
@@ -260,7 +260,7 @@ class Piedomain(Base):
         """Validate a list of URLs or domains and separate valid from invalid.
 
         Args:
-            urls_or_domains (list): List of URLs or domain names to validate
+            urls_or_domains: List of URLs or domain names to validate
 
         Returns:
             tuple: (valid_inputs, invalid_inputs, url_to_domain_map)
@@ -284,7 +284,7 @@ class Piedomain(Base):
         """Extract clean text content from HTML.
 
         Args:
-            text (str): Raw HTML content
+            text: Raw HTML content
 
         Returns:
             str: Cleaned text with unique lowercase words
@@ -301,10 +301,14 @@ class Piedomain(Base):
         """Clean and normalize text data for model input.
 
         Args:
-            s (str): Raw text string
+            s: Raw text string
 
         Returns:
             str: Cleaned text with English words only, no stopwords or common terms
+
+
+        Raises:
+            AttributeError: If the input is not of the expected type.
         """
         if not isinstance(s, str):
             raise AttributeError("Input must be a string")
@@ -341,8 +345,8 @@ class Piedomain(Base):
 
         Use :class:`~piedomains.fetchers.PlaywrightFetcher` instead.
 
-        Returns:
-            webdriver.Chrome: Headless Chrome driver with optimized settings
+        Raises:
+            NotImplementedError: Always; this path is superseded by Playwright.
         """
         raise NotImplementedError(
             "get_driver is deprecated. Use PlaywrightFetcher from piedomains.fetchers instead."
@@ -355,8 +359,8 @@ class Piedomain(Base):
         Use ``PlaywrightFetcher.fetch_screenshot`` instead.
 
         Args:
-            url_or_domain (str): URL or domain name to screenshot
-            image_dir (str): Directory to save screenshot
+            url_or_domain: URL or domain name to screenshot
+            image_dir: Directory to save screenshot
 
         Returns:
             tuple[bool, str]: (success, error_message)
@@ -375,9 +379,9 @@ class Piedomain(Base):
         Use ``ContentProcessor.extract_image_content`` instead.
 
         Args:
-            input (list): List of domains
-            use_cache (bool): Whether to use cached screenshots
-            image_dir (str): Directory to save screenshots
+            input: List of domains
+            use_cache: Whether to use cached screenshots
+            image_dir: Directory to save screenshots
 
         Returns:
             tuple[list, dict]: (used_domain_screenshot, screenshot_errors)
@@ -396,9 +400,9 @@ class Piedomain(Base):
         """Convert PNG images to TensorFlow tensors for model input.
 
         Args:
-            offline (bool): Whether to process all images in directory
-            domains (list): List of domain names to process
-            image_dir (str): Directory containing PNG files
+            offline: Whether to process all images in directory
+            domains: List of domain names to process
+            image_dir: Directory containing PNG files
 
         Returns:
             dict: Dictionary mapping domain names to image tensors
@@ -425,12 +429,17 @@ class Piedomain(Base):
         """Extract HTML content from URLs or domain homepages.
 
         Args:
-            urls_or_domains (list): List of URLs or domain names
-            use_cache (bool): Whether to use cached HTML files
-            html_path (str): Directory to save HTML files
+            urls_or_domains: List of URLs or domain names
+            use_cache: Whether to use cached HTML files
+            html_path: Directory to save HTML files
 
         Returns:
             dict: Dictionary of errors encountered {domain: error_message}
+
+        Raises:
+            OSError: If the socket-level operation fails after all retries.
+            requests.exceptions.RequestException: If the HTTP request fails
+                after all retries.
         """
         # check if html_path exists
         if not os.path.exists(html_path):
@@ -463,7 +472,6 @@ class Piedomain(Base):
                 }
 
                 # Retry logic with exponential backoff
-                last_exception = None
                 for attempt in range(config.max_retries + 1):
                     try:
                         page = requests.get(
@@ -480,8 +488,7 @@ class Piedomain(Base):
                             f.write(page.text)
                         break  # Success, exit retry loop
 
-                    except (OSError, requests.exceptions.RequestException) as e:
-                        last_exception = e
+                    except (OSError, requests.exceptions.RequestException):
                         if attempt < config.max_retries:
                             wait_time = config.retry_delay * (
                                 2**attempt
@@ -492,7 +499,9 @@ class Piedomain(Base):
                             time.sleep(wait_time)
                         else:
                             # All retries exhausted, raise the last exception
-                            raise last_exception from e
+                            # `last_exception` is this same `e`; a bare re-raise
+                            # keeps the original traceback.
+                            raise
 
             except requests.exceptions.RequestException as e:
                 error_msg = f"HTTP request failed: {e!s}"
@@ -514,9 +523,9 @@ class Piedomain(Base):
         """Extract and clean text content from HTML files.
 
         Args:
-            offline (bool): Whether to process all HTML files in directory
-            input (list[str]): Domain names to process
-            html_path (str): Directory containing HTML files
+            offline: Whether to process all HTML files in directory
+            input: Domain names to process
+            html_path: Directory containing HTML files
 
         Returns:
             tuple: (domains, content) - lists of domain names and cleaned text
@@ -540,8 +549,8 @@ class Piedomain(Base):
         """Load TensorFlow models and calibrators from local cache or download from server.
 
         Args:
-            model_file_name (str): Name of the model file to load
-            latest (bool): Whether to download the latest model version
+            model_file_name: Name of the model file to load
+            latest: Whether to download the latest model version
 
         Note:
             Loads both text and image models plus isotonic regression calibrators.
@@ -580,9 +589,9 @@ class Piedomain(Base):
         """Validate input parameters for prediction functions.
 
         Args:
-            input (list): List of URLs or domain names
-            path (str): Path to HTML or image files
-            type (str): Input type - 'html' or 'image'
+            input: List of URLs or domain names
+            path: Path to HTML or image files
+            type: Input type - 'html' or 'image'
 
         Returns:
             bool: True if operating in offline mode (using local files only)
@@ -617,9 +626,9 @@ class Piedomain(Base):
         """Process a batch of domains for text extraction.
 
         Args:
-            domains_batch (list): Batch of domains to process
-            html_path (str): Path to HTML files
-            use_cache (bool): Whether to use cached files
+            domains_batch: Batch of domains to process
+            html_path: Path to HTML files
+            use_cache: Whether to use cached files
 
         Returns:
             tuple: (domains, content, errors)

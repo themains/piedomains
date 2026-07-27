@@ -131,7 +131,7 @@ def is_valid_category(category: str) -> bool:
     """Check if a category name is valid for classification.
 
     Args:
-        category (str): Category name to validate.
+        category: Category name to validate.
 
     Returns:
         bool: True if category is valid, False otherwise.

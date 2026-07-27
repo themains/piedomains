@@ -41,23 +41,19 @@ def download_file(url: str, target: str, file_name: str, timeout: int = 30) -> b
     the downloaded archive file.
 
     Args:
-        url (str): URL of the remote file to download. Should point to a valid
+        url: URL of the remote file to download. Should point to a valid
                   tar.gz archive containing model data.
-        target (str): Local directory path where the file should be downloaded
+        target: Local directory path where the file should be downloaded
                      and extracted. Directory will be created if it doesn't exist.
-        file_name (str): Name to use for the downloaded file. Should include
+        file_name: Name to use for the downloaded file. Should include
                         appropriate extension (e.g., "model.tar.gz").
-        timeout (int): HTTP request timeout in seconds. Defaults to 30 seconds
+        timeout: HTTP request timeout in seconds. Defaults to 30 seconds
                       for large model files.
 
     Returns:
         bool: True if download and extraction completed successfully,
               False if any error occurred during the process.
 
-    Raises:
-        requests.RequestException: If HTTP download fails (not caught, logged only).
-        tarfile.TarError: If tar extraction fails (not caught, logged only).
-        OSError: If file operations fail (not caught, logged only).
 
     Example:
         >>> success = download_file(
@@ -77,6 +73,7 @@ def download_file(url: str, target: str, file_name: str, timeout: int = 30) -> b
     Note:
         The downloaded tar.gz file is automatically deleted after extraction
         to save disk space. Only the extracted contents remain in the target directory.
+
     """
     # Ensure target directory exists
     target_path = Path(target)
@@ -146,8 +143,8 @@ def is_within_directory(directory: str, target: str) -> bool:
     all symbolic links and relative path components before comparison.
 
     Args:
-        directory (str): The base directory path that should contain the target.
-        target (str): The target file/directory path to validate.
+        directory: The base directory path that should contain the target.
+        target: The target file/directory path to validate.
 
     Returns:
         bool: True if target is within directory, False if it would escape
@@ -203,19 +200,14 @@ def safe_extract(
     each member's path before extraction to ensure it stays within the target directory.
 
     Args:
-        tar (tarfile.TarFile): Open tar file object to extract from.
-        path (str): Directory path where archive should be extracted.
+        tar: Open tar file object to extract from.
+        path: Directory path where archive should be extracted.
                    Defaults to current directory (".").
-        members (list, optional): Specific members to extract. If None,
+        members: Specific members to extract. If None,
                                  extracts all members. Defaults to None.
-        numeric_owner (bool): If True, preserve numeric user/group IDs.
+        numeric_owner: If True, preserve numeric user/group IDs.
                              If False, use current user. Defaults to False.
 
-    Raises:
-        SecurityError: If any archive member attempts path traversal
-                      (would extract outside the target directory).
-        tarfile.TarError: If tar extraction fails for other reasons.
-        OSError: If file system operations fail.
 
     Example:
         >>> import tarfile
@@ -232,6 +224,10 @@ def safe_extract(
         This function should always be used instead of tarfile.extractall()
         when handling archives from untrusted sources, which includes
         downloaded model files.
+
+
+    Raises:
+        SecurityError: If a security validation fails.
     """
     logger.debug(f"Performing secure extraction to {path}")
 
@@ -295,20 +291,23 @@ def get_file_hash(file_path: str, algorithm: str = "sha256") -> str:
     """Calculate cryptographic hash of a file for integrity verification.
 
     Args:
-        file_path (str): Path to the file to hash.
-        algorithm (str): Hash algorithm to use ('md5', 'sha1', 'sha256', 'sha512').
+        file_path: Path to the file to hash.
+        algorithm: Hash algorithm to use ('md5', 'sha1', 'sha256', 'sha512').
                         Defaults to 'sha256' for security.
 
     Returns:
         str: Hexadecimal hash digest of the file.
 
-    Raises:
-        FileNotFoundError: If the specified file doesn't exist.
-        ValueError: If an unsupported hash algorithm is specified.
 
     Example:
         >>> hash_value = get_file_hash("model.tar.gz", "sha256")
         >>> print(f"File hash: {hash_value}")
+
+
+    Raises:
+        FileNotFoundError: If the referenced file does not exist.
+        OSError: If a filesystem operation fails.
+        ValueError: If an argument is invalid.
     """
     import hashlib
 

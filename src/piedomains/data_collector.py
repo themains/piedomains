@@ -87,6 +87,10 @@ class DataCollector:
             >>> data = collector.collect(["cnn.com", "bbc.com"])
             >>> print(data["domains"][0]["text_path"])
             html/cnn.com.html
+
+
+        Raises:
+            ValueError: If an argument is invalid.
         """
         if not domains:
             raise ValueError("domains list cannot be empty")
@@ -262,6 +266,10 @@ class DataCollector:
 
         Returns:
             Dictionary with collection metadata and file paths
+
+
+        Raises:
+            ValueError: If an argument is invalid.
         """
         if not domains:
             raise ValueError("domains list cannot be empty")

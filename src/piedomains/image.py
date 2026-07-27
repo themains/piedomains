@@ -26,8 +26,8 @@ class ImageClassifier(Base):
         """Initialize image classifier.
 
         Args:
-            cache_dir (str, optional): Directory for caching content
-            archive_date (str, optional): Date for archive.org snapshots
+            cache_dir: Directory for caching content
+            archive_date: Date for archive.org snapshots
         """
         self.cache_dir = Path(cache_dir or "cache")
         self.archive_date = archive_date
@@ -295,7 +295,7 @@ class ImageClassifier(Base):
         """Generate predictions for image tensor.
 
         Args:
-            image_tensor (np.ndarray): Preprocessed image array
+            image_tensor: Preprocessed image array
 
         Returns:
             Dict: Prediction results

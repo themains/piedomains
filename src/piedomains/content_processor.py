@@ -25,8 +25,8 @@ class ContentProcessor:
         """Initialize content processor.
 
         Args:
-            cache_dir (str, optional): Directory for caching content
-            archive_date (str, optional): Date for archive.org snapshots (YYYYMMDD format)
+            cache_dir: Directory for caching content
+            archive_date: Date for archive.org snapshots (YYYYMMDD format)
         """
         self.config = get_config()
         self.cache_dir = cache_dir or "cache"
@@ -49,9 +49,9 @@ class ContentProcessor:
         Uses unified Playwright fetcher for everything.
 
         Args:
-            domains (List[str]): List of domain names or URLs
-            use_cache (bool): Whether to use cached content
-            parallel (bool): Whether to fetch in parallel
+            domains: List of domain names or URLs
+            use_cache: Whether to use cached content
+            parallel: Whether to fetch in parallel
 
         Returns:
             Dict[str, dict]: Results keyed by domain name
@@ -172,11 +172,11 @@ class ContentProcessor:
         Maintains backwards compatibility with existing API.
 
         Args:
-            domains (List[str]): List of domain names or URLs
-            use_cache (bool): Whether to use cached HTML files
-            force_fetch (bool): Skip security validation (dangerous)
-            allow_content_types (list): Override allowed content types
-            ignore_extensions (bool): Skip file extension validation
+            domains: List of domain names or URLs
+            use_cache: Whether to use cached HTML files
+            force_fetch: Skip security validation (dangerous)
+            allow_content_types: Override allowed content types
+            ignore_extensions: Skip file extension validation
 
         Returns:
             Tuple[Dict[str, str], Dict[str, str]]: (html_content_dict, errors_dict)
@@ -208,11 +208,11 @@ class ContentProcessor:
         Maintains backwards compatibility with existing API.
 
         Args:
-            domains (List[str]): List of domain names or URLs
-            use_cache (bool): Whether to use cached content
-            force_fetch (bool): Skip security validation (dangerous)
-            allow_content_types (list): Override allowed content types
-            ignore_extensions (bool): Skip file extension validation
+            domains: List of domain names or URLs
+            use_cache: Whether to use cached content
+            force_fetch: Skip security validation (dangerous)
+            allow_content_types: Override allowed content types
+            ignore_extensions: Skip file extension validation
 
         Returns:
             Tuple[Dict[str, str], Dict[str, str]]: (processed_text_dict, errors_dict)
@@ -243,10 +243,10 @@ class ContentProcessor:
         Maintains backwards compatibility with existing API.
 
         Args:
-            domains (List[str]): List of domain names or URLs
-            use_cache (bool): Whether to use cached images
-            force_fetch (bool): Skip security validation (dangerous)
-            ignore_extensions (bool): Skip file extension validation
+            domains: List of domain names or URLs
+            use_cache: Whether to use cached images
+            force_fetch: Skip security validation (dangerous)
+            ignore_extensions: Skip file extension validation
 
         Returns:
             Tuple[Dict[str, str], Dict[str, str]]: (image_paths_dict, errors_dict)
@@ -270,7 +270,7 @@ class ContentProcessor:
         """Convert images to numpy arrays for model input.
 
         Args:
-            image_paths (Dict[str, str]): Domain name to image path mapping
+            image_paths: Domain name to image path mapping
 
         Returns:
             Dict[str, np.ndarray]: Domain name to image tensor mapping
@@ -322,7 +322,7 @@ class ContentProcessor:
         """Extract clean domain name from URL or domain string.
 
         Args:
-            url_or_domain (str): URL or domain name
+            url_or_domain: URL or domain name
 
         Returns:
             str: Clean domain name

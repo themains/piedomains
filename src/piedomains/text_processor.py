@@ -59,7 +59,7 @@ class TextProcessor:
         """Extract clean, visible text from HTML content.
 
         Args:
-            html_content (str): Raw HTML content
+            html_content: Raw HTML content
 
         Returns:
             str: Cleaned visible text content
@@ -105,10 +105,14 @@ class TextProcessor:
         Removes numbers, punctuation, non-English words, stopwords, and common terms.
 
         Args:
-            text (str): Raw text to clean
+            text: Raw text to clean
 
         Returns:
             str: Cleaned text with English words only, no stopwords or common terms
+
+
+        Raises:
+            AttributeError: If the input is not of the expected type.
         """
         if not isinstance(text, str):
             raise AttributeError("Input must be a string")
@@ -156,7 +160,7 @@ class TextProcessor:
         """Complete pipeline: extract text from HTML and clean it.
 
         Args:
-            html_content (str): Raw HTML content
+            html_content: Raw HTML content
 
         Returns:
             str: Clean, processed text ready for model input

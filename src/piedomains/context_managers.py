@@ -3,8 +3,9 @@
 import os
 import shutil
 import tempfile
-from collections.abc import Generator
+from collections.abc import Callable, Generator
 from contextlib import contextmanager
+from typing import Any
 
 from .fetchers import PlaywrightFetcher
 from .piedomains_logging import get_logger
@@ -42,6 +43,10 @@ def playwright_context() -> Generator[PlaywrightFetcher, None, None]:
         PlaywrightFetcher: Playwright fetcher instance
 
     Ensures proper cleanup of Playwright resources.
+
+
+    Raises:
+        Exception: Propagated from the wrapped operation after cleanup.
     """
     fetcher = None
     try:
@@ -66,13 +71,17 @@ def temporary_directory(
     """Context manager for temporary directories.
 
     Args:
-        suffix (str): Directory name suffix
-        prefix (str): Directory name prefix
+        suffix: Directory name suffix
+        prefix: Directory name prefix
 
     Yields:
         str: Path to temporary directory
 
     Ensures cleanup of temporary directories.
+
+
+    Raises:
+        Exception: Propagated from the wrapped operation after cleanup.
     """
     temp_dir = None
     try:
@@ -118,17 +127,21 @@ def file_cleanup(*file_paths: str) -> Generator[None, None, None]:
 
 @contextmanager
 def error_recovery(
-    operation_name: str, fallback_value=None, reraise: bool = False
-) -> Generator:
+    operation_name: str, fallback_value: Any = None, reraise: bool = False
+) -> Generator[dict[str, Any], None, None]:
     """Context manager for error recovery with logging.
 
     Args:
-        operation_name (str): Name of the operation for logging
+        operation_name: Name of the operation for logging
         fallback_value: Value to return on error (if not reraising)
-        reraise (bool): Whether to reraise exceptions
+        reraise: Whether to reraise exceptions
 
     Yields:
-        dict: Dictionary with 'success', 'error', 'result' keys
+        dict[str, Any]: Dictionary with 'success', 'error', 'result' keys
+
+
+    Raises:
+        Exception: Propagated from the wrapped operation after cleanup.
     """
     result = {"success": False, "error": None, "result": fallback_value}
 
@@ -150,15 +163,19 @@ def error_recovery(
 @contextmanager
 def batch_progress_tracking(
     total_items: int, operation_name: str = "Processing"
-) -> Generator:
+) -> Generator[Callable[[int], None], None, None]:
     """Context manager for tracking batch processing progress.
 
     Args:
-        total_items (int): Total number of items to process
-        operation_name (str): Name of the operation
+        total_items: Total number of items to process
+        operation_name: Name of the operation
 
     Yields:
-        callable: Function to update progress
+        Callable[[int], None]: Function to update progress
+
+
+    Raises:
+        Exception: Propagated from the wrapped operation after cleanup.
     """
     processed = {"count": 0}
 

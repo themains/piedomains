@@ -61,9 +61,9 @@ class Base:
         4. Returns the local path to model data for loading
 
         Args:
-            file_name (str): Name of the model data file to download (e.g., "model.zip").
+            file_name: Name of the model data file to download (e.g., "model.zip").
                            This should be the filename as it exists in the remote repository.
-            latest (bool): If True, forces download of latest model data even if
+            latest: If True, forces download of latest model data even if
                           local files exist. Useful for model updates. Defaults to False.
 
         Returns:
@@ -71,9 +71,6 @@ class Base:
                  and extracted model files. Returns empty string if MODELFN is not set
                  or if download fails.
 
-        Raises:
-            OSError: If model directory cannot be created due to permission issues.
-            ConnectionError: If model download fails due to network issues.
 
         Example:
             >>> class TextClassifier(Base):
@@ -92,6 +89,12 @@ class Base:
               or if latest=True is specified
             - Model files are cached locally to avoid repeated downloads
             - Downloads happen only on first use or when explicitly requested
+
+
+        Raises:
+            ConnectionError: If the network connection fails.
+            Exception: Propagated from the wrapped operation after cleanup.
+            OSError: If a filesystem operation fails.
         """
         model_path = ""
 
@@ -200,8 +203,11 @@ class Base:
 
         return info
 
-    def __init_subclass__(cls, **kwargs):
+    def __init_subclass__(cls, **kwargs: object):
         """Validate subclass configuration when class is defined.
+
+        Args:
+            **kwargs: Forwarded to ``super().__init_subclass__``.
 
         Raises:
             ValueError: If MODELFN is not properly set by subclass.

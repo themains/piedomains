@@ -26,8 +26,8 @@ class TextClassifier(Base):
         """Initialize text classifier.
 
         Args:
-            cache_dir (str, optional): Directory for caching content
-            archive_date (str, optional): Date for archive.org snapshots
+            cache_dir: Directory for caching content
+            archive_date: Date for archive.org snapshots
         """
         self.cache_dir = Path(cache_dir or "cache")
         self.archive_date = archive_date
@@ -360,7 +360,7 @@ class TextClassifier(Base):
         """Generate predictions for processed text.
 
         Args:
-            text (str): Cleaned, processed text
+            text: Cleaned, processed text
 
         Returns:
             Dict: Prediction results

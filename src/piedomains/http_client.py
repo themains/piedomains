@@ -1,6 +1,7 @@
 """HTTP client with connection pooling and session management for improved performance."""
 
 import time
+from collections.abc import Generator
 from contextlib import contextmanager
 
 import requests
@@ -59,20 +60,24 @@ class PooledHTTPClient:
         """Perform HTTP GET with retry logic and connection pooling.
 
         Args:
-            url (str): URL to fetch
-            timeout (float): Request timeout (uses config default if None)
+            url: URL to fetch
+            timeout: Request timeout (uses config default if None)
             **kwargs: Additional arguments passed to requests.get
 
         Returns:
             requests.Response: HTTP response
 
+
+
+
+
         Raises:
-            requests.exceptions.RequestException: On final failure after retries
+            OSError: If the socket-level operation fails after all retries.
+            requests.exceptions.RequestException: If the HTTP request fails
+                after all retries.
         """
         if timeout is None:
             timeout = self._config.http_timeout
-
-        last_exception = None
 
         for attempt in range(self._config.max_retries + 1):
             try:
@@ -83,7 +88,6 @@ class PooledHTTPClient:
                 return response
 
             except (OSError, requests.exceptions.RequestException) as e:
-                last_exception = e
                 if attempt < self._config.max_retries:
                     wait_time = self._config.retry_delay * (2**attempt)
                     logger.debug(
@@ -94,7 +98,9 @@ class PooledHTTPClient:
                     logger.error(
                         f"HTTP GET failed for {url} after {self._config.max_retries + 1} attempts: {e}"
                     )
-                    raise last_exception from e
+                    # `last_exception` is this same `e`; a bare re-raise keeps
+                    # the original traceback and is a resolvable type.
+                    raise
 
         # Only reachable if max_retries + 1 <= 0, i.e. the loop never ran.
         raise requests.exceptions.RequestException(
@@ -122,11 +128,15 @@ _global_client = None
 
 
 @contextmanager
-def http_client():
+def http_client() -> Generator[PooledHTTPClient, None, None]:
     """Context manager for getting a pooled HTTP client.
 
     Yields:
         PooledHTTPClient: HTTP client with connection pooling
+
+
+    Raises:
+        Exception: Propagated from the wrapped operation after cleanup.
     """
     global _global_client
 

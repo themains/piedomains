@@ -131,7 +131,7 @@ class DomainClassifier:
         """Initialize domain classifier.
 
         Args:
-            cache_dir (str, optional): Directory for caching downloaded content.
+            cache_dir: Directory for caching downloaded content.
                                      Defaults to "cache" in current directory.
         """
         self.cache_dir = cache_dir or "cache"
@@ -247,12 +247,12 @@ class DomainClassifier:
         textual content and homepage screenshots for maximum accuracy.
 
         Args:
-            domains (list[str]): List of domain names or URLs to classify
+            domains: List of domain names or URLs to classify
                                e.g., ["google.com", "https://facebook.com/page"]
-            archive_date (str or datetime, optional): For historical analysis.
+            archive_date: For historical analysis.
                                                     Format: "YYYYMMDD" or datetime object
-            use_cache (bool): Whether to reuse cached content (default: True)
-            latest (bool): Whether to download latest model versions (default: False)
+            use_cache: Whether to reuse cached content (default: True)
+            latest: Whether to download latest model versions (default: False)
 
         Returns:
             list[dict]: Classification results in JSON format with fields:
@@ -272,14 +272,13 @@ class DomainClassifier:
                 - image_confidence: Image confidence
                 - raw_predictions: Full probability distributions
 
-        Raises:
-            ValueError: If domains list is empty
 
         Example:
             >>> classifier = DomainClassifier()
             >>> results = classifier.classify(["cnn.com", "bbc.com"])
             >>> print(f"{results[0]['domain']}: {results[0]['category']} ({results[0]['confidence']:.3f})")
             cnn.com: news (0.876)
+
         """
         return self._run(domains, "combined", archive_date, use_cache, latest)
 
@@ -296,10 +295,10 @@ class DomainClassifier:
         screenshots are not needed.
 
         Args:
-            domains (list[str]): List of domain names or URLs to classify
-            archive_date (str or datetime, optional): For historical analysis
-            use_cache (bool): Whether to reuse cached content (default: True)
-            latest (bool): Whether to download latest model versions (default: False)
+            domains: List of domain names or URLs to classify
+            archive_date: For historical analysis
+            use_cache: Whether to reuse cached content (default: True)
+            latest: Whether to download latest model versions (default: False)
 
         Returns:
             list[dict]: Text classification results in JSON format with fields:
@@ -336,10 +335,10 @@ class DomainClassifier:
         is minimal or misleading.
 
         Args:
-            domains (list[str]): List of domain names or URLs to classify
-            archive_date (str or datetime, optional): For historical analysis
-            use_cache (bool): Whether to reuse cached content (default: True)
-            latest (bool): Whether to download latest model versions (default: False)
+            domains: List of domain names or URLs to classify
+            archive_date: For historical analysis
+            use_cache: Whether to reuse cached content (default: True)
+            latest: Whether to download latest model versions (default: False)
 
         Returns:
             list[dict]: Image classification results in JSON format with fields:
@@ -432,8 +431,6 @@ class DomainClassifier:
                 - reason: LLM reasoning explanation
                 - error: Error message if classification failed
 
-        Raises:
-            RuntimeError: If LLM not configured
 
         Example:
             >>> classifier = DomainClassifier()
@@ -441,6 +438,11 @@ class DomainClassifier:
             >>> results = classifier.classify_by_llm(["cnn.com", "amazon.com"])
             >>> print(f"{results[0]['domain']}: {results[0]['category']} - {results[0]['reason']}")
             cnn.com: news - This domain contains current events and journalism content
+
+
+        Raises:
+            RuntimeError: If the operation cannot be completed in the current state.
+            ValueError: If an argument is invalid.
         """
         if self._llm_classifier is None:
             raise RuntimeError("LLM not configured. Call configure_llm() first.")
@@ -472,8 +474,6 @@ class DomainClassifier:
         Returns:
             list[dict]: Multimodal LLM classification results in JSON format
 
-        Raises:
-            RuntimeError: If LLM not configured
 
         Example:
             >>> classifier = DomainClassifier()
@@ -481,6 +481,7 @@ class DomainClassifier:
             >>> results = classifier.classify_by_llm_multimodal(["cnn.com"])
             >>> print(f"{results[0]['domain']}: {results[0]['category']} - {results[0]['reason']}")
             cnn.com: news - Based on text content and visual layout typical of news websites
+
         """
         return self.classify_by_llm(
             domains=domains,
@@ -522,11 +523,11 @@ class DomainClassifier:
         - Reproducible analysis workflows
 
         Args:
-            domains (list[str]): List of domain names or URLs to collect content for
-            archive_date (str or datetime, optional): For historical analysis
-            collection_id (str, optional): Identifier for this collection
-            use_cache (bool): Whether to use cached content when available
-            batch_size (int): Number of domains to process in parallel
+            domains: List of domain names or URLs to collect content for
+            archive_date: For historical analysis
+            collection_id: Identifier for this collection
+            use_cache: Whether to use cached content when available
+            batch_size: Number of domains to process in parallel
 
         Returns:
             dict: Collection metadata with file paths for downstream inference
@@ -568,10 +569,10 @@ class DomainClassifier:
         """Perform inference on previously collected content.
 
         Args:
-            collection_data (dict): Collection metadata from collect_content()
-            method (str): Classification method - "text", "images", "combined", or "llm"
-            output_file (str, optional): Path to save JSON results
-            latest (bool): Whether to use latest model versions (default: False)
+            collection_data: Collection metadata from collect_content()
+            method: Classification method - "text", "images", "combined", or "llm"
+            output_file: Path to save JSON results
+            latest: Whether to use latest model versions (default: False)
 
         Returns:
             list[dict]: Classification results in JSON format
@@ -582,6 +583,11 @@ class DomainClassifier:
             >>> results = classifier.classify_from_collection(collection, method="text")
             >>> print(results[0]["category"])
             news
+
+
+        Raises:
+            RuntimeError: If the operation cannot be completed in the current state.
+            ValueError: If an argument is invalid.
         """
         if method not in ["text", "images", "combined", "llm"]:
             raise ValueError("method must be 'text', 'images', 'combined', or 'llm'")
