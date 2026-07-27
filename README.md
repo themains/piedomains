@@ -20,8 +20,8 @@
 **Breaking:** image classification is unavailable while the screenshot model is retrained,
 so `classify()` is text-only and `classify_by_images()` raises. This changes no labels —
 the old "combined" path returned the text label every time and only averaged the
-confidences, so the image model could not affect an answer. See
-[CHANGELOG.md](CHANGELOG.md).
+confidences, so the image model could not affect an answer. See the
+[changelog](https://github.com/themains/piedomains/blob/main/CHANGELOG.md).
 
 ## Installation
 
