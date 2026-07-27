@@ -260,6 +260,35 @@ class PlaywrightFetcher(BaseFetcher):
             }
         )
 
+    @staticmethod
+    async def _content_after_navigation(page: Page, timeout: int) -> str:
+        """Read page HTML, tolerating a redirect in flight.
+
+        Args:
+            page: The page to read.
+            timeout: Navigation timeout in milliseconds.
+
+        Returns:
+            str: The page HTML, or ``""`` if it could not be read.
+
+        Raises:
+            Exception: Re-raised when the failure is not a navigation race, or
+                when the retries are exhausted.
+        """
+        for attempt in range(3):
+            try:
+                return await page.content()
+            except Exception as e:
+                if "navigating" not in str(e).lower() or attempt == 2:
+                    raise
+                # Let the redirect land, then read the destination.
+                with contextlib.suppress(Exception):
+                    await page.wait_for_load_state(
+                        "domcontentloaded", timeout=min(timeout, 10000)
+                    )
+                await page.wait_for_timeout(500)
+        return ""
+
     async def _extract_from_page(
         self, page: Page, url: str, screenshot_path: str | None = None
     ) -> FetchResult:
@@ -282,8 +311,12 @@ class PlaywrightFetcher(BaseFetcher):
             with contextlib.suppress(Exception):
                 await page.wait_for_load_state("networkidle", timeout=quiet)
 
-            # Extract HTML
-            result.html = await page.content()
+            # Extract HTML. A site that redirects after DOMContentLoaded (e.g.
+            # outlook.com -> login) can be mid-navigation here, and page.content()
+            # raises "Unable to retrieve content because the page is navigating".
+            # `networkidle` used to mask this by waiting for the redirect to
+            # finish; wait explicitly instead of going back to it.
+            result.html = await self._content_after_navigation(page, timeout)
 
             blocked = detect_block(result.html, domain=self._parse_domain_name(url))
             if blocked:

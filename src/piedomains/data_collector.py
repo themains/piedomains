@@ -439,6 +439,9 @@ class DataCollector:
                                 "fetch_success": False,
                                 "cached": False,
                                 "error": result.error,
+                                # Same as the single-domain path: without this a
+                                # detected bot wall arrives as `unknown`.
+                                "error_code": result.error_code or None,
                             }
                         )
 
