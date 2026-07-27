@@ -5,6 +5,190 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0] - 2026-07-26
+
+> **Versioning note.** Under the py-canon standard the git tag *is* the version
+> (`uv-dynamic-versioning`); there are no version strings in source. Tags in this repo
+> stopped at `v0.3.2`, while 0.4.0–0.5.0 were published to PyPI by manual
+> `workflow_dispatch` off the old static `project.version`, leaving no tags and no GitHub
+> Releases behind. That history cannot be recovered, and tagging guessed commits would
+> fabricate it, so it is left alone.
+>
+> **The 0.6.0 entry below was never published.** PyPI went 0.5.0 → 0.7.0; everything
+> documented under 0.6.0 ships inside this release. It is kept as a separate entry
+> because it is a distinct, breaking API change and folding it in would misrepresent
+> when the work happened.
+
+Measured on `tests/eval/labels.csv` (44 domains, `training/evaluate.py --method text`),
+against the same model and the same labels — this release changes only how pages are
+acquired:
+
+| | before | after |
+|---|---|---|
+| domains accounted for | 33 | **44** |
+| accuracy | 0.267 | **0.395** |
+| macro-F1 | 0.191 | **0.262** |
+| ECE | 0.219 | **0.210** |
+| failures | silent, or `unknown` | every one named |
+
+On the 33 domains the old pipeline returned at all, accuracy goes 0.267 → 0.407 and
+macro-F1 0.191 → 0.301. The remaining gap to the 71.3% reported at training time is the
+model, not acquisition; see `training/README.md`.
+
+### Added
+
+- **Bot walls are detected and recovered, not silently classified.** DataDome, Cloudflare,
+  Akamai, Imperva and PerimeterX interstitials were previously classified as if they were
+  the site — a ~1470-byte CAPTCHA stub whose only visible text is the domain name. They are
+  now identified (`piedomains.blocking`) and the page is refetched from archive.org, which
+  already holds it. Recovered rows carry `source: "archive"` and the realized
+  `snapshot_timestamp`; the run report gains `by_source`.
+
+  Detection is tiered on purpose. `reddit`, `walmart`, `tinyurl`, `quora` and
+  `bankofamerica` all serve real pages while embedding reCAPTCHA, PerimeterX or a
+  Turnstile widget, so an ambiguous marker only counts when the page also *looks* like an
+  interstitial. Treating those as blocks would have discarded good classifications.
+
+- **A capture older than `archive_max_age_days` (default 365) is refused** rather than
+  passed off as the current page. A domain whose only captures are years old reports
+  `cannot_classify` instead of being labelled from a page that no longer exists.
+
+- **Refusal instead of a confident guess on empty pages.** Below `min_tokens` (default 30)
+  the model returns its prior — `recreation` 0.31, `shopping` 0.21, `porn` 0.19 on empty
+  input — which is where results like `facebook.com → porn` came from. Such rows now report
+  `thin_content` and no category.
+
+### Added
+- **Run reports.** `classify()`, `classify_by_text()` and `classify_by_images()` now return
+  `{"results": [...], "report": {...}}`. The report gives `total`/`classified`/`failed`,
+  `by_reason`, `by_stage`, `elapsed_ms`, and `missing` — the explicit list of domains that
+  produced no classification.
+- **Outcome taxonomy** (`piedomains.outcomes`): every result row carries `status`,
+  `stage` (`validate`/`fetch`/`process`/`infer`), a stable `error_code` and `retryable`,
+  so failures across a large URL list can be grouped without string-matching.
+- **Structured logging**: `PIEDOMAINS_LOG_FORMAT=json` emits JSON lines; `bind_context()`
+  threads a `run_id` (plus `domain`/`stage`/`error_code`) through every record so logs join
+  against the report. Human-readable text remains the default.
+- `classify_domains` CLI gained `--report PATH`, prints a failure summary to stderr, and
+  exits non-zero when any domain failed.
+
+- **Archive snapshots now report what was actually fetched**: results and collection
+  metadata carry `snapshot_timestamp` (the realized capture), not just the requested date.
+
+### Changed
+- **BREAKING**: the top-level `classify*` functions return a dict envelope rather than a
+  bare list. Use `run["results"]` for the rows.
+- **archive.org now goes through the [`wayback`](https://github.com/edgi-govdata-archiving/wayback)
+  library** (CDX + Memento) instead of ~850 lines of hand-rolled availability-API calls,
+  sleeps and toolbar stripping. Text is fetched raw via `id_` playback — no browser
+  needed — and screenshots render via `if_`, which hides the Wayback toolbar while keeping
+  archived CSS and images.
+- **Only status-200 captures are used.** Previously an archived 301 or 404 was fetched and
+  classified as though it were real content.
+- The cache key now includes the archive date, so a live fetch and snapshots from
+  different years no longer overwrite each other.
+- Archive config replaced: `archive_cdx_rate_limit`, `archive_page_delay`,
+  `archive_retry_on_429` and `archive_429_wait_time` gave way to `archive_window_days`,
+  `archive_search_rate`, `archive_memento_rate`, `archive_retries`, `archive_backoff`,
+  `archive_render_settle_ms` and `archive_screenshot_timeout`.
+
+- `piedomains.__version__` is now derived from installed distribution metadata via
+  `importlib.metadata`, per the fleet standard — no version string in source.
+- **Publishing keeps the legacy `python-publish.yml` workflow on purpose.** This project's
+  PyPI trusted publisher predates py-canon adoption and is keyed to that filename with
+  environment `pypi`; OIDC claims reference the workflow *file*, so moving publishing into
+  `release.yml` would break trusted publishing until the pypi.org config changes. The
+  publish job is therefore stripped from `release.yml`. It also triggers on the tag rather
+  than `release: published`, because releases created by the reusable workflow use
+  `GITHUB_TOKEN`, and GitHub does not fire workflow triggers for `GITHUB_TOKEN` events.
+
+### Removed
+- `piedomains.archive_org_downloader` — dead in production (nothing in `src/` imported it)
+  and a partial duplicate of `ArchiveFetcher`.
+
+### Fixed
+- **`networkidle` was losing whole sites.** Page loads waited for network quiet, which never
+  arrives on a chatty page: `theverge`, `stackoverflow` and `weather.com` timed out entirely
+  (3 of 10 popular sites tested) and `outlook.com` yielded **1** usable token against 414.
+  Loads now wait for the DOM, settle briefly, then race a *capped* network-quiet window, so
+  `nytimes.com` keeps the extra text it genuinely gains without the 20-second cliff.
+- **Failed fetches were cached and silently reused.** `spotify.com` sat in the cache with 8
+  usable tokens against 292 on a live refetch, so evaluation partly measured stale failures.
+  A page that renders under `min_tokens` words now fails the fetch, and nothing is written.
+- **A navigation timeout reached callers as `unknown`**, hiding the most common fetch failure
+  and preventing the archive fallback from being tried at all.
+- **Batch collection dropped `error_code` and `snapshot_timestamp`.** Only the single-domain
+  path carried them, so every real run (anything over ten domains) reported a detected bot
+  wall as `unknown` and gave no way to tell which capture an archive batch used.
+- `archive.org` being rate-limited no longer hardens into a terminal `cannot_classify`.
+  Throttling says nothing about the domain, so that verdict stays retryable.
+- The archive toolbar stripper matched **nothing**: `find_all(["script","link","div"],
+  attrs={"src":…, "href":…})` requires *both* attributes to match, so a `<script src=…>`
+  never matched. Moot now that `id_` returns the raw capture.
+- A failed screenshot no longer reports an `image_path` pointing at a file that does not
+  exist, which made downstream image classification fail on a missing file.
+- Archived screenshots no longer stall on "waiting for fonts to load" — fonts, media,
+  websockets and manifests are blocked during the archive render.
+- Adopted the py-canon packaging standard: `src/` layout, ruff-only linting,
+  pyright type checking, PEP 735 dependency groups, and reusable CI/docs/release
+  workflows.
+- Version is now derived from the git tag via `uv-dynamic-versioning` rather than
+  a static `project.version`.
+
+### Fixed
+- `classify_domains` console script pointed at a nonexistent module
+  (`piedomains.domain:main`) and could never run. Implemented the CLI.
+- `pytest` no longer forces coverage reports on every local run.
+
+## [0.6.0] - 2025-12-17
+
+### 💥 BREAKING CHANGES
+- **API Modernization**: Complete removal of DataFrame outputs in favor of pure JSON responses
+- **Deprecated Method Removal**: Removed `collect_data()` → Use `collect_content()`
+- **Deprecated Parameter Removal**: Removed `latest_models` → Use `latest`
+- **Deprecated Alias Removal**: Removed `classify_from_data()` → Use `classify_from_collection()`
+- **No Backward Compatibility**: Clean break from v0.5.x for cleaner, maintainable codebase
+
+### 🎯 API Improvements
+- **Consistent Parameter Naming**: Unified `latest` parameter across all classification methods
+- **JSON-Only Responses**: All methods now return `List[Dict]` with consistent schema
+- **Separated Workflow**: Clear distinction between data collection and inference phases
+- **Method Naming**: More intuitive method names following verb-noun patterns
+
+### 📋 Comprehensive Documentation
+- **JSON Schema Documentation**: Complete schema definitions for all API responses
+- **Field Documentation**: Detailed field descriptions with data types and examples
+- **Supported Categories**: Full list of 41 Shallalist categories with examples
+- **Updated Examples**: All examples updated to demonstrate new JSON-only API
+
+### 🧪 Testing & Quality
+- **Updated Test Suite**: All tests migrated to new API methods and JSON expectations
+- **Linting Compliance**: Full `ruff` compliance with automatic formatting
+- **Example Updates**: All demonstration scripts updated for new API
+- **Documentation Sync**: README, examples, and docstrings fully synchronized
+
+### 🏗️ Code Quality
+- **Removed Dead Code**: Eliminated all deprecated compatibility shims and warnings
+- **Cleaner Imports**: Removed unused imports and circular dependency risks
+- **Consistent Error Messages**: Standardized error messages and exception handling
+- **Type Consistency**: Better type hints and consistent return types
+
+### 🚀 Migration Guide
+For users upgrading from v0.5.x:
+
+```python
+# OLD (v0.5.x) - No longer supported
+result = classifier.classify(domains)
+df = pd.DataFrame(result)  # DataFrame access
+data = classifier.collect_data(domains)  # Deprecated method
+classifier.classify_from_data(data, latest_models=True)  # Deprecated parameter
+
+# NEW (v0.6.0) - Required changes
+results = classifier.classify(domains)  # Returns List[Dict] directly
+collection = classifier.collect_content(domains)  # New method name
+classifier.classify_from_collection(collection, latest=True)  # New parameter name
+```
+
 ## [0.5.0] - 2025-12-17
 
 ### 🚀 Major Features

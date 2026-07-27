@@ -1,0 +1,449 @@
+#!/usr/bin/env python
+
+"""
+Performance benchmark tests for piedomains.
+Tests timing, memory usage, and scalability.
+"""
+
+import os
+import shutil
+import tempfile
+import time
+import unittest
+from unittest.mock import patch
+
+import pytest
+
+from piedomains.api import DomainClassifier
+from piedomains.text_processor import TextProcessor
+from tests.conftest import skip_in_ci
+
+
+class TestPerformanceBenchmarks(unittest.TestCase):
+    """Performance benchmark tests."""
+
+    def setUp(self):
+        """Set up test environment."""
+        self.temp_dir = tempfile.mkdtemp()
+        self.classifier = DomainClassifier(cache_dir=self.temp_dir)
+
+    def tearDown(self):
+        """Clean up temporary files."""
+        if os.path.exists(self.temp_dir):
+            shutil.rmtree(self.temp_dir)
+
+    def test_text_processing_performance(self):
+        """Benchmark text processing speed."""
+        # Test text processing with various input sizes
+        test_html = (
+            """
+        <html><head><title>Test Page</title></head>
+        <body>
+            <h1>Welcome to Test Site</h1>
+            <p>This is a test paragraph with some content about news and politics.</p>
+            <div>More content here about technology and science.</div>
+            <script>console.log('ignore this');</script>
+        </body></html>
+        """
+            * 10
+        )  # Make it moderately larger for testing
+
+        processor = TextProcessor()
+
+        # Benchmark text extraction
+        start_time = time.time()
+        extracted_text = processor.extract_text_from_html(test_html)
+        extraction_time = time.time() - start_time
+
+        # Should complete quickly (under 2 seconds for reasonable HTML)
+        self.assertLess(extraction_time, 2.0)
+        self.assertIsInstance(extracted_text, str)
+        self.assertGreater(len(extracted_text), 0)
+
+        # Benchmark text cleaning
+        start_time = time.time()
+        cleaned_text = processor.clean_and_normalize_text(extracted_text)
+        cleaning_time = time.time() - start_time
+
+        self.assertLess(cleaning_time, 5.0)  # More generous for text normalization
+        self.assertIsInstance(cleaned_text, str)
+
+    @patch("piedomains.api.DomainClassifier.collect_content")
+    @patch("piedomains.text.TextClassifier.classify_from_data")
+    def test_batch_processing_scalability(self, mock_classify, mock_collect_content):
+        """Test scalability of batch processing."""
+
+        # Mock data collection results
+        def mock_collection(domains, *args, **kwargs):
+            return {
+                "collection_id": "test_collection",
+                "timestamp": "2025-12-17T12:00:00Z",
+                "domains": [
+                    {
+                        "url": domain,
+                        "domain": domain,
+                        "text_path": f"html/{domain}.html",
+                        "image_path": f"images/{domain}.png",
+                        "date_time_collected": "2025-12-17T12:00:00Z",
+                        "fetch_success": True,
+                        "cached": False,
+                        "error": None,
+                    }
+                    for domain in domains
+                ],
+            }
+
+        # Mock classification results
+        def mock_classification(collection_data, *args, **kwargs):
+            domains_data = collection_data.get("domains", [])
+            return [
+                {
+                    "url": domain_data["url"],
+                    "domain": domain_data["domain"],
+                    "text_path": domain_data["text_path"],
+                    "image_path": domain_data["image_path"],
+                    "date_time_collected": domain_data["date_time_collected"],
+                    "model_used": "text/shallalist_ml",
+                    "category": "news",
+                    "confidence": 0.8,
+                    "reason": None,
+                    "error": None,
+                    "raw_predictions": {"news": 0.8, "other": 0.2},
+                }
+                for domain_data in domains_data
+            ]
+
+        mock_collect_content.side_effect = mock_collection
+        mock_classify.side_effect = mock_classification
+
+        # Test different batch sizes (reduced for speed)
+        test_sizes = [5, 15]
+
+        for size in test_sizes:
+            # Use real domains but mock all network calls
+            real_domains = [
+                "google.com",
+                "cnn.com",
+                "bbc.com",
+                "github.com",
+                "stackoverflow.com",
+                "wikipedia.org",
+                "reddit.com",
+                "amazon.com",
+                "facebook.com",
+                "twitter.com",
+                "linkedin.com",
+                "youtube.com",
+                "microsoft.com",
+                "apple.com",
+                "netflix.com",
+            ]
+            domains = real_domains[:size]
+
+            start_time = time.time()
+            result = self.classifier.classify_by_text(domains)["results"]
+            total_time = time.time() - start_time
+
+            # Verify results
+            self.assertEqual(len(result), size)
+
+            # Performance should scale reasonably (mocked, so very fast)
+            # Real performance would be much slower due to network requests
+            self.assertLess(total_time, 30)  # Should be very fast with proper mocking
+
+            # Log performance for manual review
+            rate = size / total_time if total_time > 0 else float("inf")
+            print(
+                f"Processed {size} domains in {total_time:.2f} seconds "
+                f"({rate:.1f} domains/second)"
+            )
+
+    @patch("piedomains.data_collector.DataCollector.collect")
+    @patch("piedomains.text.TextClassifier.classify_from_data")
+    def test_cache_effectiveness(self, mock_classify, mock_collect):
+        """Test that caching improves performance."""
+        # Create some test cache files
+        cache_html_dir = os.path.join(self.temp_dir, "html")
+        os.makedirs(cache_html_dir, exist_ok=True)
+
+        # Create a cached HTML file
+        test_html = "<html><body><h1>Cached Test Content</h1></body></html>"
+        with open(os.path.join(cache_html_dir, "example.com.html"), "w") as f:
+            f.write(test_html)
+
+        # Mock data collection to simulate cache behavior
+        def mock_collection(domains, *args, **kwargs):
+            use_cache = kwargs.get("use_cache", True)
+            return {
+                "collection_id": "test_collection",
+                "timestamp": "2025-12-17T12:00:00Z",
+                "domains": [
+                    {
+                        "url": "example.com",
+                        "domain": "example.com",
+                        "text_path": "html/example.com.html",
+                        "image_path": "images/example.com.png",
+                        "date_time_collected": "2025-12-17T12:00:00Z",
+                        "fetch_success": True,
+                        "cached": use_cache,  # Simulate cache usage
+                        "error": None,
+                    }
+                ],
+            }
+
+        # Mock classification
+        def mock_classification(collection_data, *args, **kwargs):
+            return [
+                {
+                    "url": "example.com",
+                    "domain": "example.com",
+                    "text_path": "html/example.com.html",
+                    "image_path": "images/example.com.png",
+                    "date_time_collected": "2025-12-17T12:00:00Z",
+                    "model_used": "text/shallalist_ml",
+                    "category": "news",
+                    "confidence": 0.8,
+                    "reason": None,
+                    "error": None,
+                    "raw_predictions": {"news": 0.8, "other": 0.2},
+                }
+            ]
+
+        mock_collect.side_effect = mock_collection
+        mock_classify.side_effect = mock_classification
+
+        # First call (should use cache)
+        start_time = time.time()
+        result1 = self.classifier.classify_by_text(["example.com"], use_cache=True)[
+            "results"
+        ]
+        cached_time = time.time() - start_time
+
+        # Second call (should also use cache)
+        start_time = time.time()
+        result2 = self.classifier.classify_by_text(["example.com"], use_cache=True)[
+            "results"
+        ]
+        cached_time2 = time.time() - start_time
+
+        # Both should be fast since we're using cache
+        self.assertLess(cached_time, 1.0)
+        self.assertLess(cached_time2, 1.0)
+
+        # Verify results are correct
+        self.assertEqual(len(result1), 1)
+        self.assertEqual(len(result2), 1)
+        self.assertEqual(result1[0]["category"], "news")
+
+    def test_memory_usage_batch_processing(self):
+        """Test memory usage doesn't grow excessively in batch processing."""
+        import gc
+
+        import psutil
+
+        # Get initial memory usage
+        process = psutil.Process()
+        initial_memory = process.memory_info().rss / 1024 / 1024  # MB
+
+        # Mock to avoid actual model loading
+        with (
+            patch("piedomains.data_collector.DataCollector.collect") as mock_collect,
+            patch("piedomains.text.TextClassifier.classify_from_data") as mock_classify,
+        ):
+
+            def mock_collection(domains, *args, **kwargs):
+                return {
+                    "collection_id": "test_collection",
+                    "timestamp": "2025-12-17T12:00:00Z",
+                    "domains": [
+                        {
+                            "url": domain,
+                            "domain": domain,
+                            "text_path": f"html/{domain}.html",
+                            "image_path": f"images/{domain}.png",
+                            "date_time_collected": "2025-12-17T12:00:00Z",
+                            "fetch_success": True,
+                            "cached": False,
+                            "error": None,
+                        }
+                        for domain in domains
+                    ],
+                }
+
+            def mock_classification(collection_data, *args, **kwargs):
+                domains_data = collection_data.get("domains", [])
+                return [
+                    {
+                        "url": domain_data["url"],
+                        "domain": domain_data["domain"],
+                        "text_path": domain_data["text_path"],
+                        "image_path": domain_data["image_path"],
+                        "date_time_collected": domain_data["date_time_collected"],
+                        "model_used": "text/shallalist_ml",
+                        "category": "news",
+                        "confidence": 0.8,
+                        "reason": None,
+                        "error": None,
+                        "raw_predictions": {"news": 0.8, "other": 0.2},
+                    }
+                    for domain_data in domains_data
+                ]
+
+            mock_collect.side_effect = mock_collection
+            mock_classify.side_effect = mock_classification
+
+            # Process multiple batches
+            for batch_num in range(5):
+                domains = [f"batch{batch_num}_test{i}.com" for i in range(50)]
+                self.classifier.classify_by_text(domains)
+
+                # Force garbage collection
+                gc.collect()
+
+        # Check final memory usage
+        final_memory = process.memory_info().rss / 1024 / 1024  # MB
+        memory_increase = final_memory - initial_memory
+
+        # Memory increase should be reasonable (less than 100MB for mocked tests)
+        self.assertLess(memory_increase, 100)
+
+        print(
+            f"Memory usage: {initial_memory:.1f}MB -> {final_memory:.1f}MB "
+            f"(+{memory_increase:.1f}MB)"
+        )
+
+
+@pytest.mark.performance
+@pytest.mark.slow
+class TestRealPerformanceBenchmarks(unittest.TestCase):
+    """Real performance tests that actually hit networks (marked as slow)."""
+
+    def setUp(self):
+        self.temp_dir = tempfile.mkdtemp()
+        self.classifier = DomainClassifier(cache_dir=self.temp_dir)
+
+    def tearDown(self):
+        if os.path.exists(self.temp_dir):
+            shutil.rmtree(self.temp_dir)
+
+    @skip_in_ci()
+    @pytest.mark.skipif(
+        os.getenv("SKIP_NETWORK_TESTS") == "1", reason="Network tests disabled"
+    )
+    def test_real_text_processing_benchmark(self):
+        """Benchmark actual text processing with real domains."""
+        # This test would actually fetch content from real domains
+        # Only run when network tests are enabled
+
+        test_domains = ["example.com"]  # Simple, fast domain
+
+        start_time = time.time()
+        try:
+            result = self.classifier.classify_by_text(
+                test_domains,
+                use_cache=False,  # Force fresh fetch
+            )
+            total_time = time.time() - start_time
+
+            # Log performance metrics
+            if not result.empty and result.iloc[0].get("error") is None:
+                print(
+                    f"Real text classification: {total_time:.2f}s for {len(test_domains)} domains"
+                )
+                self.assertLess(total_time, 30)  # Should complete within 30 seconds
+            else:
+                print("Real text classification failed (expected in CI)")
+
+        except Exception as e:
+            # Network failures are expected in CI environments
+            print(f"Real performance test skipped due to: {e}")
+
+
+class TestResourceManagement(unittest.TestCase):
+    """Test proper resource management and cleanup."""
+
+    def setUp(self):
+        self.temp_dir = tempfile.mkdtemp()
+        self.classifier = DomainClassifier(cache_dir=self.temp_dir)
+
+    def tearDown(self):
+        if os.path.exists(self.temp_dir):
+            shutil.rmtree(self.temp_dir)
+
+    def test_cache_directory_creation(self):
+        """Test that cache directories are created properly."""
+        # Create a classifier with a new cache directory
+        new_cache_dir = os.path.join(self.temp_dir, "new_cache")
+        DomainClassifier(cache_dir=new_cache_dir)
+
+        # The directory should be created when processors are initialized
+        from piedomains.content_processor import ContentProcessor
+
+        processor = ContentProcessor(new_cache_dir)
+
+        # Check that directories exist
+        self.assertTrue(os.path.exists(processor.html_dir))
+        self.assertTrue(os.path.exists(processor.image_dir))
+
+    @patch("piedomains.data_collector.DataCollector.collect")
+    @patch("piedomains.text.TextClassifier.classify_from_data")
+    def test_temporary_file_cleanup(self, mock_classify, mock_collect):
+        """Test that temporary files don't accumulate."""
+        initial_files = len(os.listdir(self.temp_dir))
+
+        # Mock data collection and classification
+        def mock_collection(domains, *args, **kwargs):
+            return {
+                "collection_id": "test_collection",
+                "timestamp": "2025-12-17T12:00:00Z",
+                "domains": [
+                    {
+                        "url": domain,
+                        "domain": domain,
+                        "text_path": f"html/{domain}.html",
+                        "image_path": f"images/{domain}.png",
+                        "date_time_collected": "2025-12-17T12:00:00Z",
+                        "fetch_success": True,
+                        "cached": False,
+                        "error": None,
+                    }
+                    for domain in domains
+                ],
+            }
+
+        def mock_classification(collection_data, *args, **kwargs):
+            domains_data = collection_data.get("domains", [])
+            return [
+                {
+                    "url": domain_data["url"],
+                    "domain": domain_data["domain"],
+                    "text_path": domain_data["text_path"],
+                    "image_path": domain_data["image_path"],
+                    "date_time_collected": domain_data["date_time_collected"],
+                    "model_used": "text/shallalist_ml",
+                    "category": "news",
+                    "confidence": 0.8,
+                    "reason": None,
+                    "error": None,
+                    "raw_predictions": {"news": 0.8, "other": 0.2},
+                }
+                for domain_data in domains_data
+            ]
+
+        mock_collect.side_effect = mock_collection
+        mock_classify.side_effect = mock_classification
+
+        # Run multiple operations
+        for i in range(5):
+            self.classifier.classify_by_text([f"test{i}.com"])
+
+        # File count shouldn't grow excessively
+        final_files = len(os.listdir(self.temp_dir))
+        file_growth = final_files - initial_files
+
+        # Some growth is expected (cache files), but should be reasonable
+        self.assertLess(file_growth, 50)  # Arbitrary reasonable limit
+
+
+if __name__ == "__main__":
+    unittest.main()

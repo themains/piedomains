@@ -1,0 +1,53 @@
+{
+  "method": "text",
+  "note": "Baseline for the shipped TensorFlow text model, measured on tests/eval/labels.csv. Calibration was inactive (all 39 isotonic calibrators return NaN under scikit-learn 1.9), so these are raw model confidences.",
+  "n_total": 33,
+  "n_scored": 30,
+  "n_unclassified": 3,
+  "accuracy": 0.2667,
+  "macro_f1": 0.1909,
+  "ece": 0.2194,
+  "mean_confidence": 0.4718,
+  "top_confusions": [
+    [
+      "education",
+      "jobsearch",
+      2
+    ],
+    [
+      "socialnet",
+      "porn",
+      2
+    ],
+    [
+      "searchengines",
+      "recreation",
+      2
+    ],
+    [
+      "government",
+      "finance",
+      2
+    ],
+    [
+      "education",
+      "news",
+      1
+    ],
+    [
+      "socialnet",
+      "jobsearch",
+      1
+    ],
+    [
+      "searchengines",
+      "redirector",
+      1
+    ],
+    [
+      "government",
+      "news",
+      1
+    ]
+  ]
+}

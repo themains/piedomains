@@ -141,7 +141,7 @@ def test_safe_classification():
         classifier = DomainClassifier()
 
         print("🔍 Testing with example.com (text-only for safety)...")
-        result = classifier.classify_by_text(["example.com"])
+        result = classifier.classify_by_text(["example.com"])["results"]
         print("✅ Safe classification test passed!")
         print(
             f"   Result: {result.iloc[0]['pred_label']} ({result.iloc[0]['pred_prob']:.3f})"

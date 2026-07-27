@@ -1,13 +1,13 @@
 [build-system]
-requires = ["hatchling>=1.21.1"]
+requires = ["hatchling", "uv-dynamic-versioning"]
 build-backend = "hatchling.build"
 
 [project]
 name = "piedomains"
-version = "0.5.0"
 description = "Predict categories based on domain names and their content"
 readme = "README.md"
-license = {text = "MIT License"}
+license = "MIT"
+license-files = ["LICENSE"]
 authors = [
     {name = "Rajashekar Chintalapati", email = "rajshekar.ch@gmail.com"},
     {name = "Gaurav Sood", email = "gsood07@gmail.com"}
@@ -24,7 +24,6 @@ classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
     "Intended Audience :: Science/Research",
-    "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
@@ -44,39 +43,22 @@ dependencies = [
     "joblib>=1.2.0",
     "tqdm>=4.64.0",
     "nltk>=3.8",
-    "tensorflow>=2.12.0",
+    "tensorflow>=2.20.0",
     "litellm>=1.55.0",
     "requests>=2.25.0",
+    "aiohttp>=3.8.0",
     "scikit-learn>=1.3.0",
+    # CDX + Memento client for archive.org. Deps are only requests + urllib3,
+    # both already pulled in above.
+    "wayback>=0.5.1",
+    # Optional extractor, off by default (config `extractor`). It powers
+    # FineWeb/RefinedWeb and tops the WCXB benchmark on articles, but measured
+    # on our own homepages it is worse than the legacy cleaner (16/33 pages
+    # under the token floor against 14/33): it treats nav and tiles as
+    # boilerplate, and on a homepage that boilerplate is the site-level signal.
+    "trafilatura>=2.0",
 ]
-
-[project.optional-dependencies]
-docs = [
-    "sphinx>=7.0",
-    "furo>=2024.1.29",
-    "sphinx-autodoc-typehints>=1.25",
-    "sphinx-copybutton>=0.5",
-    "myst-parser>=2.0",
-]
-test = [
-    "pytest>=7.0",
-    "pytest-cov>=4.0",
-    "pytest-mock>=3.10",
-    "psutil>=5.9.0",
-    "ruff>=0.7.0",
-]
-dev = [
-    "pytest>=7.0",
-    "pytest-cov>=4.0",
-    "pytest-xdist>=3.0",
-    "pytest-mock>=3.10",
-    "ruff>=0.7.0",
-    "mypy>=1.0",
-    "black>=24.0",
-    "isort>=5.0",
-    "pre-commit>=3.0",
-    "psutil>=5.9.0",
-]
+dynamic = ["version"]
 
 [project.urls]
 Homepage = "https://github.com/themains/piedomains"
@@ -86,7 +68,7 @@ Issues = "https://github.com/themains/piedomains/issues"
 Changelog = "https://github.com/themains/piedomains/blob/main/CHANGELOG.md"
 
 [project.scripts]
-classify_domains = "piedomains.domain:main"
+classify_domains = "piedomains.cli:main"
 
 [tool.hatch.build]
 exclude = [
@@ -99,56 +81,40 @@ exclude = [
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["piedomains"]
+packages = ["src/piedomains"]
 
 # Ruff configuration
+
+[tool.hatch.version]
+source = "uv-dynamic-versioning"
 [tool.ruff]
 line-length = 88
 target-version = "py311"
-exclude = [
-    ".git",
-    "__pycache__",
-    "build",
-    "dist",
-    ".venv",
-    "docs",
-    ".eggs",
-    "notebooks",
-]
+# Colab-authored training notebooks; ported to training/ scripts rather than linted.
+extend-exclude = ["notebooks"]
 
 [tool.ruff.lint]
-select = [
-    "E",  # pycodestyle errors
-    "W",  # pycodestyle warnings
-    "F",  # pyflakes
-    "I",  # isort
-    "B",  # flake8-bugbear
-    "C4", # flake8-comprehensions
-    "UP", # pyupgrade
-]
-ignore = [
-    "E501",  # line too long (handled by formatter)
-    "B008",  # do not perform function calls in argument defaults
-    "C901",  # too complex
-]
+external = ["DOC"]
+select = ["E", "W", "F", "I", "B", "C4", "UP", "N", "D", "S", "SIM", "T20", "PT", "RUF"]
+ignore = ["D203", "D213", "B008", "C901", "E501"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
 
 [tool.ruff.lint.per-file-ignores]
-"__init__.py" = ["F401"]  # imported but unused
-"tests/*" = ["S101"]  # use of assert
-
-[tool.ruff.lint.isort]
-known-first-party = ["piedomains"]
-
-# Black configuration
-[tool.black]
-line-length = 88
-target-version = ["py311", "py312"]
-
-# isort configuration
-[tool.isort]
-profile = "black"
-line_length = 88
-known_first_party = ["piedomains"]
+# Existing suites are unittest-style; PT009/PT027 would be a rewrite, not a fix.
+# S108/S103 are fixture temp paths, SIM115/SIM117/RUF059/PT018/S110 test idioms.
+"tests/**" = [
+    "S101", "D", "PT009", "PT027", "PT018", "T201",
+    "S103", "S108", "S110", "S112", "SIM115", "SIM117", "RUF059",
+]
+"docs/**" = ["D"]
+# Demo scripts: printing to stdout is the point, and the "/tmp" literals are
+# `docker run --tmpfs` arguments rather than paths this process writes to.
+"examples/**" = ["T201", "D", "S101", "S603", "S607", "S108", "RUF059"]
+"streamlit/**" = ["T201", "D"]
+# Training/eval scripts are CLIs: printing the report is their whole purpose.
+"training/**" = ["T201"]
 
 [tool.pytest.ini_options]
 minversion = "7.0"
@@ -159,36 +125,19 @@ python_functions = ["test_*"]
 addopts = [
     "-ra",
     "--strict-markers",
-    "--cov=piedomains",
-    "--cov-report=term-missing",
-    "--cov-report=html",
-    "--cov-report=xml",
 ]
 markers = [
-    "ml: marks tests that require ML models (TensorFlow)",
-    "basic: marks tests that don't require ML models",
+    "ml: marks tests that require ML models",
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
     "performance: marks tests that benchmark performance",
+    "integration: marks tests that exercise multiple components together",
+    "archive: marks tests that hit archive.org",
+    "llm: marks tests that exercise the LLM classifier",
 ]
 
 # mypy configuration
-[tool.mypy]
-python_version = "3.11"
-warn_return_any = true
-warn_unused_configs = true
-check_untyped_defs = true
-warn_redundant_casts = true
-warn_unused_ignores = true
-warn_no_return = true
-show_error_codes = true
-
-[[tool.mypy.overrides]]
-module = "tests.*"
-ignore_errors = true
-
-# Coverage configuration
 [tool.coverage.run]
-source = ["piedomains"]
+source = ["src"]
 branch = true
 
 [tool.coverage.report]
@@ -209,7 +158,6 @@ extend_exclude = [
     "examples",
     "docs",
     "tests",
-    "piedomains/scripts"
 ]
 pep621_dev_dependency_groups = ["test", "docs", "dev"]
 # Use per-rule ignores for specific dependency issues
@@ -221,3 +169,61 @@ DEP004 = ["pytest"]        # Test framework used in tests directory
 pillow = "PIL"
 beautifulsoup4 = "bs4"
 scikit-learn = "sklearn"
+
+[tool.pyright]
+include = ["src"]
+typeCheckingMode = "standard"
+
+[tool.pydoclint]
+style = "google"
+arg-type-hints-in-docstring = false
+check-return-types = false
+check-class-attributes = false
+allow-init-docstring = true
+exclude = '\.venv|tests|docs'
+
+[tool.uv-dynamic-versioning]
+vcs = "git"
+style = "pep440"
+
+[tool.preen]
+src_layout = true
+# `metadata` flags the `requires-python` upper bound (PP004). The bound exists
+# only because TensorFlow ships no cp314 wheels; it is removed when torch
+# replaces tensorflow, along with this entry.
+skip_checks = ["metadata"]
+
+[dependency-groups]
+# PEP 735 groups, not extras: these are development concerns, and the reusable
+# CI wheel job installs `--group test` against the built wheel.
+test = [
+    "pytest>=8",
+    "pytest-cov>=4",
+    "pytest-mock>=3.10",
+    "pytest-xdist>=3",
+    "psutil>=5.9.0",
+]
+docs = [
+    "sphinx>=8",
+    "furo",
+    "myst-parser",
+    "sphinx-copybutton",
+    "py-canon @ git+https://github.com/gojiplus/py-canon@v1",
+]
+# Model training only. Deliberately NOT a runtime dependency: the package keeps
+# using the TensorFlow model until PyTorch weights actually exist, so installing
+# piedomains does not pull torch.
+train = [
+    "torch>=2.4",
+    "transformers>=4.44",
+    "safetensors>=0.4",
+    "datasets>=2.20",
+    "scikit-learn>=1.3",
+]
+dev = [
+    { include-group = "test" },
+    "ruff>=0.14",
+    "pyright>=1.1.390",
+    "pydoclint>=0.5",
+    "pre-commit>=4",
+]

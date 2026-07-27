@@ -133,12 +133,20 @@ dmypy.json
 .DS_Store
 
 # temp files
-piedomains/model/html/
-piedomains/model/images/
-piedomains/model/shallalist/
+# Downloaded model artifacts (~491MB). Patterns are depth-agnostic so they keep
+# matching after the src/ layout move; the anchored form silently stopped.
+**/piedomains/model/html/
+**/piedomains/model/images/
+**/piedomains/model/shallalist/
 
 # Generated temporary directories for archive functionality
 archive_html_*/
 archive_images_*/
 /cache
 /test_cache
+/demo_cache
+/data
+
+# Development artifacts
+*.backup
+comprehensive_test.py
