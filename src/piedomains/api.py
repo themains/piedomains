@@ -809,21 +809,30 @@ def _annotate_results(
         list[dict]: The same rows, annotated in place.
     """
     fetch_errors: dict[str, tuple[str, str | None]] = {}
+    provenance: dict[str, tuple[str, str | None]] = {}
     if collection_data:
         for entry in collection_data.get("domains", []):
+            key = entry.get("domain") or entry.get("url") or ""
             if not entry.get("fetch_success"):
-                key = entry.get("domain") or entry.get("url") or ""
                 fetch_errors[key] = (
                     entry.get("error") or "content fetch failed",
                     entry.get("error_code"),
                 )
+            else:
+                provenance[key] = (
+                    entry.get("source") or "live",
+                    entry.get("snapshot_timestamp"),
+                )
 
     for row in results:
+        key = row.get("domain") or row.get("url") or ""
+        if key in provenance:
+            row["source"], row["snapshot_timestamp"] = provenance[key]
+
         if row.get("category") is not None and not row.get("error"):
             annotate(row)
             continue
 
-        key = row.get("domain") or row.get("url") or ""
         if key in fetch_errors:
             message, code = fetch_errors[key]
             row.setdefault("error", message)
@@ -831,6 +840,10 @@ def _annotate_results(
             # Prefer the fetcher's own verdict (e.g. bot_blocked) over guessing
             # from the message text.
             row["error_code"] = code or classify_exception(RuntimeError(message)).value
+        elif row.get("error_code"):
+            # The classifier already named it (thin_content, empty_text); do not
+            # re-derive a worse answer from the message string.
+            row["stage"] = row.get("stage") or Stage.INFER.value
         else:
             row["stage"] = row.get("stage") or Stage.INFER.value
             message = str(row.get("error") or "")

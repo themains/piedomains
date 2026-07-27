@@ -179,7 +179,9 @@ class TestSeparatedWorkflow(unittest.TestCase):
     @patch("piedomains.text_processor.TextProcessor.process_html_to_text")
     def test_text_classifier_from_paths(self, mock_process_html, mock_load_models):
         """Test TextClassifier.classify_from_paths method."""
-        mock_process_html.return_value = "processed text content"
+        # Must clear the min_tokens floor: below it the classifier refuses to
+        # label rather than returning the model's prior.
+        mock_process_html.return_value = " ".join(["processed text content"] * 15)
         mock_load_models.return_value = None
 
         # Create test HTML file

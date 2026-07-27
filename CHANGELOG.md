@@ -5,17 +5,42 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.7.0] - 2026-07-26
 
 > **Versioning note.** Under the py-canon standard the git tag *is* the version
 > (`uv-dynamic-versioning`); there are no version strings in source. Tags in this repo
-> stop at `v0.3.2`, but 0.4.0–0.5.0 were published to PyPI by manual `workflow_dispatch`
-> off the old static `project.version`, leaving no tags and no GitHub Releases behind.
-> That history cannot be recovered, and tagging guessed commits would fabricate it, so
-> it is left alone. The next release must therefore be tagged **`v0.6.0`** — it
-> supersedes PyPI's 0.5.0 and matches the 0.6.0 entry below. Until that tag exists,
-> local dev builds report `0.3.2.postN.devM`, which is cosmetic: the publish workflow
-> only ever fires on a `v*` tag.
+> stopped at `v0.3.2`, while 0.4.0–0.5.0 were published to PyPI by manual
+> `workflow_dispatch` off the old static `project.version`, leaving no tags and no GitHub
+> Releases behind. That history cannot be recovered, and tagging guessed commits would
+> fabricate it, so it is left alone.
+>
+> **The 0.6.0 entry below was never published.** PyPI went 0.5.0 → 0.7.0; everything
+> documented under 0.6.0 ships inside this release. It is kept as a separate entry
+> because it is a distinct, breaking API change and folding it in would misrepresent
+> when the work happened.
+
+### Added
+
+- **Bot walls are detected and recovered, not silently classified.** DataDome, Cloudflare,
+  Akamai, Imperva and PerimeterX interstitials were previously classified as if they were
+  the site — a ~1470-byte CAPTCHA stub whose only visible text is the domain name. They are
+  now identified (`piedomains.blocking`) and the page is refetched from archive.org, which
+  already holds it. Recovered rows carry `source: "archive"` and the realized
+  `snapshot_timestamp`; the run report gains `by_source`.
+
+  Detection is tiered on purpose. `reddit`, `walmart`, `tinyurl`, `quora` and
+  `bankofamerica` all serve real pages while embedding reCAPTCHA, PerimeterX or a
+  Turnstile widget, so an ambiguous marker only counts when the page also *looks* like an
+  interstitial. Treating those as blocks would have discarded good classifications.
+
+- **A capture older than `archive_max_age_days` (default 365) is refused** rather than
+  passed off as the current page. A domain whose only captures are years old reports
+  `cannot_classify` instead of being labelled from a page that no longer exists.
+
+- **Refusal instead of a confident guess on empty pages.** Below `min_tokens` (default 30)
+  the model returns its prior — `recreation` 0.31, `shopping` 0.21, `porn` 0.19 on empty
+  input — which is where results like `facebook.com → porn` came from. Such rows now report
+  `thin_content` and no category.
 
 ### Added
 - **Run reports.** `classify()`, `classify_by_text()` and `classify_by_images()` now return
@@ -66,6 +91,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and a partial duplicate of `ArchiveFetcher`.
 
 ### Fixed
+- **`networkidle` was losing whole sites.** Page loads waited for network quiet, which never
+  arrives on a chatty page: `theverge`, `stackoverflow` and `weather.com` timed out entirely
+  (3 of 10 popular sites tested) and `outlook.com` yielded **1** usable token against 414.
+  Loads now wait for the DOM, settle briefly, then race a *capped* network-quiet window, so
+  `nytimes.com` keeps the extra text it genuinely gains without the 20-second cliff.
+- **Failed fetches were cached and silently reused.** `spotify.com` sat in the cache with 8
+  usable tokens against 292 on a live refetch, so evaluation partly measured stale failures.
+  A page that renders under `min_tokens` words now fails the fetch, and nothing is written.
+- **A navigation timeout reached callers as `unknown`**, hiding the most common fetch failure
+  and preventing the archive fallback from being tried at all.
+- **Batch collection dropped `error_code` and `snapshot_timestamp`.** Only the single-domain
+  path carried them, so every real run (anything over ten domains) reported a detected bot
+  wall as `unknown` and gave no way to tell which capture an archive batch used.
+- `archive.org` being rate-limited no longer hardens into a terminal `cannot_classify`.
+  Throttling says nothing about the domain, so that verdict stays retryable.
 - The archive toolbar stripper matched **nothing**: `find_all(["script","link","div"],
   attrs={"src":…, "href":…})` requires *both* attributes to match, so a `<script src=…>`
   never matched. Moot now that `id_` returns the raw capture.

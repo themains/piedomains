@@ -118,5 +118,52 @@ class TestThinContent(unittest.TestCase):
         self.assertFalse(is_thin(text, min_tokens=5))
 
 
+class TestRefusingToLabelThinPages(unittest.TestCase):
+    """Below the token floor the model returns its prior, not a reading.
+
+    On empty input the shipped text model outputs recreation 0.31, shopping
+    0.21, porn 0.19 — which is where results like ``facebook.com -> porn`` come
+    from. Refusing is the honest answer.
+    """
+
+    def _classifier(self):
+        from piedomains.text import TextClassifier
+
+        return TextClassifier.__new__(TextClassifier)
+
+    def test_thin_text_is_refused_rather_than_labelled(self):
+        from piedomains.outcomes import ErrorCode
+
+        row: dict = {"domain": "facebook.com", "category": None, "error": None}
+        self._classifier()._score_or_refuse(row, "facebook.com", "log in sign up")
+
+        self.assertIsNone(row["category"])
+        self.assertEqual(row["error_code"], ErrorCode.THIN_CONTENT.value)
+        self.assertIn("below the 30-token floor", row["error"])
+
+    def test_empty_text_keeps_its_own_code(self):
+        from piedomains.outcomes import ErrorCode
+
+        row: dict = {"domain": "x.com", "category": None, "error": None}
+        self._classifier()._score_or_refuse(row, "x.com", "   ")
+        self.assertEqual(row["error_code"], ErrorCode.EMPTY_TEXT.value)
+
+    def test_substantial_text_is_scored(self):
+        row: dict = {"domain": "cnn.com", "category": None, "error": None}
+        text = " ".join(["news politics world business"] * 20)
+
+        classifier = self._classifier()
+        classifier._model_input = lambda domain, t: f"{domain} {t}"  # pyright: ignore
+        classifier._predict_text = lambda _: {  # pyright: ignore
+            "text_label": "news",
+            "text_prob": 0.87,
+            "text_domain_probs": {},
+        }
+        classifier._score_or_refuse(row, "cnn.com", text)
+
+        self.assertEqual(row["category"], "news")
+        self.assertIsNone(row["error"])
+
+
 if __name__ == "__main__":
     unittest.main()

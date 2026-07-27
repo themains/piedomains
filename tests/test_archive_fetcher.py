@@ -89,7 +89,7 @@ class TestFailureMapping(unittest.TestCase):
             return asyncio.run(fetcher.fetch_single("https://cnn.com"))
 
     def test_missing_snapshot_is_reported_not_guessed(self):
-        result = self._fetch(html_result=(None, ""))
+        result = self._fetch(html_result=(None, "", "no 200 capture near 20100101"))
         self.assertFalse(result.success)
         self.assertEqual(result.error_code, ErrorCode.NO_ARCHIVE_SNAPSHOT.value)
         self.assertIn("20100101", result.error)
@@ -115,7 +115,7 @@ class TestSuccessfulFetch(unittest.TestCase):
         html = "<html><head><title>CNN</title></head><body>breaking news today</body></html>"
         fetcher = ArchiveFetcher("20100101")
         with patch.object(
-            ArchiveFetcher, "_fetch_html", return_value=(record(ts), html)
+            ArchiveFetcher, "_fetch_html", return_value=(record(ts), html, "")
         ):
             result = asyncio.run(fetcher.fetch_single("https://cnn.com"))
 
@@ -131,7 +131,7 @@ class TestSuccessfulFetch(unittest.TestCase):
         fetcher = ArchiveFetcher("20100101")
         with (
             patch.object(
-                ArchiveFetcher, "_fetch_html", return_value=(record(ts), "<html/>")
+                ArchiveFetcher, "_fetch_html", return_value=(record(ts), "<html/>", "")
             ),
             patch.object(ArchiveFetcher, "_screenshot") as shot,
         ):

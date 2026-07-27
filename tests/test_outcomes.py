@@ -126,6 +126,25 @@ class TestBuildReport(unittest.TestCase):
         self.assertEqual(report["elapsed_ms"], 1500)
         self.assertEqual(report["run_id"], "r1")
 
+    def test_groups_successes_by_content_source(self):
+        """Callers have to be able to see which rows came from the archive."""
+        rows = [
+            *self._rows(),
+            {
+                "domain": "etsy.com",
+                "category": "shopping",
+                "confidence": 0.7,
+                "source": "archive",
+            },
+        ]
+        report = build_report(rows, run_id="r1")
+        self.assertEqual(report["by_source"], {"live": 2, "archive": 1})
+
+    def test_failed_rows_have_no_source(self):
+        """A row that produced nothing came from nowhere; do not count it."""
+        report = build_report(self._rows(), run_id="r1")
+        self.assertEqual(sum(report["by_source"].values()), report["classified"])
+
     def test_empty_input_reports_nothing_missing(self):
         report = build_report([], run_id="r1")
         self.assertEqual(report["total"], 0)

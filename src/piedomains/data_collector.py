@@ -214,6 +214,10 @@ class DataCollector:
                     ),
                     "snapshot_timestamp": getattr(result, "snapshot_timestamp", "")
                     or None,
+                    # "live" or "archive" — a bot-walled page recovered from
+                    # archive.org is not the site as it stands today, and the
+                    # caller has to be able to see that.
+                    "source": getattr(result, "source", "live"),
                     "date_time_collected": collection_time.isoformat() + "Z",
                     "fetch_success": True,
                     "cached": False,
@@ -418,6 +422,8 @@ class DataCollector:
                                 )
                                 if result.screenshot_path
                                 else None,
+                                "snapshot_timestamp": result.snapshot_timestamp or None,
+                                "source": result.source,
                                 "date_time_collected": collection_time.isoformat()
                                 + "Z",
                                 "fetch_success": True,

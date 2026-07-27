@@ -185,10 +185,15 @@ class TextProcessor:
     def extract_with_trafilatura(html_content: str) -> str:
         """Extract main content using trafilatura.
 
-        trafilatura powers FineWeb and RefinedWeb and tops the WCXB benchmark.
-        On this project's own pages it cuts results under 30 usable tokens from
-        14/33 to 6/33, chiefly by keeping article text that the naive visible-text
-        walk buries in navigation chrome.
+        trafilatura powers FineWeb and RefinedWeb and tops the WCXB benchmark on
+        articles. It is **not** the default here, because measured on this
+        project's own pages it is worse: 16 of 33 fall under the token floor
+        against 14 of 33 for the legacy cleaner. It discards navigation and tile
+        text as boilerplate, which is correct for an article and wrong for a
+        homepage, where that chrome carries most of the site-level signal.
+
+        Kept reachable because the corpus work in PR 5 classifies deep pages as
+        well as homepages, where the trade-off reverses.
 
         Args:
             html_content: Raw HTML content.

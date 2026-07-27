@@ -46,6 +46,13 @@ class Config:
         "archive_backoff": 2,  # Exponential backoff base, seconds
         "archive_render_settle_ms": 1500,  # Settle before an archived screenshot
         "archive_screenshot_timeout": 15000,  # Screenshot timeout, ms
+        # Recover bot-walled pages from archive.org. DataDome and Cloudflare
+        # fingerprint headless Chromium itself, so this is the only way to get
+        # those pages without evading anyone.
+        "archive_fallback": True,
+        # How stale a capture may be and still stand in for the live page.
+        # Corpus builds can widen this; the live API should not.
+        "archive_max_age_days": 365,
         # Block heavy resources
         "block_media": True,
         "block_resources": ["media", "video", "font", "websocket", "manifest"],

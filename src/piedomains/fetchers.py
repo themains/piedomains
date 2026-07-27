@@ -28,13 +28,26 @@ from wayback.exceptions import (  # pyright: ignore[reportMissingImports]
     WaybackException,
 )
 
-from .blocking import detect_block
+from .blocking import detect_block, is_thin
 from .config import get_config
 from .content_validation import ContentValidator
 from .outcomes import ErrorCode
 from .piedomains_logging import get_logger
 
 logger = get_logger()
+
+#: Live-fetch verdicts the archive can answer. A bot wall is the motivating
+#: case, but a timeout or a refused connection leaves us equally without a page,
+#: and archive.org is just as good an answer there.
+_ARCHIVE_RECOVERABLE: frozenset[str] = frozenset(
+    {
+        ErrorCode.BOT_BLOCKED.value,
+        ErrorCode.TIMEOUT.value,
+        ErrorCode.CONNECTION_ERROR.value,
+        ErrorCode.DNS_ERROR.value,
+        ErrorCode.HTTP_ERROR.value,
+    }
+)
 
 
 @dataclass
@@ -54,6 +67,10 @@ class FetchResult:
     #: For archive fetches, the capture actually used (``YYYYMMDDHHMMSS``). The
     #: requested date is not echoed here — this is what was really retrieved.
     snapshot_timestamp: str = ""
+    #: Where the content came from: ``live`` or ``archive``. A live fetch that
+    #: hit a bot wall and was recovered from archive.org reports ``archive``, so
+    #: a caller can tell which rows are not the site as it stands today.
+    source: str = "live"
 
 
 class BaseFetcher:
@@ -165,6 +182,77 @@ class BaseFetcher:
             NotImplementedError: Always; subclasses provide the implementation.
         """
         raise NotImplementedError
+
+    async def _archive_fallback(
+        self, result: FetchResult, screenshot_path: str | None = None
+    ) -> FetchResult:
+        """Recover a page the live fetch could not get, from archive.org.
+
+        DataDome, Cloudflare and Akamai fingerprint headless Chromium itself, so
+        no amount of header tuning gets past them. archive.org already holds
+        these pages, which is the answer that does not involve evading anyone.
+        The same applies to a domain that simply timed out.
+
+        Captures older than ``archive_max_age_days`` are refused: a page from
+        years ago is not a stand-in for the site as it stands today.
+
+        Args:
+            result: The live fetch outcome. Returned unchanged unless the live
+                fetch failed for a reason the archive can answer.
+            screenshot_path: Where to write the archived screenshot, if wanted.
+
+        Returns:
+            FetchResult: The archived content on success, otherwise ``result``
+            with its verdict sharpened to say what the archive offered.
+        """
+        if result.error_code not in _ARCHIVE_RECOVERABLE:
+            return result
+        if not self.config.get("archive_fallback", True):
+            return result
+
+        domain = self._parse_domain_name(result.url)
+        max_age = self.config.get("archive_max_age_days", 365)
+        fetcher = ArchiveFetcher(
+            datetime.now(UTC).strftime("%Y%m%d"), max_parallel=1, max_age_days=max_age
+        )
+        try:
+            recovered = await fetcher.fetch_single(result.url, screenshot_path)
+        except Exception as e:  # the block verdict is the fallback's fallback
+            logger.warning(
+                f"{domain}: archive.org fallback failed: {e}",
+                extra={"domain": domain, "stage": "fetch"},
+            )
+            return result
+
+        if not recovered.success:
+            logger.warning(
+                f"{domain}: live fetch failed and archive.org has nothing usable "
+                f"({recovered.error})",
+                extra={"domain": domain, "stage": "fetch", "source": "archive"},
+            )
+            result.error = f"{result.error}; {recovered.error}"
+            # Only a definitive "the archive does not have this" is terminal.
+            # archive.org being rate-limited or unreachable says nothing about
+            # the domain, so that stays retryable rather than being frozen into
+            # a verdict the caller cannot act on.
+            if recovered.error_code == ErrorCode.NO_ARCHIVE_SNAPSHOT.value:
+                result.error_code = ErrorCode.CANNOT_CLASSIFY.value
+            return result
+
+        logger.info(
+            f"{domain}: live fetch failed, recovered from archive.org capture "
+            f"{recovered.snapshot_timestamp}",
+            extra={
+                "domain": domain,
+                "stage": "fetch",
+                "source": "archive",
+                "snapshot_timestamp": recovered.snapshot_timestamp,
+            },
+        )
+        # Keep the caller's URL rather than the archive playback URL, so cache
+        # keys and result rows stay keyed on the domain that was asked for.
+        recovered.url = result.url
+        return recovered
 
     def cleanup(self) -> None:
         """Release any resources held by the fetcher.
@@ -358,6 +446,28 @@ class PlaywrightFetcher(BaseFetcher):
             }"""
             )
 
+            # A page whose entire rendered body is a handful of words did not
+            # load; caching it makes that failure permanent, which is how
+            # spotify.com came to sit in the cache with 8 usable tokens against
+            # 292 on a live refetch. Fail here so nothing is written.
+            floor = self.config.get("min_tokens", 30)
+            if is_thin(result.text, min_tokens=floor):
+                result.success = False
+                result.error = (
+                    f"page rendered only {len(result.text.split())} words, "
+                    f"below the {floor}-word floor"
+                )
+                result.error_code = ErrorCode.THIN_CONTENT.value
+                logger.warning(
+                    f"{url}: {result.error}",
+                    extra={
+                        "domain": self._parse_domain_name(url),
+                        "stage": "fetch",
+                        "error_code": ErrorCode.THIN_CONTENT.value,
+                    },
+                )
+                return result
+
             # Extract metadata
             result.title = await page.title()
 
@@ -393,8 +503,21 @@ class PlaywrightFetcher(BaseFetcher):
             )
 
         except Exception as e:
+            # Name it. Without this a Playwright navigation timeout reaches the
+            # caller as `unknown`, which hides the single most common fetch
+            # failure and stops the archive fallback from even being tried.
+            from .outcomes import classify_exception
+
             result.error = str(e)
-            logger.error(f"Failed to extract content from {url}: {e}")
+            result.error_code = classify_exception(e).value
+            logger.error(
+                f"Failed to extract content from {url}: {e}",
+                extra={
+                    "domain": self._parse_domain_name(url),
+                    "stage": "fetch",
+                    "error_code": result.error_code,
+                },
+            )
 
         return result
 
@@ -437,7 +560,9 @@ class PlaywrightFetcher(BaseFetcher):
             await context.close()
             await browser.close()
 
-        return result
+        # Outside the browser block on purpose: the fallback launches its own
+        # browser for the archived screenshot, and nesting them is needless.
+        return await self._archive_fallback(result, screenshot_path)
 
     async def fetch_batch(
         self, urls: list[str], cache_dir: str = "cache"
@@ -494,6 +619,7 @@ class PlaywrightFetcher(BaseFetcher):
 
             # Process URLs in parallel
             tasks = []
+            screenshot_paths = []
             for i, url in enumerate(validated_urls):
                 context = contexts[i % len(contexts)]
                 page = await context.new_page()
@@ -502,6 +628,7 @@ class PlaywrightFetcher(BaseFetcher):
                 # Generate screenshot path
                 domain = self._parse_domain_name(url)
                 screenshot_path = f"{cache_dir}/images/{domain}.png"
+                screenshot_paths.append(screenshot_path)
 
                 # Create task
                 task = self._extract_from_page(page, url, screenshot_path)
@@ -513,21 +640,30 @@ class PlaywrightFetcher(BaseFetcher):
             batch_results = await asyncio.gather(*tasks, return_exceptions=True)
 
             # Process results
+            fetched: list[FetchResult] = []
             for i, result in enumerate(batch_results):
                 if isinstance(result, BaseException):
                     url = validated_urls[i]
                     logger.error(f"Task failed for {url}: {result}")
-                    results.append(
+                    fetched.append(
                         FetchResult(url=url, success=False, error=str(result))
                     )
                 else:
-                    results.append(result)
+                    fetched.append(result)
 
             # Cleanup
             logger.debug("Cleaning up browser contexts")
             for context in contexts:
                 await context.close()
             await browser.close()
+
+        # Bot-walled domains get one archive.org attempt each, after the live
+        # browser is down. Serialized: archive.org is rate-limited, and the
+        # blocked population is small by construction.
+        for i, result in enumerate(fetched):
+            if result.error_code == ErrorCode.BOT_BLOCKED.value:
+                fetched[i] = await self._archive_fallback(result, screenshot_paths[i])
+        results.extend(fetched)
 
         logger.info(
             f"Batch fetch complete. Success: {sum(r.success for r in results)}/{len(results)}"
@@ -600,12 +736,22 @@ class ArchiveFetcher(BaseFetcher):
     archived 404 classified as content.
     """
 
-    def __init__(self, target_date: str | datetime, max_parallel: int | None = None):
+    def __init__(
+        self,
+        target_date: str | datetime,
+        max_parallel: int | None = None,
+        max_age_days: int | None = None,
+    ):
         """Initialize archive fetcher.
 
         Args:
             target_date: Target date as 'YYYYMMDD' string or datetime object
             max_parallel: Maximum concurrent snapshot fetches
+            max_age_days: Reject a capture further than this many days from
+                ``target_date``. ``None`` (the default) accepts whatever the
+                search window returns, which is what a deliberate historical
+                request wants. The bot-wall fallback sets it, because a capture
+                from years ago is not a stand-in for the live page.
         """
         super().__init__()
         if isinstance(target_date, datetime):
@@ -616,6 +762,7 @@ class ArchiveFetcher(BaseFetcher):
         self.target = datetime.strptime(self.target_date, "%Y%m%d").replace(tzinfo=UTC)
         self.max_parallel = max_parallel or self.config.get("archive_max_parallel", 2)
         self.search_window = timedelta(days=self.config.get("archive_window_days", 365))
+        self.max_age = timedelta(days=max_age_days) if max_age_days else None
         self._session_kwargs = {
             "retries": self.config.get("archive_retries", 3),
             "backoff": self.config.get("archive_backoff", 2),
@@ -668,27 +815,46 @@ class ArchiveFetcher(BaseFetcher):
             return None
         return min(records, key=lambda r: abs(r.timestamp - self.target))
 
-    def _fetch_html(self, url: str) -> tuple[CdxRecord | None, str]:
+    def _fetch_html(self, url: str) -> tuple[CdxRecord | None, str, str]:
         """Retrieve the raw archived HTML for a URL.
 
         Args:
             url: URL or bare domain to fetch.
 
         Returns:
-            tuple: ``(record, html)``; ``record`` is ``None`` when no usable
-            capture exists.
+            tuple: ``(record, html, error)``; ``record`` is ``None`` when no
+            usable capture exists, and ``error`` then says why.
         """
         record = self.find_closest_record(url)
         if record is None:
-            return None, ""
+            return None, "", f"no 200 capture near {self.target_date}"
+
+        # Refuse a capture too far from the target rather than passing a page
+        # from years ago off as the current site.
+        if (
+            self.max_age is not None
+            and abs(record.timestamp - self.target) > self.max_age
+        ):
+            stamp = record.timestamp.strftime("%Y-%m-%d")
+            return (
+                None,
+                "",
+                f"nearest 200 capture is {stamp}, older than the "
+                f"{self.max_age.days}-day limit",
+            )
+
         with self._client() as client:
             memento = client.get_memento(record, mode=Mode.original)
             if memento is None:
                 # CDX listed the capture but playback returned nothing; treat it
                 # as "no usable snapshot" rather than dereferencing None.
-                return None, ""
+                return (
+                    None,
+                    "",
+                    f"capture {record.timestamp:%Y%m%d%H%M%S} would not play back",
+                )
             try:
-                return record, memento.text
+                return record, memento.text, ""
             finally:
                 memento.close()
 
@@ -772,9 +938,9 @@ class ArchiveFetcher(BaseFetcher):
         from .outcomes import ErrorCode
         from .text_processor import TextProcessor
 
-        result = FetchResult(url=url, success=False)
+        result = FetchResult(url=url, success=False, source="archive")
         try:
-            record, html = await asyncio.to_thread(self._fetch_html, url)
+            record, html, why = await asyncio.to_thread(self._fetch_html, url)
         except RateLimitError as e:
             result.error = f"archive.org rate limited: {e}"
             result.error_code = ErrorCode.ARCHIVE_RATE_LIMITED.value
@@ -793,7 +959,7 @@ class ArchiveFetcher(BaseFetcher):
             return result
 
         if record is None:
-            result.error = f"no 200 capture near {self.target_date}"
+            result.error = why
             result.error_code = ErrorCode.NO_ARCHIVE_SNAPSHOT.value
             return result
 

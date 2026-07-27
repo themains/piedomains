@@ -49,8 +49,9 @@ run = classifier.classify(open("domains.txt").read().split())
 
 print(run["report"])
 # {'run_id': '8fe4cc80eeb5', 'total': 500, 'classified': 461, 'failed': 39,
-#  'by_reason': {'dns_error': 12, 'timeout': 9, 'no_archive_snapshot': 11, 'empty_text': 7},
+#  'by_reason': {'dns_error': 12, 'timeout': 9, 'cannot_classify': 11, 'thin_content': 7},
 #  'by_stage': {'fetch': 32, 'infer': 7},
+#  'by_source': {'live': 448, 'archive': 13},
 #  'missing': ['foo.com', 'bar.org', ...],
 #  'started_at': ..., 'finished_at': ..., 'elapsed_ms': 184203}
 
@@ -62,7 +63,33 @@ retry = [r["domain"] for r in run["results"] if r.get("retryable")]
 `dns_error`, `connection_error`, `timeout`, `http_error`, `robots_blocked`,
 `content_type_rejected`, `content_too_large`, `no_archive_snapshot`,
 `archive_rate_limited`, `empty_text`, `missing_input_path`, `missing_screenshot`,
-`model_load_error`, `model_error`, `llm_error`, `unknown`.
+`model_load_error`, `model_error`, `llm_error`, `bot_blocked`, `thin_content`,
+`cannot_classify`, `unknown`.
+
+`cannot_classify` is the umbrella terminal state: branch on it when you do not want
+to enumerate every cause.
+
+## Bot Walls
+
+Roughly one domain in seven serves an anti-bot interstitial rather than a page.
+Changing the user-agent does not help — DataDome and Cloudflare fingerprint headless
+Chromium itself — so `piedomains` detects the interstitial and refetches the page from
+archive.org, which already has it. No evasion, and no challenge page classified as
+though it were the site.
+
+```python
+run = classifier.classify(["etsy.com", "reuters.com", "indeed.com"])
+for r in run["results"]:
+    print(r["domain"], r["category"], r["source"], r["snapshot_timestamp"])
+# etsy.com     shopping  archive  20260727020309
+# reuters.com  news      archive  20260718201522
+# indeed.com   jobsearch archive  20260724170521
+```
+
+A capture older than `archive_max_age_days` (default 365) is refused rather than
+passed off as the live page; those domains report `cannot_classify`. Set
+`archive_fallback=False` to turn this off and have blocked domains report
+`bot_blocked` instead.
 
 From the command line:
 

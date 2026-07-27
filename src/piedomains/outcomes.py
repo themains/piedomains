@@ -216,17 +216,22 @@ def build_report(
         finished_at: When the run ended; defaults to now.
 
     Returns:
-        dict[str, Any]: Counts by reason and stage, plus the domains that
-        produced no classification.
+        dict[str, Any]: Counts by reason, stage and content source, plus the
+        domains that produced no classification.
     """
     finished = finished_at or datetime.now(UTC)
     by_reason: dict[str, int] = {}
     by_stage: dict[str, int] = {}
+    by_source: dict[str, int] = {}
     missing: list[str] = []
 
     for row in rows:
         annotate(row)
         if row["status"] == Status.OK.value:
+            # Only successful rows have provenance worth counting; a row that
+            # produced nothing came from nowhere.
+            source = row.get("source") or "live"
+            by_source[source] = by_source.get(source, 0) + 1
             continue
         code = row.get("error_code") or ErrorCode.UNKNOWN.value
         by_reason[code] = by_reason.get(code, 0) + 1
@@ -247,6 +252,7 @@ def build_report(
         "failed": failed,
         "by_reason": dict(sorted(by_reason.items(), key=lambda kv: -kv[1])),
         "by_stage": dict(sorted(by_stage.items(), key=lambda kv: -kv[1])),
+        "by_source": dict(sorted(by_source.items(), key=lambda kv: -kv[1])),
         "missing": missing,
     }
     return report

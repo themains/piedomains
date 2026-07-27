@@ -9,8 +9,11 @@ from typing import Any
 import numpy as np
 
 from .base import Base
+from .blocking import is_thin
+from .config import get_config
 from .constants import classes
 from .content_processor import ContentProcessor
+from .outcomes import ErrorCode, Stage
 from .piedomains_logging import get_logger
 
 logger = get_logger()
@@ -218,19 +221,7 @@ class TextClassifier(Base):
             from .text_processor import TextProcessor
 
             processed_text = TextProcessor.process_html_to_text(html_content)
-
-            if processed_text.strip():
-                # Get predictions
-                predictions = self._predict_text(
-                    self._model_input(domain, processed_text)
-                )
-
-                # Convert to JSON format
-                result["category"] = predictions.get("text_label")
-                result["confidence"] = predictions.get("text_prob")
-                result["raw_predictions"] = predictions.get("text_domain_probs")
-            else:
-                result["error"] = "No meaningful text extracted"
+            self._score_or_refuse(result, domain, processed_text)
 
         except FileNotFoundError:
             result["error"] = f"HTML file not found: {html_path}"
@@ -238,6 +229,41 @@ class TextClassifier(Base):
             result["error"] = f"Classification error: {e}"
 
         return result
+
+    def _score_or_refuse(self, result: dict, domain: str, text: str) -> None:
+        """Label the page, or record why it is not labelable.
+
+        Below the token floor the model's output is dominated by its prior
+        (``recreation`` 0.31, ``shopping`` 0.21, ``porn`` 0.19 on empty input),
+        which is where results like ``facebook.com -> porn`` come from. Refusing
+        is the honest answer; the alternative is a confident label built out of
+        nothing.
+
+        Args:
+            result: Row to write into, mutated in place.
+            domain: Domain being classified, prepended as a model feature.
+            text: Processed page text.
+        """
+        if not text.strip():
+            result["error"] = "No meaningful text extracted"
+            result["error_code"] = ErrorCode.EMPTY_TEXT.value
+            result["stage"] = Stage.PROCESS.value
+            return
+
+        floor = get_config().get("min_tokens", 30)
+        if is_thin(text, min_tokens=floor):
+            result["error"] = (
+                f"only {len(text.split())} usable tokens, below the {floor}-token "
+                "floor for a meaningful label"
+            )
+            result["error_code"] = ErrorCode.THIN_CONTENT.value
+            result["stage"] = Stage.PROCESS.value
+            return
+
+        predictions = self._predict_text(self._model_input(domain, text))
+        result["category"] = predictions.get("text_label")
+        result["confidence"] = predictions.get("text_prob")
+        result["raw_predictions"] = predictions.get("text_domain_probs")
 
     def classify_from_paths(
         self,
@@ -303,19 +329,7 @@ class TextClassifier(Base):
                 from .text_processor import TextProcessor
 
                 processed_text = TextProcessor.process_html_to_text(html_content)
-
-                if processed_text.strip():
-                    # Get predictions
-                    predictions = self._predict_text(
-                        self._model_input(domain, processed_text)
-                    )
-
-                    # Convert to JSON format
-                    result["category"] = predictions.get("text_label")
-                    result["confidence"] = predictions.get("text_prob")
-                    result["raw_predictions"] = predictions.get("text_domain_probs")
-                else:
-                    result["error"] = "No meaningful text extracted"
+                self._score_or_refuse(result, domain, processed_text)
 
             except FileNotFoundError:
                 result["error"] = f"HTML file not found: {text_path}"

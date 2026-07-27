@@ -51,8 +51,11 @@ dependencies = [
     # CDX + Memento client for archive.org. Deps are only requests + urllib3,
     # both already pulled in above.
     "wayback>=0.5.1",
-    # Content extraction. Powers FineWeb/RefinedWeb and tops the WCXB benchmark;
-    # on our own pages it cuts sub-30-token results from 14/33 to 6/33.
+    # Optional extractor, off by default (config `extractor`). It powers
+    # FineWeb/RefinedWeb and tops the WCXB benchmark on articles, but measured
+    # on our own homepages it is worse than the legacy cleaner (16/33 pages
+    # under the token floor against 14/33): it treats nav and tiles as
+    # boilerplate, and on a homepage that boilerplate is the site-level signal.
     "trafilatura>=2.0",
 ]
 dynamic = ["version"]
