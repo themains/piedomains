@@ -204,6 +204,16 @@ docs = [
     "sphinx-copybutton",
     "py-canon @ git+https://github.com/gojiplus/py-canon@v1",
 ]
+# Model training only. Deliberately NOT a runtime dependency: the package keeps
+# using the TensorFlow model until PyTorch weights actually exist, so installing
+# piedomains does not pull torch.
+train = [
+    "torch>=2.4",
+    "transformers>=4.44",
+    "safetensors>=0.4",
+    "datasets>=2.20",
+    "scikit-learn>=1.3",
+]
 dev = [
     { include-group = "test" },
     "ruff>=0.14",
