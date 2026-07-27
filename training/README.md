@@ -69,14 +69,40 @@ Total catalogue is ~75GB. Check free disk before starting.
 ### 3. Prepare text
 
 ```bash
-tar xzf data/shallalist_all.tar.gz -C data/shallalist
-uv run python prepare_text.py --corpus data/shallalist --out data/prepared
+uv run python download_corpus.py --set labels --out data/labels   # ~10MB
+uv run python prepare_text.py \
+    --corpus data/corpus/shallalist_all.tar.gz \
+    --out data/prepared --max-per-class 2000
 ```
+
+**Do not extract the tarball.** It is 18GB compressed and expands past 47GB,
+which will fill a normal disk — it took this one to 100% and had to be killed
+mid-run. `prepare_text.py` streams it instead; every document is read once
+either way, so streaming costs nothing. A pre-unpacked `<category>/*.html` tree
+is still accepted if you have one.
+
+**Labels do not come from the tarball.** It is flat —
+`shallalist_all/<domain>.html`, no category anywhere in the path — and
+`screenshot-index.tab` carries only `index,full_domain`. The original notebooks
+fetched `<category>/domains` lists from the `cbuijs/shallalist` GitHub mirror,
+and **that repository is gone**; Shallalist was discontinued in 2022.
+`Azothyran/ShallalistMirror` is a surviving copy with all 74 category
+directories, and is what the script reads. Fetched lists are cached under
+`--label-cache`, so the network is hit once.
 
 Reproduces the original run's filtering, which is why the model has 39 classes
 and not the 73 in `shallalist_cats.txt`: `chat`, `hacking` and `webtv` are
 dropped by name, then any category with fewer than 100 documents, then any
-document under 6 tokens.
+document under 6 tokens. Shallalist nests (`recreation/sports`,
+`finance/banking`); those collapse to their parent, which is exactly how 74 raw
+categories become 39 — the seven parents with no directory of their own
+(`automobile`, `education`, `finance`, `hobby`, `recreation`, `science`, `sex`)
+are the tell. `--keep-subcategories` opts out.
+
+`--max-per-class` caps documents per class. The corpus is long-tailed and only
+~750k of the 1.5M labelled domains appear in it at all, so the realistic yield
+is **34,627 documents across the 39 classes** — `education` 1,506 at the head,
+`military` 85 at the tail.
 
 Deduplication runs on page text **before** the domain prefix is added. Doing it
 after makes every copy of shared navigation chrome look unique, because each
@@ -87,20 +113,52 @@ Writes `train/val/test.jsonl` (80/10/10) plus `labels.json`.
 
 ### 4. Train
 
-Not yet written. The intended target is a `mmBERT-base` fine-tune with a pooled
-CLS head, lr 1e-5–5e-5, weight decay ~0.01 — chosen because it is multilingual,
-and the current pipeline is English-only (it strips non-English words and uses
-NLTK English stopwords, so non-English pages degrade to noise).
+```bash
+uv run python train_text.py --data data/prepared --out models/text-v2
+uv run python train_text.py --data data/prepared --out models/text-v2 --resume
+```
 
-Run it on Colab or a rented GPU; checkpoint to Drive or object storage so a
-disconnect does not cost the run.
+Fine-tunes [mmBERT](https://github.com/JHU-CLSP/mmBERT) with a pooled CLS head.
+Multilingual on purpose: the shipped pipeline strips non-dictionary words and
+applies NLTK *English* stopwords, so a non-English page degrades to noise before
+it ever reaches the model. Turning `filter_non_english` off is most of the fix,
+and the encoder has to be able to use what survives.
+
+**`mmBERT-small` is the default, on a measurement.** On an M4 with 16GB unified
+memory:
+
+| model | params | s/step | min/epoch |
+|---|---|---|---|
+| `mmBERT-base` @ len 256, bs 16 | 308M | 11.42 | 329 |
+| `mmBERT-base` @ len 128, bs 32 | 308M | 10.74 | 155 |
+| **`mmBERT-small` @ len 128, bs 32** | **141M** | **1.45** | **21** |
+
+A 7x gap for 2.2x the parameters is memory pressure, not compute — base plus
+Adam states does not fit comfortably. On a real GPU base is the better model:
+pass `--model jhu-clsp/mmBERT-base --max-length 256`.
+
+Checkpoints every epoch and `--resume` picks up the newest, so a dropped session
+costs one epoch rather than the run. Early stopping is on val macro-F1, not
+accuracy — the class distribution is long-tailed and accuracy flatters a model
+that only learns the head.
 
 ### 5. Calibrate
 
-Not yet written. Temperature scaling on the validation split: a single scalar
-that always yields a normalized distribution, with no pickled-sklearn
-compatibility surface. This is what makes the reported confidence mean
-something again.
+```bash
+uv run python calibrate.py --model models/text-v2 --data data/prepared
+```
+
+Temperature scaling fitted on the **validation** split with LBFGS: one scalar,
+`softmax(logits / T)`. Fitting on train would return T ≈ 1 and calibrate
+nothing, since the model has already memorized it.
+
+This replaces 39 per-class `IsotonicRegression` pickles that had three separate
+problems: they were applied elementwise and never renormalized, so `confidence`
+was not a probability and argmax was not the argmax of any distribution; they
+are unpinned joblib pickles, so they became a version-compatibility surface; and
+via that surface they had stopped working entirely — every one unpickles under
+scikit-learn 1.9 and then predicts `NaN`, so all 39 were silently discarded at
+load. Writes `calibration.json` and reports ECE before and after.
 
 ## Files
 
@@ -110,8 +168,8 @@ something again.
 | `evaluate.py` | done — scores a labelled set, writes JSON |
 | `download_corpus.py` | done — resumable, checksum-verified |
 | `prepare_text.py` | done — filtering reproduced from notebooks/04 |
-| `train_text.py` | **not written** |
-| `calibrate.py` | **not written** |
+| `train_text.py` | done — mmBERT fine-tune, resumable, early stopping |
+| `calibrate.py` | done — temperature scaling on val, reports ECE |
 
 The `notebooks/` directory holds the original Colab pipeline that produced the
 shipped models. It is kept for provenance; the paths in it are Colab-specific

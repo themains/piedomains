@@ -2,41 +2,53 @@
   "method": "text",
   "summary": {
     "n_total": 44,
-    "n_scored": 38,
-    "n_unclassified": 6,
-    "accuracy": 0.39473684210526316,
-    "macro_f1": 0.261976911976912,
-    "ece": 0.20962870787633092,
-    "mean_confidence": 0.5769378829159235,
+    "n_scored": 39,
+    "n_unclassified": 5,
+    "accuracy": 0.5897435897435898,
+    "macro_f1": 0.6074404761904761,
+    "ece": 0.18988580963550472,
+    "mean_confidence": 0.5731475322674482,
     "per_class": {
+      "adv": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "support": 0
+      },
+      "downloads": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "support": 0
+      },
       "education": {
-        "precision": 0.3333333333333333,
-        "recall": 0.25,
-        "f1": 0.28571428571428575,
+        "precision": 1.0,
+        "recall": 0.75,
+        "f1": 0.8571428571428571,
         "support": 4
       },
       "finance": {
-        "precision": 0.6,
-        "recall": 1.0,
-        "f1": 0.7499999999999999,
+        "precision": 1.0,
+        "recall": 0.6666666666666666,
+        "f1": 0.8,
         "support": 3
       },
       "forum": {
-        "precision": 1.0,
+        "precision": 0.3333333333333333,
         "recall": 1.0,
-        "f1": 1.0,
+        "f1": 0.5,
         "support": 1
       },
       "government": {
-        "precision": 0.0,
-        "recall": 0.0,
-        "f1": 0.0,
+        "precision": 1.0,
+        "recall": 0.75,
+        "f1": 0.8571428571428571,
         "support": 4
       },
       "hospitals": {
-        "precision": 0.0,
-        "recall": 0.0,
-        "f1": 0.0,
+        "precision": 1.0,
+        "recall": 0.5,
+        "f1": 0.6666666666666666,
         "support": 2
       },
       "imagehosting": {
@@ -46,48 +58,30 @@
         "support": 2
       },
       "jobsearch": {
-        "precision": 0.3333333333333333,
+        "precision": 0.6666666666666666,
         "recall": 1.0,
-        "f1": 0.5,
+        "f1": 0.8,
         "support": 2
       },
       "movies": {
-        "precision": 0.0,
-        "recall": 0.0,
-        "f1": 0.0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
         "support": 2
       },
       "music": {
-        "precision": 0.0,
-        "recall": 0.0,
-        "f1": 0.0,
+        "precision": 1.0,
+        "recall": 0.5,
+        "f1": 0.6666666666666666,
         "support": 2
       },
       "news": {
-        "precision": 0.5,
-        "recall": 1.0,
-        "f1": 0.6666666666666666,
+        "precision": 0.6666666666666666,
+        "recall": 0.5,
+        "f1": 0.5714285714285715,
         "support": 4
       },
-      "porn": {
-        "precision": 0.0,
-        "recall": 0.0,
-        "f1": 0.0,
-        "support": 0
-      },
       "radiotv": {
-        "precision": 0.0,
-        "recall": 0.0,
-        "f1": 0.0,
-        "support": 0
-      },
-      "recreation": {
-        "precision": 0.0,
-        "recall": 0.0,
-        "f1": 0.0,
-        "support": 0
-      },
-      "redirector": {
         "precision": 0.0,
         "recall": 0.0,
         "f1": 0.0,
@@ -100,15 +94,15 @@
         "support": 1
       },
       "searchengines": {
-        "precision": 0.0,
-        "recall": 0.0,
-        "f1": 0.0,
+        "precision": 0.6666666666666666,
+        "recall": 0.6666666666666666,
+        "f1": 0.6666666666666666,
         "support": 3
       },
       "shopping": {
-        "precision": 0.5714285714285714,
-        "recall": 1.0,
-        "f1": 0.7272727272727273,
+        "precision": 1.0,
+        "recall": 0.5,
+        "f1": 0.6666666666666666,
         "support": 4
       },
       "socialnet": {
@@ -117,62 +111,74 @@
         "f1": 0.0,
         "support": 2
       },
-      "urlshortener": {
+      "spyware": {
         "precision": 0.0,
         "recall": 0.0,
         "f1": 0.0,
+        "support": 0
+      },
+      "urlshortener": {
+        "precision": 1.0,
+        "recall": 0.5,
+        "f1": 0.6666666666666666,
         "support": 2
+      },
+      "webmail": {
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0,
+        "support": 1
       }
     },
     "top_confusions": [
       [
-        "education",
-        "jobsearch",
-        2
-      ],
-      [
-        "government",
-        "finance",
-        2
-      ],
-      [
-        "education",
         "news",
-        1
+        "radiotv",
+        2
       ],
       [
-        "socialnet",
-        "jobsearch",
-        1
-      ],
-      [
-        "socialnet",
-        "porn",
-        1
-      ],
-      [
-        "searchengines",
         "shopping",
+        "adv",
+        1
+      ],
+      [
+        "shopping",
+        "spyware",
+        1
+      ],
+      [
+        "education",
+        "forum",
+        1
+      ],
+      [
+        "socialnet",
+        "jobsearch",
+        1
+      ],
+      [
+        "socialnet",
+        "forum",
         1
       ],
       [
         "searchengines",
-        "porn",
+        "spyware",
         1
       ],
       [
-        "searchengines",
-        "redirector",
+        "finance",
+        "adv",
         1
       ],
       [
         "government",
-        "news",
+        "science",
         1
       ],
       [
         "music",
-        "shopping",
+        "radiotv",
         1
       ]
     ]
@@ -181,110 +187,134 @@
     {
       "domain": "cnn.com",
       "expected": "news",
-      "predicted": "news",
-      "confidence": 0.8211010694503784,
+      "predicted": "radiotv",
+      "confidence": 0.2427288144826889,
       "status": "ok",
       "stage": "infer",
-      "error_code": null
+      "error_code": null,
+      "source": "live",
+      "snapshot_timestamp": null
     },
     {
       "domain": "bbc.com",
       "expected": "news",
-      "predicted": "news",
-      "confidence": 0.9400451183319092,
+      "predicted": "radiotv",
+      "confidence": 0.7022164463996887,
       "status": "ok",
       "stage": "infer",
-      "error_code": null
+      "error_code": null,
+      "source": "live",
+      "snapshot_timestamp": null
     },
     {
       "domain": "reuters.com",
       "expected": "news",
       "predicted": "news",
-      "confidence": 0.9964505434036255,
+      "confidence": 0.9370282888412476,
       "status": "ok",
       "stage": "infer",
-      "error_code": null
+      "error_code": null,
+      "source": "live",
+      "snapshot_timestamp": null
     },
     {
       "domain": "theguardian.com",
       "expected": "news",
       "predicted": "news",
-      "confidence": 0.9915697574615479,
+      "confidence": 0.9727099537849426,
       "status": "ok",
       "stage": "infer",
-      "error_code": null
+      "error_code": null,
+      "source": "live",
+      "snapshot_timestamp": null
     },
     {
       "domain": "amazon.com",
       "expected": "shopping",
-      "predicted": "shopping",
-      "confidence": 0.994778037071228,
+      "predicted": "adv",
+      "confidence": 0.21954867243766785,
       "status": "ok",
       "stage": "infer",
-      "error_code": null
+      "error_code": null,
+      "source": "live",
+      "snapshot_timestamp": null
     },
     {
       "domain": "ebay.com",
       "expected": "shopping",
       "predicted": "shopping",
-      "confidence": 0.9948429465293884,
+      "confidence": 0.6385652422904968,
       "status": "ok",
       "stage": "infer",
-      "error_code": null
+      "error_code": null,
+      "source": "live",
+      "snapshot_timestamp": null
     },
     {
       "domain": "etsy.com",
       "expected": "shopping",
-      "predicted": "shopping",
-      "confidence": 0.7431159615516663,
+      "predicted": "spyware",
+      "confidence": 0.24700820446014404,
       "status": "ok",
       "stage": "infer",
-      "error_code": null
+      "error_code": null,
+      "source": "live",
+      "snapshot_timestamp": null
     },
     {
       "domain": "walmart.com",
       "expected": "shopping",
       "predicted": "shopping",
-      "confidence": 0.9771247506141663,
+      "confidence": 0.747056782245636,
       "status": "ok",
       "stage": "infer",
-      "error_code": null
+      "error_code": null,
+      "source": "live",
+      "snapshot_timestamp": null
     },
     {
       "domain": "khanacademy.org",
       "expected": "education",
-      "predicted": "jobsearch",
-      "confidence": 0.25150272250175476,
+      "predicted": "education",
+      "confidence": 0.13283275067806244,
       "status": "ok",
       "stage": "infer",
-      "error_code": null
+      "error_code": null,
+      "source": "live",
+      "snapshot_timestamp": null
     },
     {
       "domain": "coursera.org",
       "expected": "education",
-      "predicted": "jobsearch",
-      "confidence": 0.7293896675109863,
+      "predicted": "forum",
+      "confidence": 0.4545446038246155,
       "status": "ok",
       "stage": "infer",
-      "error_code": null
+      "error_code": null,
+      "source": "live",
+      "snapshot_timestamp": null
     },
     {
       "domain": "mit.edu",
       "expected": "education",
-      "predicted": "news",
-      "confidence": 0.43335363268852234,
+      "predicted": "education",
+      "confidence": 0.4934503138065338,
       "status": "ok",
       "stage": "infer",
-      "error_code": null
+      "error_code": null,
+      "source": "live",
+      "snapshot_timestamp": null
     },
     {
       "domain": "harvard.edu",
       "expected": "education",
       "predicted": "education",
-      "confidence": 0.48372745513916016,
+      "confidence": 0.4688358008861542,
       "status": "ok",
       "stage": "infer",
-      "error_code": null
+      "error_code": null,
+      "source": "live",
+      "snapshot_timestamp": null
     },
     {
       "domain": "facebook.com",
@@ -293,187 +323,229 @@
       "confidence": null,
       "status": "failed",
       "stage": "process",
-      "error_code": "thin_content"
+      "error_code": "thin_content",
+      "source": "live",
+      "snapshot_timestamp": null
     },
     {
       "domain": "linkedin.com",
       "expected": "socialnet",
       "predicted": "jobsearch",
-      "confidence": 0.4880486726760864,
+      "confidence": 0.8507837057113647,
       "status": "ok",
       "stage": "infer",
-      "error_code": null
+      "error_code": null,
+      "source": "live",
+      "snapshot_timestamp": null
     },
     {
       "domain": "reddit.com",
       "expected": "socialnet",
-      "predicted": "porn",
-      "confidence": 0.26655152440071106,
+      "predicted": "forum",
+      "confidence": 0.272968590259552,
       "status": "ok",
       "stage": "infer",
-      "error_code": null
+      "error_code": null,
+      "source": "live",
+      "snapshot_timestamp": null
     },
     {
       "domain": "google.com",
       "expected": "searchengines",
-      "predicted": "shopping",
-      "confidence": 0.2817623019218445,
+      "predicted": "searchengines",
+      "confidence": 0.41923168301582336,
       "status": "ok",
       "stage": "infer",
-      "error_code": null
+      "error_code": null,
+      "source": "live",
+      "snapshot_timestamp": null
     },
     {
       "domain": "bing.com",
       "expected": "searchengines",
-      "predicted": "porn",
-      "confidence": 0.18545594811439514,
+      "predicted": "searchengines",
+      "confidence": 0.4902196228504181,
       "status": "ok",
       "stage": "infer",
-      "error_code": null
+      "error_code": null,
+      "source": "live",
+      "snapshot_timestamp": null
     },
     {
       "domain": "duckduckgo.com",
       "expected": "searchengines",
-      "predicted": "redirector",
-      "confidence": 0.21401916444301605,
+      "predicted": "spyware",
+      "confidence": 0.1585056185722351,
       "status": "ok",
       "stage": "infer",
-      "error_code": null
+      "error_code": null,
+      "source": "live",
+      "snapshot_timestamp": null
     },
     {
       "domain": "chase.com",
       "expected": "finance",
       "predicted": "finance",
-      "confidence": 0.999903678894043,
+      "confidence": 0.6227414608001709,
       "status": "ok",
       "stage": "infer",
-      "error_code": null
+      "error_code": null,
+      "source": "live",
+      "snapshot_timestamp": null
     },
     {
       "domain": "paypal.com",
       "expected": "finance",
-      "predicted": "finance",
-      "confidence": 0.9706826210021973,
+      "predicted": "adv",
+      "confidence": 0.21097344160079956,
       "status": "ok",
       "stage": "infer",
-      "error_code": null
+      "error_code": null,
+      "source": "live",
+      "snapshot_timestamp": null
     },
     {
       "domain": "bankofamerica.com",
       "expected": "finance",
       "predicted": "finance",
-      "confidence": 0.9997727274894714,
+      "confidence": 0.9360954761505127,
       "status": "ok",
       "stage": "infer",
-      "error_code": null
+      "error_code": null,
+      "source": "live",
+      "snapshot_timestamp": null
     },
     {
       "domain": "irs.gov",
       "expected": "government",
-      "predicted": "finance",
-      "confidence": 0.7324998378753662,
+      "predicted": "government",
+      "confidence": 0.5887771248817444,
       "status": "ok",
       "stage": "infer",
-      "error_code": null
+      "error_code": null,
+      "source": "live",
+      "snapshot_timestamp": null
     },
     {
       "domain": "usa.gov",
       "expected": "government",
-      "predicted": "finance",
-      "confidence": 0.4715002477169037,
+      "predicted": "government",
+      "confidence": 0.9052230715751648,
       "status": "ok",
       "stage": "infer",
-      "error_code": null
+      "error_code": null,
+      "source": "live",
+      "snapshot_timestamp": null
     },
     {
       "domain": "nasa.gov",
       "expected": "government",
-      "predicted": "news",
-      "confidence": 0.4430863857269287,
+      "predicted": "science",
+      "confidence": 0.28699374198913574,
       "status": "ok",
       "stage": "infer",
-      "error_code": null
+      "error_code": null,
+      "source": "live",
+      "snapshot_timestamp": null
     },
     {
       "domain": "spotify.com",
       "expected": "music",
-      "predicted": "shopping",
-      "confidence": 0.20956876873970032,
+      "predicted": "music",
+      "confidence": 0.40793249011039734,
       "status": "ok",
       "stage": "infer",
-      "error_code": null
+      "error_code": null,
+      "source": "live",
+      "snapshot_timestamp": null
     },
     {
       "domain": "last.fm",
       "expected": "music",
       "predicted": "radiotv",
-      "confidence": 0.1388000249862671,
+      "confidence": 0.47455471754074097,
       "status": "ok",
       "stage": "infer",
-      "error_code": null
+      "error_code": null,
+      "source": "live",
+      "snapshot_timestamp": null
     },
     {
       "domain": "imdb.com",
       "expected": "movies",
-      "predicted": "news",
-      "confidence": 0.3187337815761566,
+      "predicted": "movies",
+      "confidence": 0.9241054654121399,
       "status": "ok",
       "stage": "infer",
-      "error_code": null
+      "error_code": null,
+      "source": "live",
+      "snapshot_timestamp": null
     },
     {
       "domain": "netflix.com",
       "expected": "movies",
-      "predicted": "recreation",
-      "confidence": 0.34548506140708923,
+      "predicted": "movies",
+      "confidence": 0.36678779125213623,
       "status": "ok",
       "stage": "infer",
-      "error_code": null
+      "error_code": null,
+      "source": "live",
+      "snapshot_timestamp": null
     },
     {
       "domain": "indeed.com",
       "expected": "jobsearch",
       "predicted": "jobsearch",
-      "confidence": 0.9098617434501648,
+      "confidence": 0.9810919761657715,
       "status": "ok",
       "stage": "infer",
-      "error_code": null
+      "error_code": null,
+      "source": "live",
+      "snapshot_timestamp": null
     },
     {
       "domain": "monster.com",
       "expected": "jobsearch",
       "predicted": "jobsearch",
-      "confidence": 0.7708330154418945,
+      "confidence": 0.9725722670555115,
       "status": "ok",
       "stage": "infer",
-      "error_code": null
+      "error_code": null,
+      "source": "live",
+      "snapshot_timestamp": null
     },
     {
       "domain": "webmd.com",
       "expected": "hospitals",
-      "predicted": "porn",
-      "confidence": 0.31555742025375366,
+      "predicted": "searchengines",
+      "confidence": 0.31789228320121765,
       "status": "ok",
       "stage": "infer",
-      "error_code": null
+      "error_code": null,
+      "source": "live",
+      "snapshot_timestamp": null
     },
     {
       "domain": "mayoclinic.org",
       "expected": "hospitals",
-      "predicted": "education",
-      "confidence": 0.3856475353240967,
+      "predicted": "hospitals",
+      "confidence": 0.9221274256706238,
       "status": "ok",
       "stage": "infer",
-      "error_code": null
+      "error_code": null,
+      "source": "live",
+      "snapshot_timestamp": null
     },
     {
       "domain": "nature.com",
       "expected": "science",
       "predicted": "news",
-      "confidence": 0.7731358408927917,
+      "confidence": 0.5802867412567139,
       "status": "ok",
       "stage": "infer",
-      "error_code": null
+      "error_code": null,
+      "source": "live",
+      "snapshot_timestamp": null
     },
     {
       "domain": "sciencemag.org",
@@ -482,7 +554,9 @@
       "confidence": null,
       "status": "failed",
       "stage": "fetch",
-      "error_code": "cannot_classify"
+      "error_code": "cannot_classify",
+      "source": null,
+      "snapshot_timestamp": null
     },
     {
       "domain": "gmail.com",
@@ -491,61 +565,75 @@
       "confidence": null,
       "status": "failed",
       "stage": "process",
-      "error_code": "thin_content"
+      "error_code": "thin_content",
+      "source": "live",
+      "snapshot_timestamp": null
     },
     {
       "domain": "outlook.com",
       "expected": "webmail",
-      "predicted": null,
-      "confidence": null,
-      "status": "failed",
-      "stage": "fetch",
-      "error_code": "thin_content"
+      "predicted": "webmail",
+      "confidence": 0.7347517013549805,
+      "status": "ok",
+      "stage": "infer",
+      "error_code": null,
+      "source": "live",
+      "snapshot_timestamp": null
     },
     {
       "domain": "bitly.com",
       "expected": "urlshortener",
-      "predicted": "jobsearch",
-      "confidence": 0.4165703058242798,
+      "predicted": "socialnet",
+      "confidence": 0.14162462949752808,
       "status": "ok",
       "stage": "infer",
-      "error_code": null
+      "error_code": null,
+      "source": "live",
+      "snapshot_timestamp": null
     },
     {
       "domain": "tinyurl.com",
       "expected": "urlshortener",
-      "predicted": "porn",
-      "confidence": 0.18299686908721924,
+      "predicted": "urlshortener",
+      "confidence": 0.8047128319740295,
       "status": "ok",
       "stage": "infer",
-      "error_code": null
+      "error_code": null,
+      "source": "live",
+      "snapshot_timestamp": null
     },
     {
       "domain": "imgur.com",
       "expected": "imagehosting",
-      "predicted": "recreation",
-      "confidence": 0.2015933096408844,
+      "predicted": "downloads",
+      "confidence": 0.525671660900116,
       "status": "ok",
       "stage": "infer",
-      "error_code": null
+      "error_code": null,
+      "source": "live",
+      "snapshot_timestamp": null
     },
     {
       "domain": "flickr.com",
       "expected": "imagehosting",
-      "predicted": "shopping",
-      "confidence": 0.41447481513023376,
+      "predicted": "socialnet",
+      "confidence": 0.5486966371536255,
       "status": "ok",
       "stage": "infer",
-      "error_code": null
+      "error_code": null,
+      "source": "live",
+      "snapshot_timestamp": null
     },
     {
       "domain": "stackoverflow.com",
       "expected": "forum",
       "predicted": "forum",
-      "confidence": 0.8827413320541382,
+      "confidence": 0.9017147421836853,
       "status": "ok",
       "stage": "infer",
-      "error_code": null
+      "error_code": null,
+      "source": "live",
+      "snapshot_timestamp": null
     },
     {
       "domain": "quora.com",
@@ -554,7 +642,9 @@
       "confidence": null,
       "status": "failed",
       "stage": "process",
-      "error_code": "thin_content"
+      "error_code": "thin_content",
+      "source": "live",
+      "snapshot_timestamp": null
     },
     {
       "domain": "espn.com",
@@ -563,16 +653,20 @@
       "confidence": null,
       "status": "failed",
       "stage": "fetch",
-      "error_code": "thin_content"
+      "error_code": "thin_content",
+      "source": null,
+      "snapshot_timestamp": null
     },
     {
       "domain": "nih.gov",
       "expected": "government",
-      "predicted": "education",
-      "confidence": 0.24735495448112488,
+      "predicted": "government",
+      "confidence": 0.7491909861564636,
       "status": "ok",
       "stage": "infer",
-      "error_code": null
+      "error_code": null,
+      "source": "live",
+      "snapshot_timestamp": null
     }
   ]
 }

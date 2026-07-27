@@ -20,6 +20,4 @@ jobs:
     with:
       wheel-import: piedomains
       coverage-floor: 0
-      # TensorFlow ships no cp314 wheels, so the standard 3.11 + 3.14 matrix is
-      # not reachable yet. Restore it once torch replaces tensorflow.
-      python-versions: '["3.11", "3.13"]'
+      python-versions: '["3.11", "3.14"]'

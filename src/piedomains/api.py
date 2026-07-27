@@ -606,100 +606,24 @@ class DomainClassifier:
             return classifier.classify_from_data(collection_data, output_file, latest)
 
         elif method == "combined":
-            # Run both text and image classification, then combine
-            from .image import ImageClassifier
+            # Text-only, deliberately. This branch used to run both models and
+            # call the result an ensemble, but it never merged the probability
+            # vectors: it returned the *text* label every time and only averaged
+            # the two confidences -- averaging a calibrated, unnormalized text
+            # score against an uncalibrated image softmax. The image model could
+            # not change an answer, only blur the number attached to it.
+            #
+            # With the TensorFlow image model gone (see image.ImageClassifier),
+            # this is what "combined" already was. PR 6 builds the real thing:
+            # late fusion over both vectors with weights fit on validation.
             from .text import TextClassifier
 
-            text_classifier = TextClassifier(cache_dir=self.cache_dir)
-            image_classifier = ImageClassifier(cache_dir=self.cache_dir)
-
-            text_results = text_classifier.classify_from_data(
-                collection_data, latest=latest
+            logger.info(
+                "method='combined' is text-only in this version; the image "
+                "model is being retrained (see ImageClassifier.load_models)"
             )
-            image_results = image_classifier.classify_from_data(
-                collection_data, latest=latest
-            )
-
-            # Combine results using simple ensemble (equal weighting)
-            combined_results = []
-
-            # Create lookup for image results
-            image_lookup = {r["domain"]: r for r in image_results}
-
-            for text_result in text_results:
-                domain = text_result["domain"]
-                image_result = image_lookup.get(domain, {})
-
-                # Combine predictions with equal weighting
-                text_conf = text_result.get("confidence", 0.0) or 0.0
-                image_conf = image_result.get("confidence", 0.0) or 0.0
-
-                if text_conf > 0 and image_conf > 0:
-                    # Both models have predictions - use ensemble
-                    combined_conf = (text_conf + image_conf) / 2
-                    # Use text category as primary (could be more sophisticated)
-                    category = text_result.get("category") or image_result.get(
-                        "category"
-                    )
-                elif text_conf > 0:
-                    # Only text model has prediction
-                    combined_conf = text_conf
-                    category = text_result.get("category")
-                elif image_conf > 0:
-                    # Only image model has prediction
-                    combined_conf = image_conf
-                    category = image_result.get("category")
-                else:
-                    # No valid predictions
-                    combined_conf = 0.0
-                    category = None
-
-                combined_result = {
-                    "url": text_result.get("url"),
-                    "domain": domain,
-                    "text_path": text_result.get("text_path"),
-                    "image_path": text_result.get("image_path"),
-                    "date_time_collected": text_result.get("date_time_collected"),
-                    "model_used": "combined/text_image_ml",
-                    "category": category,
-                    "confidence": combined_conf,
-                    "reason": None,
-                    "error": text_result.get("error") or image_result.get("error"),
-                    "text_category": text_result.get("category"),
-                    "text_confidence": text_conf,
-                    "image_category": image_result.get("category"),
-                    "image_confidence": image_conf,
-                    "raw_predictions": {
-                        "text": text_result.get("raw_predictions"),
-                        "image": image_result.get("raw_predictions"),
-                    },
-                }
-                combined_results.append(combined_result)
-
-            # Save combined results if requested
-            if output_file:
-                import json
-                from datetime import datetime
-
-                os.makedirs(os.path.dirname(output_file), exist_ok=True)
-
-                output_data = {
-                    "inference_timestamp": datetime.now(UTC).isoformat(),
-                    "model_used": "combined/text_image_ml",
-                    "total_domains": len(combined_results),
-                    "successful": len(
-                        [r for r in combined_results if r["category"] is not None]
-                    ),
-                    "failed": len(
-                        [r for r in combined_results if r["error"] is not None]
-                    ),
-                    "results": combined_results,
-                }
-
-                with open(output_file, "w", encoding="utf-8") as f:
-                    json.dump(output_data, f, indent=2)
-
-            return combined_results
+            classifier = TextClassifier(cache_dir=self.cache_dir)
+            return classifier.classify_from_data(collection_data, output_file, latest)
 
         else:  # method == "llm"; other values rejected by the guard above
             if self._llm_classifier is None:
