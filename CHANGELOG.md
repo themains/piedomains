@@ -5,7 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.8.0] - 2026-07-27
+
+Measured on `tests/eval/labels.csv` (44 hand-labelled popular domains) against
+identical cached content, so this is model-vs-model with acquisition held constant:
+
+| | TensorFlow (0.7.0) | PyTorch (0.8.0) |
+|---|---|---|
+| accuracy | 0.395 | **0.590** |
+| macro-F1 | 0.262 | **0.607** |
+| ECE | 0.210 | **0.190** |
+
+13 domains change from wrong to right, 5 the other way. Fixed: `khanacademy.org` and
+`mit.edu` → `education`, `google`/`bing` → `searchengines`, `irs.gov`/`usa.gov`/`nih.gov`
+→ `government`, `spotify` → `music`, `imdb`/`netflix` → `movies`, `mayoclinic` →
+`hospitals`, `tinyurl` → `urlshortener`. Regressed: `cnn`/`bbc` → `radiotv` (news
+outlets with video), and `amazon`/`paypal`/`etsy` → `adv`/`spyware` — both are large,
+noisy Shallalist categories.
+
+On a held-out split of the training corpus the model scores accuracy **0.734**,
+macro-F1 **0.648**. The old model reported 71.3% on that kind of split and delivered
+0.395 on the set above; the gap is what an unchecked in-distribution number looks like.
+**0.59 is the honest expectation.**
+
+Calibration is the other half. The raw model is badly overconfident; temperature
+scaling (T = 3.416, fitted on validation) takes expected calibration error from
+**0.203 to 0.022** on the corpus test split.
 
 ### 💥 Breaking
 

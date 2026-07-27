@@ -20,7 +20,7 @@ logger = get_logger()
 #: Where the fine-tuned classifier lives. Overridable with
 #: ``PIEDOMAINS_TEXT_MODEL`` (a Hub repo id or a local directory), which is what
 #: `training/train_text.py` output is pointed at before it is published.
-DEFAULT_TEXT_MODEL = "themains/piedomains-text"
+DEFAULT_TEXT_MODEL = "soodoku/piedomains-text"
 
 
 def _pick_device() -> str:
@@ -60,6 +60,39 @@ def resolve_text_model(latest: bool = False) -> str:
     return DEFAULT_TEXT_MODEL
 
 
+def _sidecar(source: str, filename: str) -> dict | None:
+    """Read a JSON file shipped alongside the weights.
+
+    ``source`` is either a local directory or a Hub repo id, and the difference
+    matters: a bare ``Path(source) / filename`` check silently misses on a repo
+    id, which is how the temperature quietly reverted to 1.0 — the model loaded,
+    reported success, and applied no calibration at all.
+
+    Args:
+        source: Local directory or Hub repo id the model came from.
+        filename: Sidecar file to read.
+
+    Returns:
+        dict | None: The parsed contents, or ``None`` when absent.
+    """
+    local = Path(source) / filename
+    if local.exists():
+        return json.loads(local.read_text(encoding="utf-8"))
+    if Path(source).exists():
+        return None  # a real local directory that simply lacks the file
+
+    from huggingface_hub import hf_hub_download  # pyright: ignore[reportMissingImports]
+    from huggingface_hub.errors import (  # pyright: ignore[reportMissingImports]
+        EntryNotFoundError,
+    )
+
+    try:
+        path = hf_hub_download(repo_id=source, filename=filename)
+    except (EntryNotFoundError, OSError, ValueError):
+        return None
+    return json.loads(Path(path).read_text(encoding="utf-8"))
+
+
 def _read_labels(source: str, config: Any) -> list[str]:
     """Read class order for the loaded checkpoint.
 
@@ -76,9 +109,9 @@ def _read_labels(source: str, config: Any) -> list[str]:
     Returns:
         list[str]: Category names in class-index order.
     """
-    local = Path(source) / "labels.json"
-    if local.exists():
-        return json.loads(local.read_text(encoding="utf-8"))
+    payload = _sidecar(source, "labels.json")
+    if payload:
+        return list(payload)
 
     id2label = getattr(config, "id2label", None) or {}
     if id2label and not all(str(v).startswith("LABEL_") for v in id2label.values()):
@@ -101,13 +134,12 @@ def _read_temperature(source: str) -> float:
     Returns:
         float: The temperature, or ``1.0`` (no scaling) when absent.
     """
-    local = Path(source) / "calibration.json"
-    if local.exists():
-        payload = json.loads(local.read_text(encoding="utf-8"))
+    payload = _sidecar(source, "calibration.json")
+    if payload:
         return float(payload.get("temperature", 1.0))
     logger.warning(
-        "No calibration.json alongside the model: confidences are raw softmax "
-        "outputs. Run training/calibrate.py to fit a temperature."
+        "No calibration.json alongside the model: confidences are RAW softmax "
+        "outputs, which are badly overconfident. Run training/calibrate.py."
     )
     return 1.0
 

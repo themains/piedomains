@@ -384,16 +384,23 @@ def main(argv: list[str] | None = None) -> int:
         else:
             stale += 1
 
-        save_checkpoint(
-            out,
-            model,
-            tokenizer,
-            labels,
-            config,
-            {"epoch": epoch + 1, "best_f1": best_f1, "last_val_f1": val_f1},
-        )
+        # Only overwrite on an improvement. Saving every epoch unconditionally
+        # means the artifact left on disk is the *last* epoch, not the best one,
+        # which is silently wrong whenever the model starts overfitting -- and it
+        # does: val macro-F1 peaked at epoch 3 and fell at epoch 4 on the first
+        # real run.
         if improved:
+            save_checkpoint(
+                out,
+                model,
+                tokenizer,
+                labels,
+                config,
+                {"epoch": epoch + 1, "best_f1": best_f1, "last_val_f1": val_f1},
+            )
             print(f"  checkpoint saved to {out} (new best)")
+        else:
+            print(f"  not saved: {val_f1:.4f} does not beat {best_f1:.4f}")
 
         if stale >= config.patience:
             print(f"no improvement in {stale} epochs; stopping")
