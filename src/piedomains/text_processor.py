@@ -102,13 +102,15 @@ class TextProcessor:
     def clean_and_normalize_text(text: str) -> str:
         """Clean and normalize text data for model input.
 
-        Removes numbers, punctuation, non-English words, stopwords, and common terms.
+        Removes numbers, punctuation, stopwords and common terms. Dictionary
+        filtering is available but off by default -- see the note below, and
+        ``filter_non_english`` in :mod:`piedomains.config`.
 
         Args:
             text: Raw text to clean
 
         Returns:
-            str: Cleaned text with English words only, no stopwords or common terms
+            str: Cleaned, deduplicated tokens joined by spaces.
 
 
         Raises:
@@ -136,21 +138,23 @@ class TextProcessor:
         # Remove non-ASCII characters
         tokens = [w for w in tokens if w.isascii()]
 
-        # Remove non-English words (only if words corpus is available).
+        # Optional dictionary filter, off by default.
         #
-        # This is the single biggest destroyer of signal in the pipeline: NLTK's
+        # This was the single biggest destroyer of signal in the pipeline. NLTK's
         # `words` corpus is a Webster's-era dictionary with no brand names and no
         # inflected forms, so it drops exactly the most discriminative tokens --
         # `spotify`, `quora`, `facebook`, `instagram`, plus ordinary web
-        # vocabulary like `download`, `email`, `employers`, `cookies`. Turning it
-        # off takes pages under 30 usable tokens from 14/33 to 9/33 and raises the
-        # median from 132 to 199.
+        # vocabulary like `download`, `email`, `employers`, `cookies`. Measured
+        # across 20 evaluation pages it discards 39.8% of all tokens and pushes
+        # 2 of them under the token floor, on *English* pages; `bbc.com` alone
+        # loses `america`, `american`, `accuses` and `acclaimed`.
         #
-        # It stays on by default only because the shipped model was *trained*
-        # with it; the replacement model should be trained with it off.
+        # It also made a multilingual encoder pointless by construction, since
+        # anything not in an English dictionary was removed before the model saw
+        # it. Kept behind the flag so v0.8.0's numbers stay reproducible.
         from .config import get_config
 
-        if words and get_config().get("filter_non_english", True):
+        if words and get_config().get("filter_non_english", False):
             tokens = [w for w in tokens if w in words]
 
         # Filter out stop words

@@ -54,3 +54,19 @@ stackoverflow.com,forum
 quora.com,forum
 espn.com,recreation
 nih.gov,government
+#
+# Non-English domains. v0.8.0 shipped a multilingual encoder behind an
+# English-dictionary filter, which made the multilingual claim untestable --
+# every non-English token was discarded before the model saw it. These exist so
+# the claim is measured rather than asserted. Each is unambiguously of one
+# category and is a well-known site in its language.
+lemonde.fr,news
+spiegel.de,news
+elpais.com,news
+asahi.com,news
+rakuten.co.jp,shopping
+mercadolibre.com.ar,shopping
+allegro.pl,shopping
+weibo.com,socialnet
+vk.com,socialnet
+leboncoin.fr,shopping
