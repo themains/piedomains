@@ -21,6 +21,19 @@ class Config:
         "playwright_timeout": 30000,  # milliseconds
         "playwright_headless": True,
         "playwright_viewport": {"width": 1280, "height": 1024},
+        # Wait for the DOM, settle briefly, then race a capped network-quiet
+        # window. `networkidle` alone loses whole sites (see fetchers.py).
+        "settle_ms": 1500,
+        "network_quiet_ms": 3000,
+        # Minimum usable tokens before a label is meaningful.
+        "min_tokens": 30,
+        # "legacy" | "trafilatura". Legacy is the default because the shipped
+        # model was trained on its output; see text_processor.extract_text.
+        "extractor": "legacy",
+        # Keep only words in NLTK's dictionary. Costs a lot of signal (see
+        # text_processor.clean_and_normalize_text); on because the shipped model
+        # was trained with it.
+        "filter_non_english": True,
         # Parallel processing
         "max_parallel": 4,
         # Archive.org settings. Rate limiting, retries and backoff are handled
@@ -49,7 +62,7 @@ class Config:
         "html_extension": ".html",
         "image_extension": ".png",
         # User agent for HTTP requests
-        "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+        "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
         # Legacy WebDriver settings for backward compatibility
         "webdriver_timeout": 30,
         "webdriver_window_size": "1280,1024",
@@ -140,6 +153,11 @@ class Config:
             "PIEDOMAINS_BATCH_SIZE": ("batch_size", int),
             "PIEDOMAINS_PARALLEL_WORKERS": ("parallel_workers", int),
             "PIEDOMAINS_USER_AGENT": ("user_agent", str),
+            "PIEDOMAINS_EXTRACTOR": ("extractor", str),
+            "PIEDOMAINS_FILTER_NON_ENGLISH": (
+                "filter_non_english",
+                lambda x: x.lower() in ("true", "1", "yes"),
+            ),
             "PIEDOMAINS_LOG_LEVEL": ("log_level", str),
             "PIEDOMAINS_ENABLE_CONTENT_VALIDATION": (
                 "enable_content_validation",

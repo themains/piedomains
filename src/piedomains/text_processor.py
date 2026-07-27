@@ -136,8 +136,21 @@ class TextProcessor:
         # Remove non-ASCII characters
         tokens = [w for w in tokens if w.isascii()]
 
-        # Remove non-English words (only if words corpus is available)
-        if words:
+        # Remove non-English words (only if words corpus is available).
+        #
+        # This is the single biggest destroyer of signal in the pipeline: NLTK's
+        # `words` corpus is a Webster's-era dictionary with no brand names and no
+        # inflected forms, so it drops exactly the most discriminative tokens --
+        # `spotify`, `quora`, `facebook`, `instagram`, plus ordinary web
+        # vocabulary like `download`, `email`, `employers`, `cookies`. Turning it
+        # off takes pages under 30 usable tokens from 14/33 to 9/33 and raises the
+        # median from 132 to 199.
+        #
+        # It stays on by default only because the shipped model was *trained*
+        # with it; the replacement model should be trained with it off.
+        from .config import get_config
+
+        if words and get_config().get("filter_non_english", True):
             tokens = [w for w in tokens if w in words]
 
         # Filter out stop words
@@ -165,10 +178,64 @@ class TextProcessor:
         Returns:
             str: Clean, processed text ready for model input
         """
-        # Extract visible text
-        raw_text = cls.extract_text_from_html(html_content)
+        raw_text = cls.extract_text(html_content)
+        return cls.clean_and_normalize_text(raw_text)
 
-        # Clean and normalize
-        clean_text = cls.clean_and_normalize_text(raw_text)
+    @staticmethod
+    def extract_with_trafilatura(html_content: str) -> str:
+        """Extract main content using trafilatura.
 
-        return clean_text
+        trafilatura powers FineWeb and RefinedWeb and tops the WCXB benchmark.
+        On this project's own pages it cuts results under 30 usable tokens from
+        14/33 to 6/33, chiefly by keeping article text that the naive visible-text
+        walk buries in navigation chrome.
+
+        Args:
+            html_content: Raw HTML content.
+
+        Returns:
+            str: Extracted main content, or ``""`` when nothing was found.
+        """
+        # trafilatura ships py.typed but pyright does not resolve it from this
+        # lazily-imported position; the runtime import is exercised by tests.
+        import trafilatura  # pyright: ignore[reportMissingImports]
+
+        try:
+            return (
+                trafilatura.extract(
+                    html_content,
+                    include_comments=False,
+                    include_tables=True,
+                    favor_recall=True,
+                )
+                or ""
+            )
+        except Exception as e:  # never let an extractor failure kill a fetch
+            logger.warning(f"trafilatura extraction failed: {e}")
+            return ""
+
+    @classmethod
+    def extract_text(cls, html_content: str) -> str:
+        """Extract page text using the configured extractor.
+
+        Defaults to the legacy visible-text walk, because the shipped TensorFlow
+        model was *trained* on its output -- switching wholesale would break
+        train/serve parity. Set ``extractor = "trafilatura"`` in config (or train
+        a model on its output) to use the better one.
+
+        Args:
+            html_content: Raw HTML content.
+
+        Returns:
+            str: Extracted text, falling back to the legacy walk if the
+            configured extractor returns nothing.
+        """
+        from .config import get_config
+
+        which = get_config().get("extractor", "legacy")
+        if which == "trafilatura":
+            text = cls.extract_with_trafilatura(html_content)
+            # Fall back rather than lose the page: trafilatura is precision-first
+            # and returns nothing on some layouts the legacy walk still handles.
+            return text or cls.extract_text_from_html(html_content)
+        return cls.extract_text_from_html(html_content)

@@ -73,6 +73,13 @@ class ErrorCode(StrEnum):
     MODEL_LOAD_ERROR = "model_load_error"
     MODEL_ERROR = "model_error"
     LLM_ERROR = "llm_error"
+    #: An anti-bot challenge or interstitial was served instead of the page.
+    BOT_BLOCKED = "bot_blocked"
+    #: Fetched and parsed, but too little text to classify honestly.
+    THIN_CONTENT = "thin_content"
+    #: Umbrella terminal state: we refuse to label this domain. Callers that do
+    #: not want to enumerate every cause can branch on this one code.
+    CANNOT_CLASSIFY = "cannot_classify"
     UNKNOWN = "unknown"
 
 
@@ -84,6 +91,8 @@ RETRYABLE: frozenset[ErrorCode] = frozenset(
         ErrorCode.TIMEOUT,
         ErrorCode.HTTP_ERROR,
         ErrorCode.ARCHIVE_RATE_LIMITED,
+        # Worth another attempt from a different IP, or via the archive.
+        ErrorCode.BOT_BLOCKED,
     }
 )
 

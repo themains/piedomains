@@ -6,6 +6,7 @@ Unified pipeline for HTML, text extraction, and screenshots.
 """
 
 import asyncio
+import contextlib
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -27,8 +28,10 @@ from wayback.exceptions import (  # pyright: ignore[reportMissingImports]
     WaybackException,
 )
 
+from .blocking import detect_block
 from .config import get_config
 from .content_validation import ContentValidator
+from .outcomes import ErrorCode
 from .piedomains_logging import get_logger
 
 logger = get_logger()
@@ -264,12 +267,39 @@ class PlaywrightFetcher(BaseFetcher):
         result = FetchResult(url=url, success=False)
 
         try:
-            # Navigate with timeout
             timeout = self.config.get("playwright_timeout", 30000)
-            await page.goto(url, wait_until="networkidle", timeout=timeout)
+            # `networkidle` loses whole sites: theverge, stackoverflow and
+            # weather.com all time out on it (3 of 10 popular sites tested), and
+            # outlook.com yields 1 usable token against 414 with this strategy.
+            # Wait for the DOM, then race a short network-quiet window -- capped,
+            # because nytimes.com does yield more text once the network settles,
+            # so the upside is kept without the 20s cliff.
+            await page.goto(url, wait_until="domcontentloaded", timeout=timeout)
+            settle = self.config.get("settle_ms", 1500)
+            quiet = self.config.get("network_quiet_ms", 3000)
+            await page.wait_for_timeout(settle)
+            # A chatty page never going quiet is fine -- we already have the DOM.
+            with contextlib.suppress(Exception):
+                await page.wait_for_load_state("networkidle", timeout=quiet)
 
             # Extract HTML
             result.html = await page.content()
+
+            blocked = detect_block(result.html, domain=self._parse_domain_name(url))
+            if blocked:
+                result.success = False
+                result.error = blocked.reason
+                result.error_code = ErrorCode.BOT_BLOCKED.value
+                logger.warning(
+                    f"{url}: {blocked.reason}",
+                    extra={
+                        "domain": self._parse_domain_name(url),
+                        "stage": "fetch",
+                        "error_code": "bot_blocked",
+                        "vendor": blocked.vendor,
+                    },
+                )
+                return result
 
             # Extract text content using page evaluation
             result.text = await page.evaluate(

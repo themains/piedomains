@@ -232,6 +232,10 @@ class DataCollector:
                     "fetch_success": False,
                     "cached": False,
                     "error": result.error,
+                    # Carry the fetcher's own classification through. Without
+                    # this a detected bot wall arrives as `unknown`, which
+                    # defeats the point of detecting it.
+                    "error_code": result.error_code or None,
                 }
 
         except Exception as e:

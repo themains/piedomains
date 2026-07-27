@@ -219,7 +219,7 @@ class DomainClassifier:
                 collection_data=collection_data, method=method, latest=latest
             )
             results = _annotate_results(results, collection_data)
-            results = _reconcile_with_requested(results, domains)
+            results = _reconcile_with_requested(results, domains, collection_data)
             report = build_report(
                 results,
                 run_id=run_id,
@@ -716,7 +716,9 @@ class DomainClassifier:
         return Piedomain.parse_url_to_domain(url_or_domain)
 
 
-def _reconcile_with_requested(results: list[dict], requested: list[str]) -> list[dict]:
+def _reconcile_with_requested(
+    results: list[dict], requested: list[str], collection_data: dict | None = None
+) -> list[dict]:
     """Ensure every requested domain has a row, even if the pipeline lost it.
 
     Domains can drop out between collection and classification -- a fetch that
@@ -728,12 +730,23 @@ def _reconcile_with_requested(results: list[dict], requested: list[str]) -> list
     Args:
         results: Rows produced by classification, already annotated.
         requested: The domains the caller asked about, in input order.
+        collection_data: The collection envelope, so a synthesized row can carry
+            the real fetch verdict (e.g. ``bot_blocked``) instead of ``unknown``.
 
     Returns:
         list[dict]: One row per requested domain, in the requested order,
         with synthesized failure rows for any that never came back.
     """
     from .piedomain import Piedomain
+
+    fetch_verdict: dict[str, tuple[str, str | None]] = {}
+    for entry in (collection_data or {}).get("domains", []):
+        if not entry.get("fetch_success"):
+            name = entry.get("domain") or entry.get("url") or ""
+            fetch_verdict[name] = (
+                entry.get("error") or "no result returned by the pipeline",
+                entry.get("error_code"),
+            )
 
     by_key: dict[str, dict] = {}
     for row in results:
@@ -750,17 +763,22 @@ def _reconcile_with_requested(results: list[dict], requested: list[str]) -> list
                 seen.add(id(row))
                 reconciled.append(row)
             continue
+        domain = Piedomain.parse_url_to_domain(name)
+        message, code = fetch_verdict.get(
+            domain,
+            fetch_verdict.get(name, ("no result returned by the pipeline", None)),
+        )
         reconciled.append(
             annotate(
                 {
                     "url": name,
-                    "domain": Piedomain.parse_url_to_domain(name),
+                    "domain": domain,
                     "category": None,
                     "confidence": None,
-                    "error": "no result returned by the pipeline",
+                    "error": message,
                     "status": "failed",
                     "stage": Stage.FETCH.value,
-                    "error_code": ErrorCode.UNKNOWN.value,
+                    "error_code": code or ErrorCode.UNKNOWN.value,
                 }
             )
         )
@@ -790,12 +808,15 @@ def _annotate_results(
     Returns:
         list[dict]: The same rows, annotated in place.
     """
-    fetch_errors: dict[str, str] = {}
+    fetch_errors: dict[str, tuple[str, str | None]] = {}
     if collection_data:
         for entry in collection_data.get("domains", []):
             if not entry.get("fetch_success"):
                 key = entry.get("domain") or entry.get("url") or ""
-                fetch_errors[key] = entry.get("error") or "content fetch failed"
+                fetch_errors[key] = (
+                    entry.get("error") or "content fetch failed",
+                    entry.get("error_code"),
+                )
 
     for row in results:
         if row.get("category") is not None and not row.get("error"):
@@ -804,10 +825,12 @@ def _annotate_results(
 
         key = row.get("domain") or row.get("url") or ""
         if key in fetch_errors:
-            message = fetch_errors[key]
+            message, code = fetch_errors[key]
             row.setdefault("error", message)
             row["stage"] = Stage.FETCH.value
-            row["error_code"] = classify_exception(RuntimeError(message)).value
+            # Prefer the fetcher's own verdict (e.g. bot_blocked) over guessing
+            # from the message text.
+            row["error_code"] = code or classify_exception(RuntimeError(message)).value
         else:
             row["stage"] = row.get("stage") or Stage.INFER.value
             message = str(row.get("error") or "")
