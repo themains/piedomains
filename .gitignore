@@ -150,3 +150,14 @@ archive_images_*/
 # Development artifacts
 *.backup
 comprehensive_test.py
+
+# Training artifacts: corpora are tens of GB, checkpoints hundreds of MB.
+data/corpus/
+data/prepared/
+data/labels/
+data/shallalist/
+# Scraped page cache from local runs; also keeps codespell off other people's HTML.
+data/html/
+data/images/
+data/metadata/
+models/

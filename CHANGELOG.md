@@ -5,6 +5,85 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.0] - 2026-07-27
+
+Measured on `tests/eval/labels.csv` (44 hand-labelled popular domains) against
+identical cached content, so this is model-vs-model with acquisition held constant:
+
+| | TensorFlow (0.7.0) | PyTorch (0.8.0) |
+|---|---|---|
+| accuracy | 0.395 | **0.590** |
+| macro-F1 | 0.262 | **0.607** |
+| ECE | 0.210 | **0.190** |
+
+13 domains change from wrong to right, 5 the other way. Fixed: `khanacademy.org` and
+`mit.edu` → `education`, `google`/`bing` → `searchengines`, `irs.gov`/`usa.gov`/`nih.gov`
+→ `government`, `spotify` → `music`, `imdb`/`netflix` → `movies`, `mayoclinic` →
+`hospitals`, `tinyurl` → `urlshortener`. Regressed: `cnn`/`bbc` → `radiotv` (news
+outlets with video), and `amazon`/`paypal`/`etsy` → `adv`/`spyware` — both are large,
+noisy Shallalist categories.
+
+On a held-out split of the training corpus the model scores accuracy **0.734**,
+macro-F1 **0.648**. The old model reported 71.3% on that kind of split and delivered
+0.395 on the set above; the gap is what an unchecked in-distribution number looks like.
+**0.59 is the honest expectation.**
+
+Calibration is the other half. The raw model is badly overconfident; temperature
+scaling (T = 3.416, fitted on validation) takes expected calibration error from
+**0.203 to 0.022** on the corpus test split.
+
+### 💥 Breaking
+
+- **TensorFlow is removed.** It ships no `cp314` wheels, which held `requires-python`
+  below 3.14 — the standard py-canon matrix. `torch` does, so the upper bound is gone
+  and CI runs 3.11 + 3.14.
+- **Image classification is unavailable** while the screenshot model is retrained.
+  `classify_by_images()` raises `NotImplementedError` naming the reason, and
+  `classify()` is text-only.
+
+  This changes no labels. The old "combined" path never merged the two probability
+  vectors: it returned the *text* label every time and only averaged the confidences —
+  a calibrated, unnormalized text score against an uncalibrated image softmax — so the
+  image model could not change an answer, only blur the number attached to it. The
+  model it removes reported 52.9% with `base_model.trainable = False` (only a linear
+  head was ever fitted) and in practice labelled Khan Academy and Yahoo as `porn`.
+  Screenshot *collection* is unaffected.
+- Result rows no longer carry `text_category` / `image_category` / `image_confidence`,
+  which described a contribution that was never made.
+
+### Changed
+
+- **The text model is a fine-tuned [mmBERT](https://github.com/JHU-CLSP/mmBERT)
+  encoder**, replacing `Embedding(525473, 64) → GlobalAveragePooling1D → Dense` — 403 MB
+  of embedding table that could not use word order, so `free shipping returns` and
+  `free returns shipping` were the same input. Multilingual by design: the old pipeline
+  strips non-dictionary words and applies NLTK *English* stopwords, so a non-English
+  page degraded to noise before reaching the model.
+- **Confidence is a probability again.** Temperature-scaled softmax replaces 39 per-class
+  `IsotonicRegression` pickles that were applied elementwise and never renormalized — so
+  `confidence` was not a probability and `argmax` was not the argmax of any distribution.
+  They had also stopped working entirely: every one unpickles under scikit-learn 1.9 and
+  then predicts `NaN`, so all 39 were silently discarded at load and reported confidences
+  were raw model outputs.
+- **Class order is read from the checkpoint**, not a module constant, so retraining
+  cannot silently permute every label.
+- Model weights load from the Hugging Face Hub via `transformers`, replacing a hardcoded
+  Dataverse datafile id that had no checksum verification and made `latest=True` a no-op
+  re-download of the same artifact. Override with `PIEDOMAINS_TEXT_MODEL`.
+
+### Fixed
+
+- `training/prepare_text.py` could not consume the corpus at all:
+  - **It extracted the tarball.** `shallalist_all.tar.gz` is 18 GB compressed and expands
+    past 47 GB, which fills a normal disk. It now streams.
+  - **It looked for labels in the archive.** The archive is flat
+    (`shallalist_all/<domain>.html`, no category in the path), and the
+    `cbuijs/shallalist` mirror the original notebooks read now 404s — Shallalist was
+    discontinued in 2022. `Azothyran/ShallalistMirror` still has all 74 category
+    directories and is what is read and cached.
+- `piedomain.py` drops from 598 to 302 lines; everything removed was TensorFlow plumbing
+  with no caller outside the module.
+
 ## [0.7.0] - 2026-07-26
 
 > **Versioning note.** Under the py-canon standard the git tag *is* the version
