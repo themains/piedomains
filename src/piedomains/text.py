@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
 """Text-based domain classification using HTML content analysis."""
 
+import json
 import os
 from datetime import UTC
 from pathlib import Path
 from typing import Any
-
-import numpy as np
 
 from .base import Base
 from .blocking import is_thin
@@ -17,6 +16,100 @@ from .outcomes import ErrorCode, Stage
 from .piedomains_logging import get_logger
 
 logger = get_logger()
+
+#: Where the fine-tuned classifier lives. Overridable with
+#: ``PIEDOMAINS_TEXT_MODEL`` (a Hub repo id or a local directory), which is what
+#: `training/train_text.py` output is pointed at before it is published.
+DEFAULT_TEXT_MODEL = "themains/piedomains-text"
+
+
+def _pick_device() -> str:
+    """Choose the fastest available torch device.
+
+    Returns:
+        str: ``cuda``, ``mps`` or ``cpu``.
+    """
+    import torch  # pyright: ignore[reportMissingImports]
+
+    if torch.cuda.is_available():
+        return "cuda"
+    if torch.backends.mps.is_available():
+        return "mps"
+    return "cpu"
+
+
+def resolve_text_model(latest: bool = False) -> str:
+    """Decide which checkpoint to load.
+
+    A local directory is preferred when one is configured, so a freshly trained
+    model can be evaluated before it is published anywhere.
+
+    Args:
+        latest: Bypass any local cache and re-resolve from the Hub.
+
+    Returns:
+        str: A local path or a Hugging Face Hub repo id.
+    """
+    configured = os.environ.get("PIEDOMAINS_TEXT_MODEL") or get_config().get(
+        "text_model"
+    )
+    if configured:
+        return str(configured)
+    if latest:
+        logger.info("latest=True: re-resolving %s from the Hub", DEFAULT_TEXT_MODEL)
+    return DEFAULT_TEXT_MODEL
+
+
+def _read_labels(source: str, config: Any) -> list[str]:
+    """Read class order for the loaded checkpoint.
+
+    ``labels.json`` is authoritative when present; otherwise the model's own
+    ``id2label`` is used. The module-level ``classes`` constant is the last
+    resort, and only correct for a checkpoint trained on that exact set --
+    reading the order off the model is what keeps a retrain from silently
+    permuting every label.
+
+    Args:
+        source: Local directory or Hub repo id the model came from.
+        config: The loaded model's config.
+
+    Returns:
+        list[str]: Category names in class-index order.
+    """
+    local = Path(source) / "labels.json"
+    if local.exists():
+        return json.loads(local.read_text(encoding="utf-8"))
+
+    id2label = getattr(config, "id2label", None) or {}
+    if id2label and not all(str(v).startswith("LABEL_") for v in id2label.values()):
+        return [id2label[i] for i in sorted(id2label, key=int)]
+
+    logger.warning(
+        "No labels.json and no usable id2label; falling back to the built-in "
+        "%d-class list. Verify this matches the checkpoint.",
+        len(classes),
+    )
+    return list(classes)
+
+
+def _read_temperature(source: str) -> float:
+    """Read the fitted calibration temperature.
+
+    Args:
+        source: Local directory or Hub repo id the model came from.
+
+    Returns:
+        float: The temperature, or ``1.0`` (no scaling) when absent.
+    """
+    local = Path(source) / "calibration.json"
+    if local.exists():
+        payload = json.loads(local.read_text(encoding="utf-8"))
+        return float(payload.get("temperature", 1.0))
+    logger.warning(
+        "No calibration.json alongside the model: confidences are raw softmax "
+        "outputs. Run training/calibrate.py to fit a temperature."
+    )
+    return 1.0
 
 
 class TextClassifier(Base):
@@ -36,107 +129,55 @@ class TextClassifier(Base):
         self.archive_date = archive_date
         self.processor = ContentProcessor(str(self.cache_dir), archive_date)
         self._model: Any = None
-        self._calibrators: dict[str, Any] = {}
+        self._tokenizer: Any = None
+        self._device: str = "cpu"
+        self._labels: list[str] = list(classes)
+        #: Fitted by training/calibrate.py; 1.0 means no scaling.
+        self._temperature: float = 1.0
+        self._max_length: int = get_config().get("text_max_length", 256)
 
-    def load_models(self, latest: bool = False):
-        """Load text classification model and calibrators."""
+    def load_models(self, latest: bool = False) -> None:
+        """Load the classifier, its tokenizer, labels and temperature.
+
+        The model is a HuggingFace sequence-classification checkpoint written by
+        ``training/train_text.py``: safetensors weights, a tokenizer, a
+        ``labels.json`` giving class order, and a ``calibration.json`` holding
+        the fitted temperature.
+
+        Args:
+            latest: Re-resolve the model even if one is already loaded.
+
+        Raises:
+            RuntimeError: If the model cannot be loaded. Deliberately fatal --
+                this used to substitute a model returning all zeros, so every
+                domain came back as ``adv`` at confidence 0.0, indistinguishable
+                from a real prediction.
+        """
         if self._model is not None and not latest:
             return
 
         try:
-            # Load model data
-            model_path = self.load_model_data(self.model_file_name, latest)
+            from transformers import (  # pyright: ignore[reportMissingImports]
+                AutoModelForSequenceClassification,
+                AutoTokenizer,
+            )
 
-            # Import TensorFlow here to avoid loading unless needed
-            import tensorflow as tf
+            source = resolve_text_model(latest)
+            self._tokenizer = AutoTokenizer.from_pretrained(source)
+            self._model = AutoModelForSequenceClassification.from_pretrained(source)
+            self._model.eval()
+            self._device = _pick_device()
+            self._model.to(self._device)
 
-            # Load text model
-            text_model_path = os.path.join(model_path, "saved_model", "piedomains")
-            try:
-                self._model = tf.keras.models.load_model(text_model_path)
-            except ValueError as e:
-                if "File format not supported" in str(e) and "Keras 3" in str(e):
-                    logger.info(
-                        "Loading legacy SavedModel with TFSMLayer for Keras 3 compatibility"
-                    )
-                    self._model = tf.keras.layers.TFSMLayer(
-                        text_model_path, call_endpoint="serving_default"
-                    )
-                else:
-                    raise
+            self._labels = _read_labels(source, self._model.config)
+            self._temperature = _read_temperature(source)
 
-            # Load calibrators
-            import warnings
-
-            import joblib
-
-            # Calibrators are in parent directory of model_path
-            parent_path = os.path.dirname(model_path)
-            calibrator_path = os.path.join(parent_path, "calibrate", "text")
-            self._calibrators = {}
-            logger.info(f"Looking for calibrators in: {calibrator_path}")
-
-            # Attempt to load calibrators with version compatibility handling
-            calibrators_loaded = 0
-            with warnings.catch_warnings():
-                warnings.filterwarnings(
-                    "ignore", category=UserWarning, module="sklearn"
-                )
-
-                for class_name in classes:
-                    calibrator_file = os.path.join(calibrator_path, f"{class_name}.sav")
-                    if os.path.exists(calibrator_file):
-                        try:
-                            calibrator = joblib.load(calibrator_file)
-                            # Test with multiple values to ensure robustness
-                            test_values = [0.1, 0.5, 0.9]
-                            test_results = calibrator.predict(test_values)
-
-                            # Check if all results are valid
-                            if all(
-                                r == r and 0 <= r <= 1 for r in test_results
-                            ):  # NaN and range check
-                                self._calibrators[class_name] = calibrator
-                                calibrators_loaded += 1
-                            else:
-                                logger.debug(
-                                    f"Calibrator for {class_name} produces invalid values, skipping"
-                                )
-                        except Exception as e:
-                            logger.debug(
-                                f"Failed to load calibrator for {class_name}: {e}"
-                            )
-
-            if calibrators_loaded == 0:
-                # Not an INFO-level detail: the isotonic calibrators are pickled
-                # sklearn objects, and under a newer sklearn they unpickle fine
-                # but predict NaN, so every one gets dropped and the model runs
-                # entirely uncalibrated. That went unnoticed for exactly this
-                # reason -- it was logged as though it were routine.
-                logger.warning(
-                    "No usable calibrators (%d found on disk): confidences are "
-                    "RAW model outputs, not calibrated. This usually means the "
-                    "pickled sklearn calibrators are incompatible with the "
-                    "installed scikit-learn.",
-                    len(classes),
-                )
-            elif calibrators_loaded < len(classes):
-                logger.warning(
-                    f"Only {calibrators_loaded}/{len(classes)} calibrators usable; "
-                    "the rest fall back to raw probabilities"
-                )
-            else:
-                logger.info(
-                    f"Successfully loaded {calibrators_loaded}/{len(classes)} calibrators"
-                )
-
-            logger.info(f"Loaded text model and {len(self._calibrators)} calibrators")
+            logger.info(
+                f"Loaded text model from {source} on {self._device}: "
+                f"{len(self._labels)} classes, temperature {self._temperature:.3f}"
+            )
 
         except Exception as e:
-            # Deliberately fatal. This used to substitute a model returning all
-            # zeros, which made max() pick the first class: every domain came
-            # back as `adv` with confidence 0.0, indistinguishable from a real
-            # prediction. `_is_dummy_model` was set but never read anywhere.
             logger.error(f"Failed to load text models: {e}")
             raise RuntimeError(
                 f"Could not load the text classification model: {e}"
@@ -401,96 +442,46 @@ class TextClassifier(Base):
         return self.classify_from_paths(valid_domains, output_file, latest)
 
     def _predict_text(self, text: str) -> dict:
-        """Generate predictions for processed text.
+        """Score one page of text.
+
+        Confidence is ``softmax(logits / T)`` with the temperature fitted by
+        ``training/calibrate.py``. Unlike the elementwise isotonic calibration
+        this replaces, the result is always a proper distribution: it sums to 1,
+        and the argmax is the argmax of that distribution rather than of a
+        vector of independently-mapped scores.
 
         Args:
-            text: Cleaned, processed text
+            text: Cleaned page text, already carrying the domain prefix.
 
         Returns:
-            Dict: Prediction results
+            dict: ``text_label``, ``text_prob`` and the full
+            ``text_domain_probs`` distribution; all ``None`` on failure.
         """
         try:
-            # Prepare input for model
-            text_input = np.array([text])
+            import torch  # pyright: ignore[reportMissingImports]
 
-            # Get raw model predictions
-            if hasattr(self._model, "predict"):
-                logger.info("Using standard model.predict() method")
-                raw_predictions = self._model.predict(text_input, verbose=0)[0]
-            else:
-                # Handle TFSMLayer case - check for different output keys
-                output = self._model(text_input)
-                logger.info(
-                    f"TFSMLayer text model output keys: {list(output.keys()) if isinstance(output, dict) else 'not dict'}"
-                )
-                if isinstance(output, dict):
-                    # Try common output keys (including sequential_1 for text model)
-                    for key in [
-                        "output_0",
-                        "predictions",
-                        "dense",
-                        "dense_1",
-                        "sequential_1",
-                    ]:
-                        if key in output:
-                            logger.info(f"Using text model output key: {key}")
-                            raw_predictions = output[key][0]
-                            break
-                    else:
-                        # Fall back to first key
-                        first_key = next(iter(output.keys()))
-                        logger.info(f"Using fallback text model key: {first_key}")
-                        raw_predictions = output[first_key][0]
-                else:
-                    logger.info("Using direct output (not dict)")
-                    raw_predictions = output[0]
+            encoded = self._tokenizer(
+                text,
+                truncation=True,
+                max_length=self._max_length,
+                padding=True,
+                return_tensors="pt",
+            ).to(self._device)
 
-            # Apply calibration if available
-            calibrated_probs = {}
-            calibrators_used = 0
-            for i, class_name in enumerate(classes):
-                raw_prob = float(raw_predictions[i])
+            with torch.no_grad():
+                logits = self._model(**encoded).logits[0]
+            probabilities = torch.softmax(logits / self._temperature, dim=-1)
 
-                if class_name in self._calibrators:
-                    # Apply isotonic regression calibration
-                    try:
-                        calibrator = self._calibrators[class_name]
-                        calibrated_prob = float(calibrator.predict([raw_prob])[0])
-                        # Robust validation for calibrated output
-                        if (
-                            calibrated_prob == calibrated_prob  # NaN check
-                            and 0 <= calibrated_prob <= 1  # Range check
-                            and abs(calibrated_prob) != float("inf")
-                        ):  # Infinity check
-                            calibrators_used += 1
-                        else:
-                            logger.warning(
-                                f"Invalid calibrated value for {class_name}: {calibrated_prob}, using raw"
-                            )
-                            calibrated_prob = raw_prob
-                    except Exception as e:
-                        logger.warning(
-                            f"Calibration failed for {class_name}: {e}, using raw"
-                        )
-                        calibrated_prob = raw_prob
-                else:
-                    calibrated_prob = raw_prob
-
-                calibrated_probs[class_name] = calibrated_prob
-
-            logger.info(
-                f"Applied calibration to {calibrators_used}/{len(classes)} classes"
-            )
-
-            # Find best prediction
-            best_class = max(calibrated_probs, key=lambda k: calibrated_probs[k])
-            best_prob = calibrated_probs[best_class]
-            logger.info(f"Text prediction: {best_class} ({best_prob:.3f})")
+            scores = {
+                name: float(probabilities[i]) for i, name in enumerate(self._labels)
+            }
+            best = max(scores, key=lambda k: scores[k])
+            logger.debug(f"Text prediction: {best} ({scores[best]:.3f})")
 
             return {
-                "text_label": best_class,
-                "text_prob": best_prob,
-                "text_domain_probs": calibrated_probs,
+                "text_label": best,
+                "text_prob": scores[best],
+                "text_domain_probs": scores,
             }
 
         except Exception as e:

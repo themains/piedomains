@@ -150,3 +150,10 @@ archive_images_*/
 # Development artifacts
 *.backup
 comprehensive_test.py
+
+# Training artifacts: corpora are tens of GB, checkpoints hundreds of MB.
+data/corpus/
+data/prepared/
+data/labels/
+data/shallalist/
+models/

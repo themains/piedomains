@@ -1,10 +1,19 @@
 #!/usr/bin/env python3
-r"""Turn a scraped HTML corpus into a labelled, split text dataset.
+r"""Turn the scraped HTML corpus into a labelled, split text dataset.
 
-Reads a directory tree of ``<category>/<domain>.html`` (the shape the Shallalist
-Dataverse tarballs unpack into), extracts text with the same cleaner the serving
-path uses, applies the filtering the original training run applied, and writes
-train/val/test JSONL.
+**The corpus is read straight out of the tarball.** ``shallalist_all.tar.gz`` is
+18 GB compressed and expands past 47 GB, which does not fit on a normal disk
+alongside everything else; streaming it costs nothing and removes the
+constraint entirely. A directory tree is still accepted for a corpus that has
+already been unpacked.
+
+**Labels are not in the tarball.** It is flat -- ``shallalist_all/<domain>.html``
+with no category anywhere in the path, and ``screenshot-index.tab`` carries only
+``index,full_domain``. The original run fetched ``<category>/domains`` lists
+from the ``cbuijs/shallalist`` GitHub mirror, and **that repository no longer
+exists** (Shallalist was discontinued in 2022). ``Azothyran/ShallalistMirror``
+is a surviving copy with all 74 category directories intact, and is what this
+script reads. Fetched lists are cached, so the network is hit once.
 
 Reproducing the original filtering matters: the shipped model has 39 classes,
 not the 73 in shallalist_cats.txt, because training dropped `chat`, `hacking`
@@ -12,7 +21,8 @@ and `webtv` explicitly and then dropped every category with fewer than 100
 documents (notebooks/04_train_model.ipynb).
 
 Usage:
-    python training/prepare_text.py --corpus data/shallalist --out data/prepared
+    python training/prepare_text.py --corpus data/corpus/shallalist_all.tar.gz \\
+        --out data/prepared
     python training/prepare_text.py --corpus data/shallalist --out data/prepared \\
         --min-docs 100 --min-tokens 6
 """
@@ -23,6 +33,7 @@ import argparse
 import json
 import random
 import sys
+import tarfile
 from collections import Counter
 from collections.abc import Iterator
 from pathlib import Path
@@ -31,6 +42,108 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 #: Categories the original training run removed by name before any thresholding.
 DROPPED_BY_NAME = {"chat", "hacking", "webtv"}
+
+#: Surviving Shallalist mirror. The one the original notebooks used
+#: (``cbuijs/shallalist``) 404s -- the taxonomy was discontinued in 2022.
+LABEL_MIRROR = "https://raw.githubusercontent.com/Azothyran/ShallalistMirror/master"
+
+
+def collapse(category: str, keep_subcategories: bool) -> str:
+    """Map a Shallalist category to the label the model emits.
+
+    Shallalist nests: ``recreation/sports``, ``finance/banking``,
+    ``automobile/cars``. The shipped model has flat ``recreation``, ``finance``
+    and ``automobile``, which is how 74 raw categories became 39 classes -- the
+    seven parents are exactly the classes with no Shallalist directory of their
+    own.
+
+    Collapsing is the default because it reproduces the shipped label set, but
+    it is lossy in a way worth knowing about: ``recreation`` ends up holding
+    humor, martial arts, restaurants, sports, travel and wellness, which have
+    little in common as text. ``--keep-subcategories`` trains on the finer
+    labels instead.
+
+    Args:
+        category: Raw Shallalist category, possibly ``parent/child``.
+        keep_subcategories: Keep the nested name instead of collapsing.
+
+    Returns:
+        str: The label to train on.
+    """
+    if keep_subcategories:
+        return category
+    return category.split("/", 1)[0]
+
+
+def load_category_map(cats_file: Path, cache: Path) -> dict[str, str]:
+    """Build the ``domain -> category`` mapping the corpus is labelled with.
+
+    A domain listed under more than one category is dropped rather than assigned
+    arbitrarily: with one label per document, an ambiguous domain is a coin
+    flip that shows up as noise in exactly the categories that overlap most.
+
+    Args:
+        cats_file: ``shallalist_cats.txt``, one category per line.
+        cache: Where to keep the fetched lists so the mirror is hit once.
+
+    Returns:
+        dict[str, str]: Domain to category name.
+    """
+    import requests
+
+    cache.mkdir(parents=True, exist_ok=True)
+    categories = [c.strip() for c in cats_file.read_text().splitlines() if c.strip()]
+
+    owners: dict[str, set[str]] = {}
+    for category in categories:
+        if category in DROPPED_BY_NAME:
+            continue
+        local = cache / f"{category.replace('/', '__')}.txt"
+        if not local.exists():
+            response = requests.get(f"{LABEL_MIRROR}/{category}/domains", timeout=60)
+            if not response.ok:
+                sys.stderr.write(f"  no domain list for {category}\n")
+                local.write_text("")
+            else:
+                local.write_text(response.text)
+        for line in local.read_text().splitlines():
+            domain = line.strip().lower()
+            if domain:
+                owners.setdefault(domain, set()).add(category)
+
+    ambiguous = sum(1 for cats in owners.values() if len(cats) > 1)
+    if ambiguous:
+        sys.stderr.write(f"  dropped {ambiguous} domains listed in >1 category\n")
+    return {d: next(iter(c)) for d, c in owners.items() if len(c) == 1}
+
+
+def iter_tar_documents(
+    archive: Path, labels: dict[str, str]
+) -> Iterator[tuple[str, str, str]]:
+    """Stream ``<domain>.html`` members out of the corpus tarball.
+
+    Streaming rather than unpacking: the archive expands past 47 GB, and every
+    document is read exactly once anyway.
+
+    Args:
+        archive: Path to ``shallalist_all.tar.gz``.
+        labels: Domain to category mapping; unlabelled members are skipped.
+
+    Yields:
+        tuple[str, str, str]: ``(category, domain, html)`` per labelled document.
+    """
+    with tarfile.open(archive, "r|gz") as tar:  # streaming mode
+        for member in tar:
+            if not member.isfile() or not member.name.endswith(".html"):
+                continue
+            domain = Path(member.name).stem.lower()
+            category = labels.get(domain)
+            if category is None:
+                continue
+            handle = tar.extractfile(member)
+            if handle is None:
+                continue
+            yield category, domain, handle.read().decode("utf-8", errors="ignore")
 
 
 def iter_documents(corpus: Path) -> Iterator[tuple[str, str, Path]]:
@@ -92,7 +205,21 @@ def build_parser() -> argparse.ArgumentParser:
         argparse.ArgumentParser: The configured parser.
     """
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    parser.add_argument("--corpus", required=True, help="Unpacked <category>/*.html")
+    parser.add_argument(
+        "--corpus",
+        required=True,
+        help="shallalist_all.tar.gz (streamed), or an unpacked <category>/*.html tree",
+    )
+    parser.add_argument(
+        "--cats",
+        default="data/labels/shallalist_cats.txt",
+        help="Category list, for labelling a tarball corpus",
+    )
+    parser.add_argument(
+        "--label-cache",
+        default="data/labels/domains",
+        help="Where fetched per-category domain lists are cached",
+    )
     parser.add_argument("--out", required=True, help="Output directory for JSONL")
     parser.add_argument(
         "--min-tokens",
@@ -105,6 +232,18 @@ def build_parser() -> argparse.ArgumentParser:
         type=int,
         default=100,
         help="Drop categories with fewer documents (training used 100)",
+    )
+    parser.add_argument(
+        "--keep-subcategories",
+        action="store_true",
+        help="Train on recreation/sports rather than collapsing it to recreation",
+    )
+    parser.add_argument(
+        "--max-per-class",
+        type=int,
+        default=0,
+        help="Cap documents per class. Balances the long tail and makes the "
+        "corpus trainable in hours rather than days; 0 keeps everything",
     )
     parser.add_argument("--seed", type=int, default=42, help="Split seed")
     parser.add_argument(
@@ -124,19 +263,60 @@ def main(argv: list[str] | None = None) -> int:
     """
     args = build_parser().parse_args(argv)
     corpus = Path(args.corpus)
-    if not corpus.is_dir():
+    if not corpus.exists():
         sys.stderr.write(f"corpus not found: {corpus}\n")
         return 1
 
+    from piedomains.text_processor import TextProcessor
+
     records: list[dict[str, str]] = []
     seen_text: Counter[str] = Counter()
+    kept_per_class: Counter[str] = Counter()
+    scanned = 0
 
-    for category, domain, path in iter_documents(corpus):
+    if corpus.is_dir():
+        documents = (
+            (category, domain, None, path)
+            for category, domain, path in iter_documents(corpus)
+        )
+    else:
+        cats_file = Path(args.cats)
+        if not cats_file.exists():
+            sys.stderr.write(
+                f"{cats_file} not found -- run download_corpus.py --set labels\n"
+            )
+            return 1
+        print(f"loading labels from {LABEL_MIRROR}")
+        labels = {
+            domain: collapse(category, args.keep_subcategories)
+            for domain, category in load_category_map(
+                cats_file, Path(args.label_cache)
+            ).items()
+        }
+        print(f"labelled domains: {len(labels)}")
+        documents = (
+            (category, domain, html, None)
+            for category, domain, html in iter_tar_documents(corpus, labels)
+        )
+
+    for category, domain, html, path in documents:
         if category in DROPPED_BY_NAME:
             continue
-        text = extract(path)
+        scanned += 1
+        if scanned % 20000 == 0:
+            print(f"  scanned {scanned}, kept {len(records)}", flush=True)
+        # Check the cap before extracting: text extraction dominates the run,
+        # and doing it for a class that is already full is pure waste.
+        if args.max_per_class and kept_per_class[category] >= args.max_per_class:
+            continue
+        text = (
+            TextProcessor.process_html_to_text(html)
+            if html is not None
+            else extract(path)  # pyright: ignore[reportArgumentType]
+        )
         if len(text.split()) < args.min_tokens:
             continue
+        kept_per_class[category] += 1
         records.append({"domain": domain, "category": category, "text": text})
         seen_text[text] += 1
         if args.limit and len(records) >= args.limit:

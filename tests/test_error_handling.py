@@ -6,7 +6,7 @@ import os
 import shutil
 import tempfile
 import unittest
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 from piedomains.piedomain import Piedomain
 
@@ -62,37 +62,6 @@ class TestErrorHandling(unittest.TestCase):
         result = Piedomain.validate_input([], self.html_dir, "html")
         self.assertTrue(result)  # Should return True for offline mode
 
-    @patch("requests.get")
-    def test_extract_htmls_network_error(self, mock_get):
-        """Test HTML extraction with network errors."""
-        mock_get.side_effect = Exception("Network error")
-
-        domains = ["example.com"]
-        errors = Piedomain.extract_htmls(domains, False, self.html_dir)
-
-        self.assertIn("example.com", errors)
-        self.assertIn("Network error", str(errors["example.com"]))
-
-    @patch("requests.get")
-    def test_extract_htmls_http_error(self, mock_get):
-        """Test HTML extraction with HTTP errors."""
-        mock_response = MagicMock()
-        mock_response.raise_for_status.side_effect = Exception("404 Not Found")
-        mock_get.return_value = mock_response
-
-        domains = ["nonexistent.com"]
-        errors = Piedomain.extract_htmls(domains, False, self.html_dir)
-
-        self.assertIn("nonexistent.com", errors)
-
-    def test_save_image_deprecated_method(self):
-        """Test that deprecated save_image method returns appropriate error."""
-        success, error_msg = Piedomain.save_image("example.com", self.image_dir)
-
-        self.assertFalse(success)
-        self.assertIn("deprecated", error_msg)
-        self.assertIn("PlaywrightFetcher", error_msg)
-
     @patch("piedomains.fetchers.PlaywrightFetcher.fetch_screenshot")
     def test_playwright_screenshot_error(self, mock_fetch_screenshot):
         """Test screenshot capture error handling with Playwright fetcher."""
@@ -107,20 +76,6 @@ class TestErrorHandling(unittest.TestCase):
 
         self.assertIsNone(screenshot_data)
         self.assertIn("Playwright navigation error", error)
-
-    def test_extract_image_tensor_invalid_directory(self):
-        """Test image tensor extraction with invalid directory."""
-        nonexistent_dir = "/path/that/does/not/exist"
-
-        with self.assertRaises(FileNotFoundError):
-            Piedomain.extract_image_tensor(True, ["example.com"], nonexistent_dir)
-
-    def test_extract_html_text_invalid_directory(self):
-        """Test HTML text extraction with invalid directory."""
-        nonexistent_dir = "/path/that/does/not/exist"
-
-        with self.assertRaises(FileNotFoundError):
-            Piedomain.extract_html_text(True, ["example.com"], nonexistent_dir)
 
     def test_text_from_html_malformed_html(self):
         """Test text extraction from malformed HTML."""
@@ -137,22 +92,6 @@ class TestErrorHandling(unittest.TestCase):
         # Should handle non-string input gracefully or raise appropriate error
         with self.assertRaises(AttributeError):
             Piedomain.data_cleanup(123)
-
-    def test_extract_images_permission_error(self):
-        """Test image extraction with permission errors."""
-        # Create a directory and remove write permissions
-        restricted_dir = os.path.join(self.temp_dir, "restricted")
-        os.makedirs(restricted_dir)
-
-        # This test may not work on all systems due to permission handling
-        try:
-            os.chmod(restricted_dir, 0o444)  # Read-only
-            used_screenshots, errors = Piedomain.extract_images(
-                ["example.com"], False, restricted_dir
-            )
-            # May or may not fail depending on system
-        finally:
-            os.chmod(restricted_dir, 0o755)  # Restore permissions
 
     def test_validate_domains_with_none_values(self):
         """Test domain validation with None values in list."""

@@ -101,11 +101,15 @@ class TestNewAPIIntegration(unittest.TestCase):
         self.assertEqual(result[0]["confidence"], 0.72)
 
     @patch("piedomains.text.TextClassifier.classify_from_data")
-    @patch("piedomains.image.ImageClassifier.classify_from_data")
-    def test_classify_combined_basic(self, mock_image_classify, mock_text_classify):
-        """Test combined text+image classification."""
-        # Mock text classification results
-        mock_text_result = [
+    def test_classify_combined_is_text_only(self, mock_text_classify):
+        """`combined` returns the text answer, and says so.
+
+        It always did: the old branch ran the image model too but returned the
+        text label every time, averaging the two confidences rather than
+        merging the probability vectors. Now that is explicit -- no
+        `image_category` field implying a contribution that was never made.
+        """
+        mock_text_classify.return_value = [
             {
                 "url": "example.com",
                 "domain": "example.com",
@@ -120,36 +124,23 @@ class TestNewAPIIntegration(unittest.TestCase):
                 "raw_predictions": {"news": 0.85, "sports": 0.15},
             }
         ]
-        mock_text_classify.return_value = mock_text_result
-
-        # Mock image classification results
-        mock_image_result = [
-            {
-                "url": "example.com",
-                "domain": "example.com",
-                "text_path": None,
-                "image_path": "images/example.com.png",
-                "date_time_collected": "2024-01-01T12:00:00Z",
-                "model_used": "image/shallalist_ml",
-                "category": "socialnet",
-                "confidence": 0.72,
-                "reason": None,
-                "error": None,
-                "raw_predictions": {"socialnet": 0.72, "news": 0.28},
-            }
-        ]
-        mock_image_classify.return_value = mock_image_result
 
         result = self.classifier.classify(["example.com"])["results"]
 
-        # Verify result structure
-        self.assertIsInstance(result, list)
         self.assertEqual(len(result), 1)
         self.assertEqual(result[0]["domain"], "example.com")
-        self.assertEqual(result[0]["model_used"], "combined/text_image_ml")
-        self.assertIn("text_category", result[0])
-        self.assertIn("image_category", result[0])
-        self.assertIn("confidence", result[0])
+        self.assertEqual(result[0]["category"], "news")
+        self.assertEqual(result[0]["confidence"], 0.85)
+        self.assertEqual(result[0]["model_used"], "text/shallalist_ml")
+        self.assertNotIn("image_category", result[0])
+
+    def test_image_classification_says_why_it_is_unavailable(self):
+        """A removed model must explain itself, not fail obscurely."""
+        from piedomains.image import ImageClassifier
+
+        with self.assertRaises(NotImplementedError) as caught:
+            ImageClassifier().load_models()
+        self.assertIn("classify_by_text", str(caught.exception))
 
     def test_classify_empty_domains_error(self):
         """Test error handling for empty domain list."""
