@@ -19,6 +19,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 > because it is a distinct, breaking API change and folding it in would misrepresent
 > when the work happened.
 
+Measured on `tests/eval/labels.csv` (44 domains, `training/evaluate.py --method text`),
+against the same model and the same labels — this release changes only how pages are
+acquired:
+
+| | before | after |
+|---|---|---|
+| domains accounted for | 33 | **44** |
+| accuracy | 0.267 | **0.395** |
+| macro-F1 | 0.191 | **0.262** |
+| ECE | 0.219 | **0.210** |
+| failures | silent, or `unknown` | every one named |
+
+On the 33 domains the old pipeline returned at all, accuracy goes 0.267 → 0.407 and
+macro-F1 0.191 → 0.301. The remaining gap to the 71.3% reported at training time is the
+model, not acquisition; see `training/README.md`.
+
 ### Added
 
 - **Bot walls are detected and recovered, not silently classified.** DataDome, Cloudflare,

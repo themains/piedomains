@@ -14,8 +14,13 @@ Measured, not assumed — run `evaluate.py` yourself and see:
 
 | | reported at training time | measured on `tests/eval/labels.csv` |
 |---|---|---|
-| text model | 71.3% accuracy | **accuracy 0.267, macro-F1 0.191** |
+| text model | 71.3% accuracy | **accuracy 0.395, macro-F1 0.262** |
 | image model | 52.9% accuracy | labels Khan Academy and Yahoo as `porn` |
+
+The text numbers are after the acquisition work, and that work is most of the
+movement so far — 0.267/0.191 before it, on the same labels and the same model.
+Fixing how pages are fetched was worth about +0.13 accuracy; the remaining gap to
+0.713 is the model, which is what the rest of this directory is for.
 
 Two further findings from that run:
 

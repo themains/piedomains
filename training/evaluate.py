@@ -104,6 +104,11 @@ def evaluate(
                 "status": result.get("status"),
                 "stage": result.get("stage"),
                 "error_code": result.get("error_code"),
+                # Provenance, so a score can be read against where the content
+                # came from: a row recovered from archive.org is not evidence
+                # about the live site.
+                "source": result.get("source"),
+                "snapshot_timestamp": result.get("snapshot_timestamp"),
             }
         )
     return rows
