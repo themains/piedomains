@@ -5,17 +5,22 @@
 [![Downloads](https://pepy.tech/badge/piedomains)](https://pepy.tech/project/piedomains)
 [![Documentation](https://img.shields.io/badge/docs-github.io-blue)](https://themains.github.io/piedomains/)
 
-## What's New in v0.8.0
+## What's New in v0.9.0
 
-- **New text model, in PyTorch.** A fine-tuned [mmBERT](https://github.com/JHU-CLSP/mmBERT)
-  encoder replaces the bag-of-embeddings TensorFlow model. Confidence is now a real
-  probability: temperature-scaled softmax, rather than 39 per-class isotonic
-  regressions applied elementwise and never renormalized.
+- **Retrained text model.** A fine-tuned [mmBERT](https://github.com/JHU-CLSP/mmBERT)
+  encoder, no longer fed through an English-dictionary filter that was discarding 39.8%
+  of every page. Macro-F1 on the evaluation set goes 0.602 → **0.707**.
+- **Confidence is a real probability**: temperature-scaled softmax, rather than 39
+  per-class isotonic regressions applied elementwise and never renormalized.
 - **TensorFlow is gone**, so Python 3.14 works.
 - **Bot walls are recovered from archive.org** rather than classified as if the challenge
   page were the site.
 - **Failures are named.** Every row carries a stable `error_code`; the run report
   aggregates by reason, stage and source.
+
+**Not multilingual.** Despite a multilingual encoder, the training corpus is English, so
+non-English pages classify poorly (0.333 accuracy on a small sample against 0.667 for
+English). Fixing this needs multilingual training data, not a configuration change.
 
 **Breaking:** image classification is unavailable while the screenshot model is retrained,
 so `classify()` is text-only and `classify_by_images()` raises. This changes no labels —

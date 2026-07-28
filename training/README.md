@@ -119,10 +119,28 @@ uv run python train_text.py --data data/prepared --out models/text-v2 --resume
 ```
 
 Fine-tunes [mmBERT](https://github.com/JHU-CLSP/mmBERT) with a pooled CLS head.
-Multilingual on purpose: the shipped pipeline strips non-dictionary words and
-applies NLTK *English* stopwords, so a non-English page degrades to noise before
-it ever reaches the model. Turning `filter_non_english` off is most of the fix,
-and the encoder has to be able to use what survives.
+Multilingual on purpose — but that only became real once `filter_non_english` was
+turned off.
+
+**Check `filter_non_english` before training anything.** It keeps only words in
+NLTK's `words` corpus, a Webster's-era dictionary with no brand names and no
+inflected forms. It was on by default through v0.8.0, which meant a multilingual
+encoder was trained and served on text with every non-English word already
+deleted. On *English* pages it discards 39.8% of tokens: `bbc.com` loses
+`america`, `american`, `accuses` and `acclaimed`; other pages lose `spotify`,
+`facebook`, `download` and `email` — the tokens that identify a site.
+
+Its effect on the corpus is not marginal:
+
+| | filter on | filter off |
+|---|---|---|
+| training documents | 27,702 | 34,464 |
+| median words per document | 73 | 148 |
+| mean words per document | 121 | 228 |
+
+With it on, half of all documents were *shorter* than the 128-token budget the
+model reads. Train/serve parity means both sides read the same config, so
+changing it is a retrain rather than a config tweak.
 
 **`mmBERT-small` is the default, on a measurement.** On an M4 with 16GB unified
 memory:

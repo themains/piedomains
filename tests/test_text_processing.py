@@ -134,5 +134,46 @@ class TestTextProcessing(unittest.TestCase):
         self.assertEqual(result, "")
 
 
+class TestDictionaryFilterDefault(unittest.TestCase):
+    """The NLTK dictionary filter must stay off unless asked for.
+
+    It discards 39.8% of tokens on *English* pages -- NLTK's `words` corpus is a
+    Webster's-era list with no brand names and no inflected forms, so it drops
+    `spotify`, `facebook`, `download` and `email` along with every non-English
+    word. Leaving it on also made the multilingual encoder pointless by
+    construction. The shipped model is trained with it off, so a silent flip
+    back would be a train/serve skew, not just a quality regression.
+    """
+
+    def test_off_by_default(self):
+        from piedomains.config import get_config
+
+        self.assertFalse(get_config().get("filter_non_english"))
+
+    def test_brand_names_survive(self):
+        """The tokens that identify a site are exactly what the filter ate."""
+        from piedomains.text_processor import TextProcessor
+
+        text = "spotify facebook instagram download email"
+        result = TextProcessor.clean_and_normalize_text(text)
+        for token in ("spotify", "facebook", "instagram", "download", "email"):
+            self.assertIn(token, result, f"{token!r} was dropped")
+
+    def test_flag_still_restores_the_old_behaviour(self):
+        """v0.8.0's numbers have to stay reproducible."""
+        from piedomains.config import get_config
+        from piedomains.text_processor import TextProcessor
+
+        config = get_config()
+        original = config.get("filter_non_english")
+        try:
+            config.set("filter_non_english", True)
+            result = TextProcessor.clean_and_normalize_text("spotify computer")
+            self.assertIn("computer", result)
+            self.assertNotIn("spotify", result)
+        finally:
+            config.set("filter_non_english", original)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -30,10 +30,13 @@ class Config:
         # "legacy" | "trafilatura". Legacy is the default because the shipped
         # model was trained on its output; see text_processor.extract_text.
         "extractor": "legacy",
-        # Keep only words in NLTK's dictionary. Costs a lot of signal (see
-        # text_processor.clean_and_normalize_text); on because the shipped model
-        # was trained with it.
-        "filter_non_english": True,
+        # Keep only words in NLTK's `words` corpus. Off, because it discards
+        # 39.8% of tokens on *English* pages -- it is a Webster's-era list with
+        # no brand names and no inflected forms, so bbc.com loses `america`,
+        # `american`, `accuses` and `acclaimed` along with `afrique`. It also
+        # made the model multilingual in name only. Kept as a flag so v0.8.0's
+        # numbers can be reproduced.
+        "filter_non_english": False,
         # Parallel processing
         "max_parallel": 4,
         # Archive.org settings. Rate limiting, retries and backoff are handled

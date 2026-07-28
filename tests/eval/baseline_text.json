@@ -1,21 +1,15 @@
 {
   "method": "text",
   "summary": {
-    "n_total": 44,
-    "n_scored": 39,
-    "n_unclassified": 5,
-    "accuracy": 0.5897435897435898,
-    "macro_f1": 0.6074404761904761,
-    "ece": 0.18988580963550472,
-    "mean_confidence": 0.5731475322674482,
+    "n_total": 54,
+    "n_scored": 51,
+    "n_unclassified": 3,
+    "accuracy": 0.6078431372549019,
+    "macro_f1": 0.7071651387827859,
+    "ece": 0.15380323605210175,
+    "mean_confidence": 0.7584282647745282,
     "per_class": {
       "adv": {
-        "precision": 0.0,
-        "recall": 0.0,
-        "f1": 0.0,
-        "support": 0
-      },
-      "downloads": {
         "precision": 0.0,
         "recall": 0.0,
         "f1": 0.0,
@@ -35,15 +29,21 @@
       },
       "forum": {
         "precision": 0.3333333333333333,
-        "recall": 1.0,
-        "f1": 0.5,
-        "support": 1
+        "recall": 0.5,
+        "f1": 0.4,
+        "support": 2
       },
       "government": {
         "precision": 1.0,
         "recall": 0.75,
         "f1": 0.8571428571428571,
         "support": 4
+      },
+      "hobby": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "support": 0
       },
       "hospitals": {
         "precision": 1.0,
@@ -52,10 +52,16 @@
         "support": 2
       },
       "imagehosting": {
+        "precision": 1.0,
+        "recall": 0.5,
+        "f1": 0.6666666666666666,
+        "support": 2
+      },
+      "isp": {
         "precision": 0.0,
         "recall": 0.0,
         "f1": 0.0,
-        "support": 2
+        "support": 0
       },
       "jobsearch": {
         "precision": 0.6666666666666666,
@@ -76,10 +82,10 @@
         "support": 2
       },
       "news": {
-        "precision": 0.6666666666666666,
-        "recall": 0.5,
-        "f1": 0.5714285714285715,
-        "support": 4
+        "precision": 0.5555555555555556,
+        "recall": 0.625,
+        "f1": 0.5882352941176471,
+        "support": 8
       },
       "radiotv": {
         "precision": 0.0,
@@ -87,29 +93,35 @@
         "f1": 0.0,
         "support": 0
       },
-      "science": {
+      "redirector": {
         "precision": 0.0,
         "recall": 0.0,
         "f1": 0.0,
+        "support": 0
+      },
+      "science": {
+        "precision": 0.5,
+        "recall": 1.0,
+        "f1": 0.6666666666666666,
         "support": 1
       },
       "searchengines": {
-        "precision": 0.6666666666666666,
+        "precision": 1.0,
         "recall": 0.6666666666666666,
-        "f1": 0.6666666666666666,
+        "f1": 0.8,
         "support": 3
       },
       "shopping": {
         "precision": 1.0,
-        "recall": 0.5,
-        "f1": 0.6666666666666666,
-        "support": 4
+        "recall": 0.375,
+        "f1": 0.5454545454545454,
+        "support": 8
       },
       "socialnet": {
-        "precision": 0.0,
-        "recall": 0.0,
-        "f1": 0.0,
-        "support": 2
+        "precision": 0.5,
+        "recall": 0.25,
+        "f1": 0.3333333333333333,
+        "support": 4
       },
       "spyware": {
         "precision": 0.0,
@@ -127,10 +139,20 @@
         "precision": 1.0,
         "recall": 1.0,
         "f1": 1.0,
-        "support": 1
+        "support": 2
       }
     },
     "top_confusions": [
+      [
+        "shopping",
+        "adv",
+        3
+      ],
+      [
+        "socialnet",
+        "forum",
+        2
+      ],
       [
         "news",
         "radiotv",
@@ -138,17 +160,12 @@
       ],
       [
         "shopping",
-        "adv",
-        1
-      ],
-      [
-        "shopping",
-        "spyware",
-        1
+        "news",
+        2
       ],
       [
         "education",
-        "forum",
+        "news",
         1
       ],
       [
@@ -157,18 +174,13 @@
         1
       ],
       [
-        "socialnet",
-        "forum",
-        1
-      ],
-      [
         "searchengines",
-        "spyware",
+        "redirector",
         1
       ],
       [
         "finance",
-        "adv",
+        "spyware",
         1
       ],
       [
@@ -187,8 +199,8 @@
     {
       "domain": "cnn.com",
       "expected": "news",
-      "predicted": "radiotv",
-      "confidence": 0.2427288144826889,
+      "predicted": "news",
+      "confidence": 0.467449426651001,
       "status": "ok",
       "stage": "infer",
       "error_code": null,
@@ -198,8 +210,8 @@
     {
       "domain": "bbc.com",
       "expected": "news",
-      "predicted": "radiotv",
-      "confidence": 0.7022164463996887,
+      "predicted": "news",
+      "confidence": 0.6261011362075806,
       "status": "ok",
       "stage": "infer",
       "error_code": null,
@@ -210,7 +222,7 @@
       "domain": "reuters.com",
       "expected": "news",
       "predicted": "news",
-      "confidence": 0.9370282888412476,
+      "confidence": 0.9899858236312866,
       "status": "ok",
       "stage": "infer",
       "error_code": null,
@@ -221,7 +233,7 @@
       "domain": "theguardian.com",
       "expected": "news",
       "predicted": "news",
-      "confidence": 0.9727099537849426,
+      "confidence": 0.9978780746459961,
       "status": "ok",
       "stage": "infer",
       "error_code": null,
@@ -232,7 +244,7 @@
       "domain": "amazon.com",
       "expected": "shopping",
       "predicted": "adv",
-      "confidence": 0.21954867243766785,
+      "confidence": 0.4004404842853546,
       "status": "ok",
       "stage": "infer",
       "error_code": null,
@@ -243,7 +255,7 @@
       "domain": "ebay.com",
       "expected": "shopping",
       "predicted": "shopping",
-      "confidence": 0.6385652422904968,
+      "confidence": 0.8546683192253113,
       "status": "ok",
       "stage": "infer",
       "error_code": null,
@@ -253,8 +265,8 @@
     {
       "domain": "etsy.com",
       "expected": "shopping",
-      "predicted": "spyware",
-      "confidence": 0.24700820446014404,
+      "predicted": "adv",
+      "confidence": 0.7629929184913635,
       "status": "ok",
       "stage": "infer",
       "error_code": null,
@@ -264,8 +276,8 @@
     {
       "domain": "walmart.com",
       "expected": "shopping",
-      "predicted": "shopping",
-      "confidence": 0.747056782245636,
+      "predicted": "adv",
+      "confidence": 0.3960146903991699,
       "status": "ok",
       "stage": "infer",
       "error_code": null,
@@ -276,7 +288,7 @@
       "domain": "khanacademy.org",
       "expected": "education",
       "predicted": "education",
-      "confidence": 0.13283275067806244,
+      "confidence": 0.9925883412361145,
       "status": "ok",
       "stage": "infer",
       "error_code": null,
@@ -286,8 +298,8 @@
     {
       "domain": "coursera.org",
       "expected": "education",
-      "predicted": "forum",
-      "confidence": 0.4545446038246155,
+      "predicted": "education",
+      "confidence": 0.9099206924438477,
       "status": "ok",
       "stage": "infer",
       "error_code": null,
@@ -297,8 +309,8 @@
     {
       "domain": "mit.edu",
       "expected": "education",
-      "predicted": "education",
-      "confidence": 0.4934503138065338,
+      "predicted": "news",
+      "confidence": 0.5410383343696594,
       "status": "ok",
       "stage": "infer",
       "error_code": null,
@@ -309,7 +321,7 @@
       "domain": "harvard.edu",
       "expected": "education",
       "predicted": "education",
-      "confidence": 0.4688358008861542,
+      "confidence": 0.9792750477790833,
       "status": "ok",
       "stage": "infer",
       "error_code": null,
@@ -319,11 +331,11 @@
     {
       "domain": "facebook.com",
       "expected": "socialnet",
-      "predicted": null,
-      "confidence": null,
-      "status": "failed",
-      "stage": "process",
-      "error_code": "thin_content",
+      "predicted": "socialnet",
+      "confidence": 0.7428061962127686,
+      "status": "ok",
+      "stage": "infer",
+      "error_code": null,
       "source": "live",
       "snapshot_timestamp": null
     },
@@ -331,7 +343,7 @@
       "domain": "linkedin.com",
       "expected": "socialnet",
       "predicted": "jobsearch",
-      "confidence": 0.8507837057113647,
+      "confidence": 0.9659693241119385,
       "status": "ok",
       "stage": "infer",
       "error_code": null,
@@ -342,7 +354,7 @@
       "domain": "reddit.com",
       "expected": "socialnet",
       "predicted": "forum",
-      "confidence": 0.272968590259552,
+      "confidence": 0.6225836873054504,
       "status": "ok",
       "stage": "infer",
       "error_code": null,
@@ -353,7 +365,7 @@
       "domain": "google.com",
       "expected": "searchengines",
       "predicted": "searchengines",
-      "confidence": 0.41923168301582336,
+      "confidence": 0.9996654987335205,
       "status": "ok",
       "stage": "infer",
       "error_code": null,
@@ -364,7 +376,7 @@
       "domain": "bing.com",
       "expected": "searchengines",
       "predicted": "searchengines",
-      "confidence": 0.4902196228504181,
+      "confidence": 0.7111502885818481,
       "status": "ok",
       "stage": "infer",
       "error_code": null,
@@ -374,8 +386,8 @@
     {
       "domain": "duckduckgo.com",
       "expected": "searchengines",
-      "predicted": "spyware",
-      "confidence": 0.1585056185722351,
+      "predicted": "redirector",
+      "confidence": 0.45183297991752625,
       "status": "ok",
       "stage": "infer",
       "error_code": null,
@@ -386,7 +398,7 @@
       "domain": "chase.com",
       "expected": "finance",
       "predicted": "finance",
-      "confidence": 0.6227414608001709,
+      "confidence": 0.9988086223602295,
       "status": "ok",
       "stage": "infer",
       "error_code": null,
@@ -396,8 +408,8 @@
     {
       "domain": "paypal.com",
       "expected": "finance",
-      "predicted": "adv",
-      "confidence": 0.21097344160079956,
+      "predicted": "spyware",
+      "confidence": 0.5903025269508362,
       "status": "ok",
       "stage": "infer",
       "error_code": null,
@@ -408,7 +420,7 @@
       "domain": "bankofamerica.com",
       "expected": "finance",
       "predicted": "finance",
-      "confidence": 0.9360954761505127,
+      "confidence": 0.9992932081222534,
       "status": "ok",
       "stage": "infer",
       "error_code": null,
@@ -419,7 +431,7 @@
       "domain": "irs.gov",
       "expected": "government",
       "predicted": "government",
-      "confidence": 0.5887771248817444,
+      "confidence": 0.8993164300918579,
       "status": "ok",
       "stage": "infer",
       "error_code": null,
@@ -430,7 +442,7 @@
       "domain": "usa.gov",
       "expected": "government",
       "predicted": "government",
-      "confidence": 0.9052230715751648,
+      "confidence": 0.9988526105880737,
       "status": "ok",
       "stage": "infer",
       "error_code": null,
@@ -441,7 +453,7 @@
       "domain": "nasa.gov",
       "expected": "government",
       "predicted": "science",
-      "confidence": 0.28699374198913574,
+      "confidence": 0.9826525449752808,
       "status": "ok",
       "stage": "infer",
       "error_code": null,
@@ -452,7 +464,7 @@
       "domain": "spotify.com",
       "expected": "music",
       "predicted": "music",
-      "confidence": 0.40793249011039734,
+      "confidence": 0.8857831954956055,
       "status": "ok",
       "stage": "infer",
       "error_code": null,
@@ -463,7 +475,7 @@
       "domain": "last.fm",
       "expected": "music",
       "predicted": "radiotv",
-      "confidence": 0.47455471754074097,
+      "confidence": 0.7067129611968994,
       "status": "ok",
       "stage": "infer",
       "error_code": null,
@@ -474,7 +486,7 @@
       "domain": "imdb.com",
       "expected": "movies",
       "predicted": "movies",
-      "confidence": 0.9241054654121399,
+      "confidence": 0.9971069693565369,
       "status": "ok",
       "stage": "infer",
       "error_code": null,
@@ -485,7 +497,7 @@
       "domain": "netflix.com",
       "expected": "movies",
       "predicted": "movies",
-      "confidence": 0.36678779125213623,
+      "confidence": 0.669253408908844,
       "status": "ok",
       "stage": "infer",
       "error_code": null,
@@ -496,7 +508,7 @@
       "domain": "indeed.com",
       "expected": "jobsearch",
       "predicted": "jobsearch",
-      "confidence": 0.9810919761657715,
+      "confidence": 0.9997722506523132,
       "status": "ok",
       "stage": "infer",
       "error_code": null,
@@ -507,7 +519,7 @@
       "domain": "monster.com",
       "expected": "jobsearch",
       "predicted": "jobsearch",
-      "confidence": 0.9725722670555115,
+      "confidence": 0.9999140501022339,
       "status": "ok",
       "stage": "infer",
       "error_code": null,
@@ -517,8 +529,8 @@
     {
       "domain": "webmd.com",
       "expected": "hospitals",
-      "predicted": "searchengines",
-      "confidence": 0.31789228320121765,
+      "predicted": "isp",
+      "confidence": 0.25618213415145874,
       "status": "ok",
       "stage": "infer",
       "error_code": null,
@@ -529,7 +541,7 @@
       "domain": "mayoclinic.org",
       "expected": "hospitals",
       "predicted": "hospitals",
-      "confidence": 0.9221274256706238,
+      "confidence": 0.9999034404754639,
       "status": "ok",
       "stage": "infer",
       "error_code": null,
@@ -539,8 +551,8 @@
     {
       "domain": "nature.com",
       "expected": "science",
-      "predicted": "news",
-      "confidence": 0.5802867412567139,
+      "predicted": "science",
+      "confidence": 0.5671065449714661,
       "status": "ok",
       "stage": "infer",
       "error_code": null,
@@ -554,18 +566,18 @@
       "confidence": null,
       "status": "failed",
       "stage": "fetch",
-      "error_code": "cannot_classify",
+      "error_code": "bot_blocked",
       "source": null,
       "snapshot_timestamp": null
     },
     {
       "domain": "gmail.com",
       "expected": "webmail",
-      "predicted": null,
-      "confidence": null,
-      "status": "failed",
-      "stage": "process",
-      "error_code": "thin_content",
+      "predicted": "webmail",
+      "confidence": 0.9998034834861755,
+      "status": "ok",
+      "stage": "infer",
+      "error_code": null,
       "source": "live",
       "snapshot_timestamp": null
     },
@@ -573,7 +585,7 @@
       "domain": "outlook.com",
       "expected": "webmail",
       "predicted": "webmail",
-      "confidence": 0.7347517013549805,
+      "confidence": 0.9980962872505188,
       "status": "ok",
       "stage": "infer",
       "error_code": null,
@@ -583,8 +595,8 @@
     {
       "domain": "bitly.com",
       "expected": "urlshortener",
-      "predicted": "socialnet",
-      "confidence": 0.14162462949752808,
+      "predicted": "adv",
+      "confidence": 0.5786553621292114,
       "status": "ok",
       "stage": "infer",
       "error_code": null,
@@ -595,7 +607,7 @@
       "domain": "tinyurl.com",
       "expected": "urlshortener",
       "predicted": "urlshortener",
-      "confidence": 0.8047128319740295,
+      "confidence": 0.9827666282653809,
       "status": "ok",
       "stage": "infer",
       "error_code": null,
@@ -605,8 +617,8 @@
     {
       "domain": "imgur.com",
       "expected": "imagehosting",
-      "predicted": "downloads",
-      "confidence": 0.525671660900116,
+      "predicted": "imagehosting",
+      "confidence": 0.7358740568161011,
       "status": "ok",
       "stage": "infer",
       "error_code": null,
@@ -617,7 +629,7 @@
       "domain": "flickr.com",
       "expected": "imagehosting",
       "predicted": "socialnet",
-      "confidence": 0.5486966371536255,
+      "confidence": 0.7389193773269653,
       "status": "ok",
       "stage": "infer",
       "error_code": null,
@@ -628,7 +640,7 @@
       "domain": "stackoverflow.com",
       "expected": "forum",
       "predicted": "forum",
-      "confidence": 0.9017147421836853,
+      "confidence": 0.9987492561340332,
       "status": "ok",
       "stage": "infer",
       "error_code": null,
@@ -638,11 +650,11 @@
     {
       "domain": "quora.com",
       "expected": "forum",
-      "predicted": null,
-      "confidence": null,
-      "status": "failed",
-      "stage": "process",
-      "error_code": "thin_content",
+      "predicted": "news",
+      "confidence": 0.2381673902273178,
+      "status": "ok",
+      "stage": "infer",
+      "error_code": null,
       "source": "live",
       "snapshot_timestamp": null
     },
@@ -661,12 +673,122 @@
       "domain": "nih.gov",
       "expected": "government",
       "predicted": "government",
-      "confidence": 0.7491909861564636,
+      "confidence": 0.8120861053466797,
       "status": "ok",
       "stage": "infer",
       "error_code": null,
       "source": "live",
       "snapshot_timestamp": null
+    },
+    {
+      "domain": "lemonde.fr",
+      "expected": "news",
+      "predicted": "news",
+      "confidence": 0.9982568621635437,
+      "status": "ok",
+      "stage": "infer",
+      "error_code": null,
+      "source": "live",
+      "snapshot_timestamp": null
+    },
+    {
+      "domain": "spiegel.de",
+      "expected": "news",
+      "predicted": "radiotv",
+      "confidence": 0.823820948600769,
+      "status": "ok",
+      "stage": "infer",
+      "error_code": null,
+      "source": "live",
+      "snapshot_timestamp": null
+    },
+    {
+      "domain": "elpais.com",
+      "expected": "news",
+      "predicted": "radiotv",
+      "confidence": 0.7645617127418518,
+      "status": "ok",
+      "stage": "infer",
+      "error_code": null,
+      "source": "live",
+      "snapshot_timestamp": null
+    },
+    {
+      "domain": "asahi.com",
+      "expected": "news",
+      "predicted": "hobby",
+      "confidence": 0.5229706168174744,
+      "status": "ok",
+      "stage": "infer",
+      "error_code": null,
+      "source": "live",
+      "snapshot_timestamp": null
+    },
+    {
+      "domain": "rakuten.co.jp",
+      "expected": "shopping",
+      "predicted": "news",
+      "confidence": 0.3475843071937561,
+      "status": "ok",
+      "stage": "infer",
+      "error_code": null,
+      "source": "live",
+      "snapshot_timestamp": null
+    },
+    {
+      "domain": "mercadolibre.com.ar",
+      "expected": "shopping",
+      "predicted": "news",
+      "confidence": 0.4906318187713623,
+      "status": "ok",
+      "stage": "infer",
+      "error_code": null,
+      "source": "live",
+      "snapshot_timestamp": null
+    },
+    {
+      "domain": "allegro.pl",
+      "expected": "shopping",
+      "predicted": "shopping",
+      "confidence": 0.979310929775238,
+      "status": "ok",
+      "stage": "infer",
+      "error_code": null,
+      "source": "archive",
+      "snapshot_timestamp": "20260726132636"
+    },
+    {
+      "domain": "weibo.com",
+      "expected": "socialnet",
+      "predicted": "forum",
+      "confidence": 0.2807856500148773,
+      "status": "ok",
+      "stage": "infer",
+      "error_code": null,
+      "source": "live",
+      "snapshot_timestamp": null
+    },
+    {
+      "domain": "vk.com",
+      "expected": "socialnet",
+      "predicted": null,
+      "confidence": null,
+      "status": "failed",
+      "stage": "fetch",
+      "error_code": "timeout",
+      "source": null,
+      "snapshot_timestamp": null
+    },
+    {
+      "domain": "leboncoin.fr",
+      "expected": "shopping",
+      "predicted": "shopping",
+      "confidence": 0.4254785478115082,
+      "status": "ok",
+      "stage": "infer",
+      "error_code": null,
+      "source": "archive",
+      "snapshot_timestamp": "20260727113746"
     }
   ]
 }
