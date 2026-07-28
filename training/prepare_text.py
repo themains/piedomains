@@ -40,39 +40,11 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-#: Categories the original training run removed by name before any thresholding.
-DROPPED_BY_NAME = {"chat", "hacking", "webtv"}
+from taxonomy import DROPPED_BY_NAME, map_category
 
 #: Surviving Shallalist mirror. The one the original notebooks used
 #: (``cbuijs/shallalist``) 404s -- the taxonomy was discontinued in 2022.
 LABEL_MIRROR = "https://raw.githubusercontent.com/Azothyran/ShallalistMirror/master"
-
-
-def collapse(category: str, keep_subcategories: bool) -> str:
-    """Map a Shallalist category to the label the model emits.
-
-    Shallalist nests: ``recreation/sports``, ``finance/banking``,
-    ``automobile/cars``. The shipped model has flat ``recreation``, ``finance``
-    and ``automobile``, which is how 74 raw categories became 39 classes -- the
-    seven parents are exactly the classes with no Shallalist directory of their
-    own.
-
-    Collapsing is the default because it reproduces the shipped label set, but
-    it is lossy in a way worth knowing about: ``recreation`` ends up holding
-    humor, martial arts, restaurants, sports, travel and wellness, which have
-    little in common as text. ``--keep-subcategories`` trains on the finer
-    labels instead.
-
-    Args:
-        category: Raw Shallalist category, possibly ``parent/child``.
-        keep_subcategories: Keep the nested name instead of collapsing.
-
-    Returns:
-        str: The label to train on.
-    """
-    if keep_subcategories:
-        return category
-    return category.split("/", 1)[0]
 
 
 def load_category_map(cats_file: Path, cache: Path) -> dict[str, str]:
@@ -234,9 +206,10 @@ def build_parser() -> argparse.ArgumentParser:
         help="Drop categories with fewer documents (training used 100)",
     )
     parser.add_argument(
-        "--keep-subcategories",
+        "--raw-categories",
         action="store_true",
-        help="Train on recreation/sports rather than collapsing it to recreation",
+        help="Use Shallalist categories verbatim, skipping the taxonomy mapping. "
+        "Reproduces the pre-0.9 label set",
     )
     parser.add_argument(
         "--max-per-class",
@@ -287,12 +260,17 @@ def main(argv: list[str] | None = None) -> int:
             )
             return 1
         print(f"loading labels from {LABEL_MIRROR}")
-        labels = {
-            domain: collapse(category, args.keep_subcategories)
-            for domain, category in load_category_map(
-                cats_file, Path(args.label_cache)
-            ).items()
-        }
+        raw_labels = load_category_map(cats_file, Path(args.label_cache))
+        labels = {}
+        excluded = 0
+        for domain, category in raw_labels.items():
+            mapped = category if args.raw_categories else map_category(category)
+            if mapped is None:
+                excluded += 1
+                continue
+            labels[domain] = mapped
+        if excluded:
+            print(f"excluded {excluded:,} domains in classes not visible in page text")
         print(f"labelled domains: {len(labels)}")
         documents = (
             (category, domain, html, None)
