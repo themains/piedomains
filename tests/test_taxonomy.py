@@ -83,7 +83,7 @@ class TestMerging(unittest.TestCase):
         makes filters block the resources people most need. Shallalist's own
         description concedes the category "can be misdetected as porn".
         """
-        self.assertEqual(map_category("sex/education"), "hospitals")
+        self.assertEqual(map_category("sex/education"), "education")
         self.assertNotEqual(map_category("sex/education"), "adult")
 
 

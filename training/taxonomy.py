@@ -60,14 +60,14 @@ SPLIT_PARENTS: frozenset[str] = frozenset({"recreation", "hobby"})
 #: `finance/realestate` is promoted because every surveyed taxonomy -- IAB, Cloudflare,
 #: WebOrganizer -- treats real estate as top-level.
 #:
-#: `sex/education` is redirected to `health` because sexual health content is not adult
-#: content. Filters that conflate the two block exactly the resources people most need,
-#: and Shallalist's own description of the category says it "can be misdetected as
-#: porn". It is 166 domains, so this moves no metric -- it is correct rather than
-#: material.
+#: `sex/education` is redirected to `education` rather than inheriting `adult`. It is
+#: instructional content, and filters that conflate sexual health with adult content
+#: block exactly the resources people most need -- Shallalist's own description of the
+#: category concedes it "can be misdetected as porn". It is 166 domains, so this moves
+#: no metric; it is simply correct.
 PROMOTED: dict[str, str] = {
     "finance/realestate": "realestate",
-    "sex/education": "hospitals",
+    "sex/education": "education",
 }
 
 #: Distinct Shallalist categories describing one thing. Collapsing them removes a
