@@ -5,6 +5,59 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.0] - 2026-07-28
+
+Stops discarding 40% of every page before the model reads it.
+
+`filter_non_english` kept only words in NLTK's `words` corpus — a Webster's-era
+dictionary with no brand names and no inflected forms. Measured across 20 evaluation
+pages it discarded **39.8% of tokens on English pages**: `bbc.com` alone lost `america`,
+`american`, `accuses` and `acclaimed`; other pages lost `spotify`, `facebook`,
+`download`, `email`. Retraining without it doubles the median document from 73 to 148
+words and lifts 6,762 more documents over the minimum-token floor.
+
+Measured on `tests/eval/labels.csv` — same 54 domains, same cached content, only the
+filter differs:
+
+| | 0.8.0 | 0.9.0 |
+|---|---|---|
+| **English** (n=42) accuracy / macro-F1 | 0.643 / 0.642 | **0.667 / 0.722** |
+| non-English (n=9) accuracy / macro-F1 | 0.556 / 0.472 | 0.333 / 0.317 |
+| overall (n=51) | 0.627 / 0.602 | 0.608 / **0.707** |
+
+**The non-English column is a regression, and the reason is worth stating plainly: this
+package is not multilingual, and removing the filter revealed that rather than causing
+it.** With the filter on, a French or Japanese page was stripped to the few English
+tokens it contained — brand names, `news`, `shop` — and that residue happened to match
+the English training distribution. The filter was an accidental domain-adaptation step.
+Without it the model sees full French and Japanese, which the Shallalist corpus never
+taught it. A multilingual encoder does not make a multilingual system if the training
+corpus is English; that needs multilingual training data, not a config flag.
+
+Caveat on that column: **n=9, and the difference is two domains.** It is suggestive, not
+established. The English figures rest on 42 domains.
+
+Fixed by this change: `bbc.com`→news, `coursera.org`→education, `nature.com`→science,
+`imgur.com`→imagehosting, `leboncoin.fr`→shopping. Regressed: `amazon`/`walmart`→adv,
+`paypal`→spyware, plus the three non-English cases above. Three of those six regressions
+land in `adv`/`spyware` — classes a page never states, and which a following release
+removes from the label space entirely.
+
+### Changed
+
+- `filter_non_english` now defaults to `False`. The flag remains, so 0.8.0's numbers stay
+  reproducible, and a test pins the default — flipping it back silently would be
+  train/serve skew, not merely a quality regression.
+- `tests/eval/labels.csv` gains ten non-English domains. The set was entirely English, so
+  the multilingual claim was untestable rather than merely untested.
+
+### Fixed
+
+- `train_text.py` saved a checkpoint every epoch while printing "new best" only on
+  improvement, so the artifact left on disk was the *last* epoch rather than the best.
+  0.8.0 shipped epoch 4 (val 0.6582) over epoch 3 (0.6634); this release ships the best
+  epoch, as intended.
+
 ## [0.8.0] - 2026-07-27
 
 Measured on `tests/eval/labels.csv` (44 hand-labelled popular domains) against
