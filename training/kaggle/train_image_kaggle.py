@@ -253,6 +253,8 @@ def stage_one_prepare(repo: Path) -> Path:
                 "--max-per-class",
                 str(MAX_PER_CLASS),
                 "--append",
+                "--index",
+                str(labels_dir / "screenshot-index.tab"),
             ]
         )
         for spent in corpus.glob("*.tar.gz"):
