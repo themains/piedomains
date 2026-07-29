@@ -43,6 +43,11 @@ from pathlib import Path
 
 REPO = "https://github.com/themains/piedomains.git"
 
+#: Branch to clone. The image scripts live here until the branch is merged; cloning the
+#: default branch is what made the first run download 47.58 GB and then fail on a missing
+#: file.
+BRANCH = "image-model"
+
 #: Kaggle's persistent output volume, 20 GB. The resized dataset and the checkpoint live
 #: here so they survive the session.
 WORK = Path("/kaggle/working")
@@ -56,8 +61,16 @@ TEMP = Path("/kaggle/temp")
 PREPARED_DATASET: str | None = None  # e.g. "/kaggle/input/piedomains-screenshots-224"
 
 IMAGE_SIZE = 224
-EPOCHS = 4
+
+#: Three, not four. Both text runs peaked at epoch 3 and declined at 4.
+EPOCHS = 3
 BATCH_SIZE = 32
+
+#: Cap per class. The corpus is 78% four classes (adult 55,184, shopping 48,384,
+#: recreation/travel 46,353, recreation/sports 43,070 of 248,003), so this both balances
+#: it and brings the run inside the 12-hour session cap: 51,138 images rather than
+#: 248,003, which is comparable to the 46,754 documents the text model trains on.
+MAX_PER_CLASS = 3000
 
 
 def run(cmd: list[str], **kwargs) -> None:
@@ -86,7 +99,25 @@ def setup() -> Path:
     """
     repo = WORK / "piedomains"
     if not repo.exists():
-        run(["git", "clone", "--depth", "1", REPO, str(repo)])
+        run(["git", "clone", "--depth", "1", "-b", BRANCH, REPO, str(repo)])
+
+    # Check every script exists before anything expensive happens. The first run spent
+    # 33 minutes downloading 47.58 GB and then died because prepare_images.py was not on
+    # the branch being cloned. That should be impossible, not merely unlucky.
+    required = [
+        "download_corpus.py",
+        "prepare_images.py",
+        "prepare_text.py",
+        "train_image.py",
+        "calibrate.py",
+        "taxonomy.py",
+    ]
+    missing = [n for n in required if not (repo / "training" / n).exists()]
+    if missing:
+        raise SystemExit(
+            f"branch {BRANCH!r} is missing {missing}; nothing downloaded. "
+            "Push the branch before running this."
+        )
     run(
         [
             sys.executable,
@@ -178,6 +209,8 @@ def stage_one_prepare(repo: Path) -> Path:
             str(cache),
             "--size",
             str(IMAGE_SIZE),
+            "--max-per-class",
+            str(MAX_PER_CLASS),
         ]
     )
 
