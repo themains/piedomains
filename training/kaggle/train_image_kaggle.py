@@ -1,9 +1,15 @@
 #!/usr/bin/env python3
 """Train the screenshot classifier on Kaggle, free.
 
-Paste this into a Kaggle notebook cell (Settings → Accelerator → GPU P100 or T4 x2,
-Internet → On). It is a plain script rather than a notebook so it can be diffed and
-linted; `jupytext` or a single `%run` cell turns it into one.
+Paste this into a Kaggle notebook cell (Settings → Accelerator → **GPU T4 x2**, Internet →
+On). It is a plain script rather than a notebook so it can be diffed and linted;
+`jupytext` or a single `%run` cell turns it into one.
+
+**Pick T4, not P100.** A P100 is sm_60 (Pascal), and current PyTorch builds ship no
+kernels for it: one run spent an hour on stage 1 and then died on `no kernel image is
+available for execution on the device`, leaving no checkpoint. `ensure_usable_gpu` now
+checks this in the first 30 seconds and installs a compatible build if it can, but
+choosing T4 avoids the problem outright.
 
 **Why Kaggle.** 30 GPU-hours a week at no cost, 12-hour sessions, and 200 GB of dataset
 storage. The job needs 3-5 hours. Colab pay-as-you-go would be $1-2 on a T4; there is no
@@ -118,6 +124,9 @@ def setup() -> Path:
 
     Returns:
         Path: The repository root.
+
+    Raises:
+        SystemExit: If the cloned branch is missing a script the run needs.
     """
     repo = TEMP / "piedomains"
     if not repo.exists():
@@ -157,6 +166,84 @@ def setup() -> Path:
     return repo
 
 
+#: Probe run in a subprocess, because a GPU verdict cannot be revised inside a process
+#: that has already initialised CUDA. Exit 42 means "device present but this torch has no
+#: kernels for it" -- the failure that wasted a whole run.
+GPU_PROBE = """
+import sys, torch
+print("torch", torch.__version__, "cuda", torch.version.cuda)
+if not torch.cuda.is_available():
+    print("no CUDA device")
+    sys.exit(1)
+major, minor = torch.cuda.get_device_capability()
+sm = f"sm_{major}{minor}"
+arches = torch.cuda.get_arch_list()
+print("device", torch.cuda.get_device_name(0), sm)
+print("this torch builds for", arches)
+if sm not in arches:
+    print(f"INCOMPATIBLE: {sm} is not in the build")
+    sys.exit(42)
+# Arch lists can still lie; a real kernel launch is the only proof.
+torch.zeros(8, device="cuda").add_(1).sum().item()
+print("OK: a real kernel launched on", sm)
+"""
+
+
+def ensure_usable_gpu() -> None:
+    """Prove the GPU can actually run a kernel, before anything expensive.
+
+    Kaggle assigns either a T4 (sm_75) or a P100 (sm_60), and current PyTorch builds have
+    dropped Pascal. A run got a P100, spent an hour on stage 1, then died instantly on
+    ``no kernel image is available for execution on the device`` -- with no checkpoint and
+    the whole session wasted. Checking first costs 30 seconds.
+
+    A capability mismatch is repaired by installing a build that covers the device rather
+    than giving up, since which GPU Kaggle hands out is not ours to choose.
+
+    Raises:
+        SystemExit: If no GPU is present, or if it is still unusable after reinstalling.
+            Fatal on purpose: CPU training on 51,138 images would not finish inside the
+            session cap, so continuing would burn the run to no end.
+    """
+    probe = TEMP / "gpu_probe.py"
+    probe.parent.mkdir(parents=True, exist_ok=True)
+    probe.write_text(GPU_PROBE, encoding="utf-8")
+
+    first = subprocess.run(  # noqa: S603 -- interpreter plus a file we just wrote
+        [sys.executable, str(probe)], capture_output=True, text=True, check=False
+    )
+    print(first.stdout.strip() or first.stderr.strip()[:600])
+    if first.returncode == 0:
+        return
+    if first.returncode != 42:
+        raise SystemExit("no usable GPU; set the accelerator on this notebook to GPU")
+
+    print("\nreinstalling torch for this device's compute capability...")
+    run(
+        [
+            sys.executable,
+            "-m",
+            "pip",
+            "install",
+            "-q",
+            "--index-url",
+            "https://download.pytorch.org/whl/cu121",
+            "torch",
+            "torchvision",
+        ]
+    )
+    second = subprocess.run(  # noqa: S603 -- interpreter plus a file we just wrote
+        [sys.executable, str(probe)], capture_output=True, text=True, check=False
+    )
+    print(second.stdout.strip() or second.stderr.strip()[:600])
+    if second.returncode != 0:
+        raise SystemExit(
+            "GPU still unusable after reinstalling torch. Switch this notebook's "
+            "accelerator to 'GPU T4 x2' (sm_75) and re-run; P100 is sm_60, which "
+            "current torch builds no longer ship kernels for."
+        )
+
+
 def stage_one_prepare(repo: Path) -> Path:
     """Download, stream, resize and discard — one tarball at a time.
 
@@ -168,6 +255,9 @@ def stage_one_prepare(repo: Path) -> Path:
 
     Returns:
         Path: Directory holding the resized dataset.
+
+    Raises:
+        SystemExit: If the tarballs cannot be enumerated, or every one of them fails.
     """
     out = TEMP / "images-224"
     if (out / "labels.json").exists():
@@ -365,6 +455,8 @@ def main() -> int:
         return 1
 
     repo = setup()
+    # Before stage 1, not after: an unusable GPU discovered later costs the whole session.
+    ensure_usable_gpu()
     data = Path(PREPARED_DATASET) if PREPARED_DATASET else stage_one_prepare(repo)
     model = stage_two_train(repo, data)
     stage_three_calibrate(repo, data, model)
