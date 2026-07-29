@@ -118,13 +118,20 @@ class DomainClassifier:
             ]
 
         Supported Categories:
-            The 39 categories in :data:`piedomains.constants.classes`: adv,
-            alcohol, automobile, dating, downloads, drugs, education, finance,
-            fortunetelling, forum, gamble, government, hobby, hospitals,
-            imagehosting, isp, jobsearch, models, movies, music, news,
-            politics, porn, radiotv, recreation, redirector, religion,
-            science, searchengines, sex, shopping, socialnet, spyware,
-            tracker, urlshortener, warez, weapons, webmail, webradio.
+            The 47 categories in :data:`piedomains.constants.classes`:
+            adult, aggressive, alcohol, automobile, dating, downloads, drugs,
+            education, finance, fortunetelling, forum, gamble, government,
+            hobby/cooking, hobby/games-misc, hobby/games-online,
+            hobby/gardening, hobby/pets, homestyle, hospitals, imagehosting,
+            isp, jobsearch, library, military, movies, music, news, politics,
+            radiotv, realestate, recreation/humor, recreation/restaurants,
+            recreation/sports, recreation/travel, recreation/wellness,
+            religion, ringtones, science, searchengines, shopping, socialnet,
+            urlshortener, warez, weapons, webmail, webradio.
+
+            Categories describing how a site is hosted or monetised
+            (adv, tracker, spyware, redirector) are deliberately absent:
+            a page does not state them. See training/taxonomy.py.
     """
 
     def __init__(self, cache_dir: str | None = None):

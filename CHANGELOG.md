@@ -5,6 +5,65 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.0] - 2026-07-28
+
+Stops asking the model questions a page cannot answer.
+
+The 39 classes conflated three unrelated questions — what a site is about, whether you
+would block it, and how it is built and monetised — into one mutually-exclusive softmax.
+`amazon.com` is a shopping site that also runs one of the largest ad networks on the web;
+forced to choose, the model picked `adv` and we scored it wrong.
+
+One rule decides every case: **is it visible in the page text?**
+
+Measured on `tests/eval/labels.csv`, 51 scored, same cached content throughout:
+
+| | accuracy | macro-F1 | English acc/F1 | non-English acc/F1 |
+|---|---|---|---|---|
+| 0.8.0 | 0.627 | 0.602 | 0.643 / 0.642 | 0.556 / 0.472 |
+| 0.9.0 | 0.608 | 0.707 | 0.667 / 0.722 | 0.333 / 0.317 |
+| **0.10.0** | **0.725** | 0.705 | **0.738 / 0.729** | **0.667 / 0.536** |
+
+10 domains fixed against 0.9.0, 4 regressed. Every fix the change predicted landed:
+`amazon`, `etsy` and `walmart` → `shopping` (were `adv`), `paypal` → `finance` (was
+`spyware`), `bitly` → `urlshortener` (was `adv`). It also **reversed 0.9.0's non-English
+regression** and beat 0.8.0 there — most likely because the removed classes had been
+absorbing pages the model could not read, foreign ones included.
+
+Regressed: `coursera.org`→`jobsearch`, `irs.gov`→`finance`, `nature.com`→`news`,
+`nih.gov`→`drugs`. Institutions whose subject matter genuinely overlaps another category.
+
+Calibration is the best of the three: **T = 1.812, ECE 0.123 → 0.010**.
+
+### 💥 Breaking — the label set changed
+
+47 classes, not 39. See `training/taxonomy.py` for the mapping and its reasoning.
+
+- **Removed**: `adv`, `tracker`, `spyware`, `redirector`. These describe who runs a site
+  and how it is monetised, which a page does not state — a homepage selling handmade
+  goods reads identically whether or not the operator also runs trackers. They were 4.1%
+  of training data and sat behind a third of evaluation errors. Cloudflare reaches the
+  same conclusion from the other side: it runs these off domain age, reputation and DNS
+  behaviour, never off content. `redirector` is now an outcome, since such a page has no
+  content by construction.
+- **Split**: `recreation` → `recreation/{sports,travel,humor,restaurants,wellness}` and
+  `hobby` → `hobby/{pets,games-online,games-misc,gardening,cooking}`. `recreation` was
+  98% travel-or-sports (278,346 of 283,587); no annotator could apply it consistently, so
+  neither could a model, and any evaluation measuring it was partly noise.
+- **Merged**: `porn` + `sex` + `models` → `adult`, which can be thresholded for recall as
+  a single safety signal rather than a three-way choice.
+- **Promoted**: `finance/realestate` → `realestate`, as IAB, Cloudflare and WebOrganizer
+  all treat it. `sex/education` → `education` rather than inheriting `adult` —
+  conflating sexual health with adult content is what makes filters block the resources
+  people most need, and Shallalist's own description concedes the category "can be
+  misdetected as porn".
+
+No identity categories exist, deliberately. Cloudflare files LGBTQ beside
+`Lingerie & Bikini` and `Swimsuits`; filtering systems that treat identity as sexual
+content have a documented history of harm.
+
+`prepare_text.py --raw-categories` reproduces the pre-0.10 label set.
+
 ## [0.9.0] - 2026-07-28
 
 Stops discarding 40% of every page before the model reads it.
