@@ -166,6 +166,11 @@ def setup() -> Path:
     return repo
 
 
+#: Last torch whose cu121 wheels still ship Pascal (sm_60) kernels, for when Kaggle hands
+#: out a P100. Kaggle's own preinstalled build is cu128 and starts at sm_70.
+PASCAL_TORCH = "2.5.1"
+PASCAL_TORCHVISION = "0.20.1"
+
 #: Probe run in a subprocess, because a GPU verdict cannot be revised inside a process
 #: that has already initialised CUDA. Exit 42 means "device present but this torch has no
 #: kernels for it" -- the failure that wasted a whole run.
@@ -218,7 +223,10 @@ def ensure_usable_gpu() -> None:
     if first.returncode != 42:
         raise SystemExit("no usable GPU; set the accelerator on this notebook to GPU")
 
-    print("\nreinstalling torch for this device's compute capability...")
+    print(f"\ninstalling torch {PASCAL_TORCH} for this device's compute capability...")
+    # Pinned and forced. An unpinned `pip install --index-url ... torch` is a no-op here:
+    # pip sees the preinstalled 2.10.0+cu128 as already satisfying `torch` and changes
+    # nothing, so the second probe reported the identical incompatible build.
     run(
         [
             sys.executable,
@@ -226,10 +234,12 @@ def ensure_usable_gpu() -> None:
             "pip",
             "install",
             "-q",
+            "--force-reinstall",
+            "--no-cache-dir",
             "--index-url",
             "https://download.pytorch.org/whl/cu121",
-            "torch",
-            "torchvision",
+            f"torch=={PASCAL_TORCH}",
+            f"torchvision=={PASCAL_TORCHVISION}",
         ]
     )
     second = subprocess.run(  # noqa: S603 -- interpreter plus a file we just wrote
