@@ -76,11 +76,45 @@ def load_domain_labels(cache: Path) -> dict[str, str]:
     return {d: next(iter(v)) for d, v in owners.items() if len(v) == 1}
 
 
-def iter_screenshots(corpus: Path) -> Iterator[tuple[str, bytes]]:
+def load_screenshot_index(path: Path) -> dict[str, str]:
+    """Map a screenshot's filename stem to the domain it depicts.
+
+    The corpus names files by an integer index, not by domain -- which is exactly why
+    ``screenshot-index.tab`` (``index,full_domain``) ships alongside it. Reading the stem
+    as a domain silently matches nothing: the first run through this script labelled
+    0 of 202,897 screenshots and wrote empty splits.
+
+    Args:
+        path: ``screenshot-index.tab``.
+
+    Returns:
+        dict[str, str]: Filename stem to domain.
+
+    Raises:
+        SystemExit: If the index is missing, naming the step that fetches it.
+    """
+    if not path.exists():
+        raise SystemExit(
+            f"{path} not found -- run download_corpus.py --set labels first"
+        )
+    import csv
+
+    with open(path, encoding="utf-8") as handle:
+        return {
+            row["index"].strip(): row["full_domain"].strip().lower()
+            for row in csv.DictReader(handle)
+            if row.get("index") and row.get("full_domain")
+        }
+
+
+def iter_screenshots(
+    corpus: Path, index: dict[str, str]
+) -> Iterator[tuple[str, bytes]]:
     """Stream ``(domain, image_bytes)`` from every screenshot tarball.
 
     Args:
         corpus: Directory holding ``screenshot-*.tar.gz``.
+        index: Filename stem to domain, from :func:`load_screenshot_index`.
 
     Yields:
         tuple[str, bytes]: Domain and raw image bytes, one per member.
@@ -100,13 +134,18 @@ def iter_screenshots(corpus: Path) -> Iterator[tuple[str, bytes]]:
             for member in tar:
                 if not member.isfile():
                     continue
-                stem = Path(member.name).stem.lower()
-                if not stem:
+                stem = Path(member.name).stem
+                # Files are named by index; fall back to treating the stem as a domain
+                # so an already-renamed corpus still works.
+                domain = index.get(stem.lstrip("0") or "0") or index.get(stem)
+                if domain is None and "." in stem:
+                    domain = stem.lower()
+                if not domain:
                     continue
                 handle = tar.extractfile(member)
                 if handle is None:
                     continue
-                yield stem, handle.read()
+                yield domain, handle.read()
 
 
 def resize(raw: bytes, size: int) -> bytes | None:
@@ -163,6 +202,11 @@ def build_parser() -> argparse.ArgumentParser:
         default="data/labels/domains",
         help="Per-category domain lists, written by prepare_text.py",
     )
+    parser.add_argument(
+        "--index",
+        default="data/labels/screenshot-index.tab",
+        help="Maps a screenshot's filename index to its domain",
+    )
     parser.add_argument("--size", type=int, default=224, help="Output edge length")
     parser.add_argument(
         "--min-docs",
@@ -204,6 +248,8 @@ def main(argv: list[str] | None = None) -> int:
 
     labels = load_domain_labels(Path(args.label_cache))
     print(f"labelled domains: {len(labels):,}")
+    index = load_screenshot_index(Path(args.index))
+    print(f"screenshot index: {len(index):,} entries")
 
     # The manifest is the accumulator across --append invocations; the splits below are
     # derived from it, so every run leaves a consistent dataset behind.
@@ -224,7 +270,7 @@ def main(argv: list[str] | None = None) -> int:
     already = {d for d, _ in kept}
     scanned = unlabelled = unusable = 0
 
-    for domain, raw in iter_screenshots(Path(args.corpus)):
+    for domain, raw in iter_screenshots(Path(args.corpus), index):
         scanned += 1
         if scanned % 20000 == 0:
             print(f"  scanned {scanned:,}, kept {len(kept):,}", flush=True)
@@ -274,6 +320,17 @@ def main(argv: list[str] | None = None) -> int:
 
     classes = sorted(keep_classes)
     (out / "labels.json").write_text(json.dumps(classes, indent=2), encoding="utf-8")
+
+    # An empty dataset must fail here, not later. Unmatched members are skipped inside
+    # the iterator, so `scanned` stays 0 when the index is wrong -- checking `kept` is
+    # the condition that actually catches it. The first Kaggle run wrote empty splits,
+    # reported success, and surfaced as `num_samples=0` deep in the training loop.
+    if not kept:
+        raise SystemExit(
+            "matched no screenshots to a label -- refusing to write an empty dataset. "
+            "Check --index (the corpus names files by index, not domain) and "
+            "--label-cache."
+        )
 
     print(f"\nscanned {scanned:,} screenshots")
     print(f"  no usable label : {unlabelled:,}")
