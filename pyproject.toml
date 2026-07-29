@@ -216,6 +216,9 @@ docs = [
 train = [
     "datasets>=2.20",
     "accelerate>=0.34",
+    # Image preprocessing for the screenshot model. transformers'
+    # AutoImageProcessor requires it.
+    "torchvision>=0.20",
 ]
 dev = [
     { include-group = "test" },
