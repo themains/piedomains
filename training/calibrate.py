@@ -62,10 +62,14 @@ def collect_logits(model, loader, device: str) -> tuple[Any, Any]:
     chunks, golds = [], []
     with torch.no_grad():
         for batch in loader:
-            logits = model(
-                input_ids=batch["input_ids"].to(device),
-                attention_mask=batch["attention_mask"].to(device),
-            ).logits
+            # The two modalities differ only in what the forward pass is fed.
+            if "pixel_values" in batch:
+                logits = model(pixel_values=batch["pixel_values"].to(device)).logits
+            else:
+                logits = model(
+                    input_ids=batch["input_ids"].to(device),
+                    attention_mask=batch["attention_mask"].to(device),
+                ).logits
             chunks.append(logits.cpu())
             golds.append(batch["labels"])
     return torch.cat(chunks), torch.cat(golds)
@@ -133,7 +137,17 @@ def build_parser() -> argparse.ArgumentParser:
         argparse.ArgumentParser: The configured parser.
     """
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    parser.add_argument("--model", required=True, help="train_text.py output directory")
+    parser.add_argument(
+        "--model",
+        required=True,
+        help="train_text.py or train_image.py output directory",
+    )
+    parser.add_argument(
+        "--modality",
+        choices=("text", "image"),
+        default="text",
+        help="Which kind of model this is",
+    )
     parser.add_argument(
         "--data", required=True, help="prepare_text.py output directory"
     )
@@ -154,24 +168,39 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
 
     from torch.utils.data import DataLoader
-    from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
     model_dir = Path(args.model)
     data = Path(args.data)
     labels = json.loads((model_dir / "labels.json").read_text(encoding="utf-8"))
-
     device = pick_device()
-    tokenizer = AutoTokenizer.from_pretrained(model_dir)
-    model = AutoModelForSequenceClassification.from_pretrained(model_dir).to(device)
+
+    if args.modality == "image":
+        from train_image import ScreenshotDataset
+        from transformers import AutoImageProcessor, AutoModelForImageClassification
+
+        processor = AutoImageProcessor.from_pretrained(model_dir)
+        model = AutoModelForImageClassification.from_pretrained(model_dir).to(device)
+
+        def dataset(split: str):
+            return ScreenshotDataset(
+                read_jsonl(data / f"{split}.jsonl"),
+                data / "images",
+                labels,
+                processor,
+            )
+    else:
+        from transformers import AutoModelForSequenceClassification, AutoTokenizer
+
+        tokenizer = AutoTokenizer.from_pretrained(model_dir)
+        model = AutoModelForSequenceClassification.from_pretrained(model_dir).to(device)
+
+        def dataset(split: str):
+            return TextDataset(
+                read_jsonl(data / f"{split}.jsonl"), tokenizer, labels, args.max_length
+            )
 
     def loader(split: str):
-        return DataLoader(
-            TextDataset(
-                read_jsonl(data / f"{split}.jsonl"), tokenizer, labels, args.max_length
-            ),
-            batch_size=args.batch_size,
-            shuffle=False,
-        )
+        return DataLoader(dataset(split), batch_size=args.batch_size, shuffle=False)
 
     print("collecting validation logits...")
     val_logits, val_targets = collect_logits(model, loader("val"), device)
@@ -198,6 +227,7 @@ def main(argv: list[str] | None = None) -> int:
                 "ece_before": before,
                 "ece_after": after,
                 "fitted_on": "val",
+                "modality": args.modality,
             },
             indent=2,
         ),
