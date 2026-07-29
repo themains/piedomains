@@ -213,6 +213,15 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--set", choices=[*SETS, "ut1"], help="Which corpus to fetch")
     parser.add_argument("--out", default="data", help="Output directory")
     parser.add_argument(
+        "--only",
+        action="append",
+        default=None,
+        metavar="NAME",
+        help="Fetch only these files from the set, by exact name. Repeatable. "
+        "Lets a caller stream one tarball at a time instead of staging 47.58 GB "
+        "before processing any of it",
+    )
+    parser.add_argument(
         "--no-assemble", action="store_true", help="Skip rejoining split parts"
     )
     return parser
@@ -255,6 +264,13 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     chosen = select(files, args.set)
+    if args.only:
+        wanted = set(args.only)
+        chosen = [f for f in chosen if f["name"] in wanted]
+        unknown = wanted - {f["name"] for f in chosen}
+        if unknown:
+            sys.stderr.write(f"not in set '{args.set}': {', '.join(sorted(unknown))}\n")
+            return 1
     if not chosen:
         sys.stderr.write(f"no files matched set '{args.set}'\n")
         return 1

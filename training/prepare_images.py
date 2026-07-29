@@ -178,6 +178,14 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--seed", type=int, default=42, help="Split seed")
     parser.add_argument("--limit", type=int, default=0, help="Stop after N images")
+    parser.add_argument(
+        "--append",
+        action="store_true",
+        help="Add to an existing output rather than starting over. Lets a caller stream "
+        "one tarball at a time -- fetch, extract, delete -- instead of staging the whole "
+        "47.58 GB corpus. Splits are rewritten from the accumulated manifest each time, "
+        "so the output is complete and consistent after every invocation",
+    )
     return parser
 
 
@@ -197,8 +205,23 @@ def main(argv: list[str] | None = None) -> int:
     labels = load_domain_labels(Path(args.label_cache))
     print(f"labelled domains: {len(labels):,}")
 
+    # The manifest is the accumulator across --append invocations; the splits below are
+    # derived from it, so every run leaves a consistent dataset behind.
+    manifest = out / "manifest.jsonl"
     kept: list[tuple[str, str]] = []
     per_class: Counter[str] = Counter()
+    if args.append and manifest.exists():
+        for line in manifest.read_text().splitlines():
+            if not line.strip():
+                continue
+            row = json.loads(line)
+            kept.append((row["domain"], row["category"]))
+            per_class[row["category"]] += 1
+        print(f"resuming from {len(kept):,} images already prepared")
+    elif not args.append and manifest.exists():
+        manifest.unlink()
+
+    already = {d for d, _ in kept}
     scanned = unlabelled = unusable = 0
 
     for domain, raw in iter_screenshots(Path(args.corpus)):
@@ -209,6 +232,8 @@ def main(argv: list[str] | None = None) -> int:
         label = labels.get(domain)
         if label is None:
             unlabelled += 1
+            continue
+        if domain in already:
             continue
         # Check the cap before decoding: resizing dominates the run, and doing it for a
         # class that is already full is pure waste.
@@ -221,7 +246,10 @@ def main(argv: list[str] | None = None) -> int:
             continue
 
         (out / "images" / f"{domain}.jpg").write_bytes(small)
+        with open(manifest, "a", encoding="utf-8") as handle:
+            handle.write(json.dumps({"domain": domain, "category": label}) + "\n")
         kept.append((domain, label))
+        already.add(domain)
         per_class[label] += 1
         if args.limit and len(kept) >= args.limit:
             break

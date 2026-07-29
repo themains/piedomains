@@ -18,7 +18,9 @@ vanishes when the session ends. So:
    `/kaggle/working/images-224`.
 3. Delete the tarball before fetching the next.
 
-Peak disk is one tarball (~1.7 GB) plus the growing 224px set (~5 GB), not 47.58 GB.
+Peak disk is one tarball (~1.7 GB) plus the growing 224px set (~1 GB at the current
+cap), not 47.58 GB. Every archive is still *transferred* -- a .tar.gz cannot be seeked
+and the domains we want are spread across all 28 -- but none are kept.
 
 **Do this once.** Publish `/kaggle/working/images-224` as a Kaggle Dataset when stage 1
 finishes. Later sessions mount it read-only at `/kaggle/input/...` and skip straight to
@@ -33,6 +35,7 @@ epoch rather than the lot.
 from __future__ import annotations
 
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -71,6 +74,13 @@ BATCH_SIZE = 32
 #: it and brings the run inside the 12-hour session cap: 51,138 images rather than
 #: 248,003, which is comparable to the 46,754 documents the text model trains on.
 MAX_PER_CLASS = 3000
+
+#: Pretrained vision encoder. ImageNet-21k pretraining optimises for object recognition,
+#: and a webpage screenshot has almost no object content -- its signal is text density,
+#: layout grid and colour. CLIP-family encoders transfer better to non-object domains,
+#: so `google/siglip2-base-patch16-224` is the challenger against the ViT baseline.
+#: Unmeasured on this data, which is why both are run rather than one being argued for.
+BACKBONE = "google/vit-base-patch16-224-in21k"
 
 
 def run(cmd: list[str], **kwargs) -> None:
@@ -186,33 +196,55 @@ def stage_one_prepare(repo: Path) -> Path:
             ]
         )
 
-    run(
-        [
-            sys.executable,
-            str(repo / "training" / "download_corpus.py"),
-            "--set",
-            "screenshots",
-            "--out",
-            str(corpus),
-        ]
-    )
+    # One tarball at a time: fetch, stream it into the resized set, delete. Peak disk is
+    # a single archive plus the growing 224px output rather than all 47.58 GB. A .tar.gz
+    # cannot be seeked, so every archive must still be transferred -- the domains we want
+    # are scattered across all 28, rare classes especially -- but nothing requires
+    # keeping them.
+    names = subprocess.run(  # noqa: S603 -- arguments are module constants
+        [sys.executable, str(repo / "training" / "download_corpus.py"), "--list"],
+        capture_output=True,
+        text=True,
+        check=False,
+    ).stdout
+    tarballs = sorted(set(re.findall(r"screenshot-\d+\.tar\.gz", names)))
+    if not tarballs:
+        raise SystemExit("could not enumerate screenshot tarballs")
+    print(f"{len(tarballs)} tarballs to stream")
 
-    run(
-        [
-            sys.executable,
-            str(repo / "training" / "prepare_images.py"),
-            "--corpus",
-            str(corpus),
-            "--out",
-            str(out),
-            "--label-cache",
-            str(cache),
-            "--size",
-            str(IMAGE_SIZE),
-            "--max-per-class",
-            str(MAX_PER_CLASS),
-        ]
-    )
+    for i, name in enumerate(tarballs, 1):
+        print(f"\n[{i}/{len(tarballs)}] {name}", flush=True)
+        run(
+            [
+                sys.executable,
+                str(repo / "training" / "download_corpus.py"),
+                "--set",
+                "screenshots",
+                "--only",
+                name,
+                "--out",
+                str(corpus),
+            ]
+        )
+        run(
+            [
+                sys.executable,
+                str(repo / "training" / "prepare_images.py"),
+                "--corpus",
+                str(corpus),
+                "--out",
+                str(out),
+                "--label-cache",
+                str(cache),
+                "--size",
+                str(IMAGE_SIZE),
+                "--max-per-class",
+                str(MAX_PER_CLASS),
+                "--append",
+            ]
+        )
+        for spent in corpus.glob("*.tar.gz"):
+            spent.unlink()
 
     # Reclaim the scratch space before training starts.
     for tarball in corpus.glob("*.tar.gz"):
@@ -244,6 +276,8 @@ def stage_two_train(repo: Path, data: Path) -> Path:
         str(EPOCHS),
         "--batch-size",
         str(BATCH_SIZE),
+        "--model",
+        BACKBONE,
         "--workers",
         "2",
     ]
