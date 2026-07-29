@@ -12,54 +12,76 @@ Example:
     Accessing classification categories:
         >>> from piedomains.constants import classes, most_common_words
         >>> print(f"Available categories: {len(classes)}")
-        Available categories: 39
+        Available categories: 47
         >>> print(f"Example categories: {classes[:3]}")
-        Example categories: ['adv', 'alcohol', 'automobile']
+        Example categories: ['adult', 'aggressive', 'alcohol']
         >>> print(f"Common words to filter: {most_common_words[:3]}")
         Common words to filter: ['home', 'contact', 'us']
 """
 
-# Shallalist-based website categories for domain classification
+# Website categories the text model emits.
+#
+# Derived from Shallalist, but not identical to it -- see training/taxonomy.py for the
+# mapping and its reasoning. Three differences matter:
+#
+#   * `adv`, `tracker`, `spyware` and `redirector` are gone. They describe who runs a
+#     site and how it is monetised, which a page does not state, and they accounted for
+#     a third of evaluation errors (amazon -> adv, paypal -> spyware).
+#   * `recreation` and `hobby` are split. `recreation` was 98% travel-or-sports and no
+#     annotator could apply it consistently.
+#   * `porn`, `sex` and `models` are merged into `adult`, which can be thresholded for
+#     recall as a single safety signal.
+#
+# The loaded model's `labels.json` is authoritative at inference; this list documents
+# the shipped set and is the last-resort fallback.
 classes: list[str] = [
-    "adv",  # Advertising - commercial advertisements and banners
-    "alcohol",  # Alcohol - sites promoting or selling alcoholic beverages
-    "automobile",  # Automobile - car-related sites, dealers, automotive info
-    "dating",  # Dating - dating services, personals, relationship sites
-    "downloads",  # Downloads - software downloads, file sharing
-    "drugs",  # Drugs - illegal drugs, drug paraphernalia
-    "education",  # Education - schools, universities, educational content
-    "finance",  # Finance - banks, financial services, investment
-    "fortunetelling",  # Fortune telling - astrology, psychics, supernatural
-    "forum",  # Forum - discussion boards, community forums
-    "gamble",  # Gambling - casinos, betting, lottery sites
-    "government",  # Government - official government sites and services
-    "hobby",  # Hobby - recreational activities, hobbies, crafts
-    "hospitals",  # Hospitals - medical facilities, health services
-    "imagehosting",  # Image hosting - photo sharing, image storage services
-    "isp",  # ISP - Internet service providers, telecom companies
-    "jobsearch",  # Job search - employment, career sites, job boards
-    "models",  # Models - fashion, modeling, photography
-    "movies",  # Movies - film industry, movie reviews, entertainment
-    "music",  # Music - music streaming, artists, music industry
-    "news",  # News - news outlets, journalism, current events
-    "politics",  # Politics - political parties, campaigns, political news
-    "porn",  # Pornography - adult content (explicit material)
-    "radiotv",  # Radio/TV - broadcasting, media companies
-    "recreation",  # Recreation - sports, games, leisure activities
-    "redirector",  # Redirector - URL redirects, link shorteners
-    "religion",  # Religion - religious organizations, spiritual content
-    "science",  # Science - scientific research, academic institutions
-    "searchengines",  # Search engines - web search services, directories
-    "sex",  # Sex - sexual content (non-pornographic), sexual health
-    "shopping",  # Shopping - e-commerce, retail stores, online shopping
-    "socialnet",  # Social networks - social media platforms, networking
-    "spyware",  # Spyware - malicious software, security threats
-    "tracker",  # Tracker - analytics, tracking services, monitoring
+    "adult",  # Adult - pornography, sexual content and glamour. Merged from porn/sex/models
+    "aggressive",  # Aggressive - hate speech and racism
+    "alcohol",  # Alcohol - breweries, wineries, distilleries
+    "automobile",  # Automobile - cars, bikes, boats, planes
+    "dating",  # Dating - dating and personals
+    "downloads",  # Downloads - software and file downloads
+    "drugs",  # Drugs - illegal drugs and paraphernalia
+    "education",  # Education - schools, universities, educational content, sex education
+    "finance",  # Finance - banking, insurance, lending, trading
+    "fortunetelling",  # Fortune telling - astrology, psychics
+    "forum",  # Forum - discussion boards
+    "gamble",  # Gambling - casinos, betting, lottery
+    "government",  # Government - official government sites
+    "hobby/cooking",  # Hobby: cooking - split out from the 'hobby' grab-bag
+    "hobby/games-misc",  # Hobby: games-misc - split out from the 'hobby' grab-bag
+    "hobby/games-online",  # Hobby: games-online - split out from the 'hobby' grab-bag
+    "hobby/gardening",  # Hobby: gardening - split out from the 'hobby' grab-bag
+    "hobby/pets",  # Hobby: pets - split out from the 'hobby' grab-bag
+    "homestyle",  # Homestyle - home and living
+    "hospitals",  # Hospitals - medical facilities and health services
+    "imagehosting",  # Image hosting - photo sharing and image storage
+    "isp",  # ISP - internet service providers and telecoms
+    "jobsearch",  # Job search - employment and career sites
+    "library",  # Library - libraries and archives
+    "military",  # Military - armed forces
+    "movies",  # Movies - film and cinema
+    "music",  # Music - artists, labels, music sites
+    "news",  # News - newspapers, agencies, news portals
+    "politics",  # Politics - parties, advocacy, political content
+    "radiotv",  # Radio/TV - broadcast stations and streaming
+    "realestate",  # Real estate - property listings and agents. Promoted out of finance
+    "recreation/humor",  # Recreation: humor - split out; 'recreation' alone was 98% travel or sports
+    "recreation/restaurants",  # Recreation: restaurants - split out; 'recreation' alone was 98% travel or sports
+    "recreation/sports",  # Recreation: sports - split out; 'recreation' alone was 98% travel or sports
+    "recreation/travel",  # Recreation: travel - split out; 'recreation' alone was 98% travel or sports
+    "recreation/wellness",  # Recreation: wellness - split out; 'recreation' alone was 98% travel or sports
+    "religion",  # Religion - religious groups and spirituality
+    "ringtones",  # Ringtones - mobile ringtones and wallpapers
+    "science",  # Science - astronomy, chemistry, research
+    "searchengines",  # Search engines - search and directories
+    "shopping",  # Shopping - ecommerce, retail, marketplaces
+    "socialnet",  # Social networks - social media platforms
     "urlshortener",  # URL shortener - link shortening services
-    "warez",  # Warez - pirated software, copyright violations
-    "weapons",  # Weapons - firearms, military equipment, weapon sales
-    "webmail",  # Webmail - email services, web-based email
-    "webradio",  # Web radio - online radio stations, audio streaming
+    "warez",  # Warez - piracy and cracked software
+    "weapons",  # Weapons - firearms and armaments
+    "webmail",  # Webmail - browser-based email
+    "webradio",  # Web radio - internet radio streaming
 ]
 """
 List[str]: Complete list of website classification categories.

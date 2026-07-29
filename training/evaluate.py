@@ -92,6 +92,29 @@ def evaluate(
     }[method]
     run = method_fn(domains, use_cache=use_cache)
 
+    gold_labels = set(truth.values())
+
+    def to_eval_space(label: str | None) -> str | None:
+        """Project a prediction into the label space the gold set uses.
+
+        A model trained on a split taxonomy answers `recreation/travel` where
+        the gold set says `recreation`. Scoring that as wrong measures the
+        taxonomy change rather than the model, so a subcategory collapses to
+        its parent when the parent is what the gold set uses. Anything else is
+        left alone -- this normalizes notation, it must not rescue a genuinely
+        different answer.
+
+        Args:
+            label: The model's predicted label.
+
+        Returns:
+            str | None: The label in the gold set's space.
+        """
+        if not label or "/" not in label:
+            return label
+        parent = label.split("/", 1)[0]
+        return parent if parent in gold_labels else label
+
     rows: list[dict[str, Any]] = []
     for result in run["results"]:
         domain = result.get("domain")
@@ -99,7 +122,8 @@ def evaluate(
             {
                 "domain": domain,
                 "expected": truth.get(domain),
-                "predicted": result.get("category"),
+                "predicted": to_eval_space(result.get("category")),
+                "predicted_raw": result.get("category"),
                 "confidence": result.get("confidence"),
                 "status": result.get("status"),
                 "stage": result.get("stage"),
