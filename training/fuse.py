@@ -317,6 +317,31 @@ def main(argv: list[str] | None = None) -> int:
             "Ship image classification opt-in and put this number in the README."
         )
 
+    # The weights are an artifact, not just a number in a log. Write them next to the
+    # image model so inference can load them; without this file `combined` refuses to
+    # fuse rather than falling back to a guessed 0.5.
+    better_per_class = (
+        report["fused_per_class"]["macro_f1"] >= report["fused_scalar"]["macro_f1"]
+    )
+    chosen = per_class if better_per_class else scalar
+    (image_dir / "fusion.json").write_text(
+        json.dumps(
+            {
+                "text_weights": [float(w) for w in chosen.tolist()],
+                "labels": labels,
+                "kind": "per_class" if better_per_class else "scalar",
+                "fitted_on": len(fit_rows),
+                "beats_text_only": helps,
+            },
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    print(
+        f"wrote {image_dir}/fusion.json "
+        f"({'per-class' if better_per_class else 'scalar'} weights)"
+    )
+
     if args.out:
         Path(args.out).write_text(json.dumps(report, indent=2), encoding="utf-8")
         print(f"wrote {args.out}")
