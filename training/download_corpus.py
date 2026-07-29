@@ -210,6 +210,12 @@ def build_parser() -> argparse.ArgumentParser:
     """
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     parser.add_argument("--list", action="store_true", help="List available files")
+    parser.add_argument(
+        "--names",
+        action="store_true",
+        help="Print one filename per line for --set, and nothing else. Machine-readable, "
+        "so a caller can loop over the corpus one file at a time",
+    )
     parser.add_argument("--set", choices=[*SETS, "ut1"], help="Which corpus to fetch")
     parser.add_argument("--out", default="data", help="Output directory")
     parser.add_argument(
@@ -264,6 +270,10 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     chosen = select(files, args.set)
+    if args.names:
+        for entry in chosen:
+            print(entry["name"])
+        return 0
     if args.only:
         wanted = set(args.only)
         chosen = [f for f in chosen if f["name"] in wanted]
