@@ -81,6 +81,24 @@ class BaseFetcher:
         self.config = get_config()
         self.validator = ContentValidator(self.config)
 
+    def _context_kwargs(self) -> dict:
+        """Build the browser-context settings every capture path shares.
+
+        Three call sites used to spell this out independently, which is how they drift:
+        a setting added to one is silently absent from the others, and screenshots taken
+        by the batch path stop matching those taken by the single path.
+
+        Returns:
+            dict: Keyword arguments for ``browser.new_context``.
+        """
+        return {
+            "user_agent": self.config.user_agent,
+            "viewport": self.config.get(
+                "playwright_viewport", {"width": 1280, "height": 1024}
+            ),
+            "device_scale_factor": self.config.get("screenshot_scale", 1),
+        }
+
     def _validate_url_security(
         self,
         url: str,
@@ -540,12 +558,8 @@ class PlaywrightFetcher(BaseFetcher):
                 args=["--disable-blink-features=AutomationControlled"],
             )
 
-            viewport = self.config.get(
-                "playwright_viewport", {"width": 1280, "height": 1024}
-            )
             context = await browser.new_context(
-                user_agent=self.config.user_agent,
-                viewport=viewport,
+                **self._context_kwargs(),
                 ignore_https_errors=False,
             )
 
@@ -602,16 +616,11 @@ class PlaywrightFetcher(BaseFetcher):
                 args=["--disable-blink-features=AutomationControlled"],
             )
 
-            viewport = self.config.get(
-                "playwright_viewport", {"width": 1280, "height": 1024}
-            )
-
             # Create parallel contexts
             contexts = []
             for i in range(min(self.max_parallel, len(validated_urls))):
                 context = await browser.new_context(
-                    user_agent=self.config.user_agent,
-                    viewport=viewport,
+                    **self._context_kwargs(),
                     ignore_https_errors=False,
                 )
                 contexts.append(context)
@@ -868,9 +877,6 @@ class ArchiveFetcher(BaseFetcher):
         Returns:
             str: The screenshot path on success, or ``""`` on failure.
         """
-        viewport = self.config.get(
-            "playwright_viewport", {"width": 1280, "height": 1024}
-        )
         timeout = self.config.get("playwright_timeout", 30000)
         try:
             async with async_playwright() as p:
@@ -878,9 +884,7 @@ class ArchiveFetcher(BaseFetcher):
                     headless=self.config.get("playwright_headless", True)
                 )
                 try:
-                    context = await browser.new_context(
-                        user_agent=self.config.user_agent, viewport=viewport
-                    )
+                    context = await browser.new_context(**self._context_kwargs())
                     page = await context.new_page()
 
                     # archive.org serves assets slowly; fonts and media are not
