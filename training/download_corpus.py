@@ -24,6 +24,7 @@ import hashlib
 import shutil
 import sys
 import tarfile
+import time
 from pathlib import Path
 from typing import Any
 
@@ -47,6 +48,46 @@ UT1_URL = "https://dsi.ut-capitole.fr/blacklists/download/blacklists.tar.gz"
 
 CHUNK = 1 << 20
 
+#: How many times to re-attempt a transfer that fails partway through.
+#:
+#: Dataverse returns a transient 502 often enough to matter: a screenshot run died 20
+#: minutes in, on the eighth of 28 tarballs, because one request came back Bad Gateway and
+#: nothing retried it. A multi-hour GPU job must not be lost to a single upstream hiccup.
+ATTEMPTS = 5
+
+#: Retried statuses. 429 is included so rate limiting backs off rather than aborting.
+RETRY_STATUS = (429, 500, 502, 503, 504)
+
+
+def session() -> requests.Session:
+    """Build a session that retries transient failures with exponential backoff.
+
+    Covers connecting and receiving response *headers*. A stream that dies mid-body is a
+    separate problem, handled by the resume loop in :func:`download`.
+
+    Returns:
+        requests.Session: A session with retries mounted on HTTPS.
+    """
+    from requests.adapters import HTTPAdapter
+    from urllib3.util.retry import Retry
+
+    retry = Retry(
+        total=ATTEMPTS,
+        connect=ATTEMPTS,
+        read=ATTEMPTS,
+        status=ATTEMPTS,
+        status_forcelist=RETRY_STATUS,
+        allowed_methods=frozenset({"GET", "HEAD"}),
+        backoff_factor=2,
+        respect_retry_after_header=True,
+        raise_on_status=False,
+    )
+    adapter = HTTPAdapter(max_retries=retry)
+    http = requests.Session()
+    http.mount("https://", adapter)
+    http.mount("http://", adapter)
+    return http
+
 
 def list_files() -> list[dict[str, Any]]:
     """Fetch the dataset's file listing from the Dataverse API.
@@ -55,7 +96,7 @@ def list_files() -> list[dict[str, Any]]:
         list[dict]: One entry per file, with id/filename/filesize/md5.
     """
     url = f"{DATAVERSE}/api/datasets/:persistentId/?persistentId={DOI}"
-    response = requests.get(url, timeout=60)
+    response = session().get(url, timeout=60)
     response.raise_for_status()
     files = response.json()["data"]["latestVersion"]["files"]
     return [
@@ -131,36 +172,54 @@ def download(entry: dict[str, Any], out_dir: Path) -> Path:
             print(f"  {entry['name']}: already complete (no checksum published)")
             return target
 
-    have = target.stat().st_size if target.exists() else 0
-    headers = {"Range": f"bytes={have}-"} if have else {}
     # `format=original` matters for tabular files (.tab/.csv): Dataverse
     # converts those to its own archival format and serves the conversion, while
     # the published MD5 is of the original upload -- so without this the
     # checksum check fails on a perfectly good download.
     url = f"{DATAVERSE}/api/access/datafile/{entry['id']}?format=original"
+    http = session()
 
-    with requests.get(url, headers=headers, stream=True, timeout=120) as response:
-        if response.status_code == 416 and have:
-            # Range beyond EOF: nothing left to fetch. Fall through to verify.
-            print(f"  {entry['name']}: already fully downloaded")
-            headers = {}
-            response.close()
-            if expected and md5_of(target) != expected:
-                target.unlink()
-                return download(entry, out_dir)
-            return target
-        response.raise_for_status()
-        mode = "ab" if have and response.status_code == 206 else "wb"
-        if mode == "wb":
-            have = 0
-        with open(target, mode) as handle:
-            for chunk in response.iter_content(CHUNK):
-                handle.write(chunk)
-                have += len(chunk)
-                if entry["size"]:
-                    pct = 100 * have / entry["size"]
-                    print(f"\r  {entry['name']}: {pct:5.1f}%", end="", flush=True)
-    print()
+    # The session retries connect/header failures, but a body that dies partway through
+    # is delivered as a broken iterator rather than a bad status, so it has to be caught
+    # here. Each attempt re-reads the file length and resumes with a fresh Range, so a
+    # 2.15GB part that drops at 90% costs the last 10% and not the whole transfer.
+    for attempt in range(1, ATTEMPTS + 1):
+        have = target.stat().st_size if target.exists() else 0
+        headers = {"Range": f"bytes={have}-"} if have else {}
+        try:
+            with http.get(url, headers=headers, stream=True, timeout=120) as response:
+                if response.status_code == 416 and have:
+                    # Range beyond EOF: nothing left to fetch. Fall through to verify.
+                    print(f"  {entry['name']}: already fully downloaded")
+                    response.close()
+                    if expected and md5_of(target) != expected:
+                        target.unlink()
+                        return download(entry, out_dir)
+                    return target
+                response.raise_for_status()
+                mode = "ab" if have and response.status_code == 206 else "wb"
+                if mode == "wb":
+                    have = 0
+                with open(target, mode) as handle:
+                    for chunk in response.iter_content(CHUNK):
+                        handle.write(chunk)
+                        have += len(chunk)
+                        if entry["size"]:
+                            pct = 100 * have / entry["size"]
+                            print(
+                                f"\r  {entry['name']}: {pct:5.1f}%", end="", flush=True
+                            )
+            print()
+            break
+        except requests.RequestException as exc:
+            if attempt == ATTEMPTS:
+                raise
+            delay = 2**attempt
+            print(
+                f"\n  {entry['name']}: {type(exc).__name__} after {have:,} bytes "
+                f"(attempt {attempt}/{ATTEMPTS}); resuming in {delay}s"
+            )
+            time.sleep(delay)
 
     if expected:
         actual = md5_of(target)
@@ -249,7 +308,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.set == "ut1":
         print(f"fetching UT-Capitole blacklists from {UT1_URL}")
         target = out_dir / "ut1-blacklists.tar.gz"
-        with requests.get(UT1_URL, stream=True, timeout=120) as response:
+        with session().get(UT1_URL, stream=True, timeout=120) as response:
             response.raise_for_status()
             with open(target, "wb") as handle:
                 for chunk in response.iter_content(CHUNK):

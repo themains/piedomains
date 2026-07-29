@@ -100,14 +100,17 @@ def run(cmd: list[str], **kwargs) -> None:
         **kwargs: Passed through to ``subprocess.run``.
 
     Raises:
-        SystemExit: If the command exits non-zero.
+        subprocess.CalledProcessError: If the command exits non-zero. Deliberately not
+            ``SystemExit``: stage 1 catches per-tarball failures so one bad download does
+            not lose the run, and ``except SystemExit`` neither reads as intent nor
+            survives someone narrowing it. Uncaught, this still aborts the job.
     """
     print("$", " ".join(cmd), flush=True)
     # Every argument is constructed in this file from module constants; nothing here
     # comes from user input.
     result = subprocess.run(cmd, **kwargs)  # noqa: S603
     if result.returncode != 0:
-        raise SystemExit(f"command failed with {result.returncode}: {' '.join(cmd)}")
+        raise subprocess.CalledProcessError(result.returncode, cmd)
 
 
 def setup() -> Path:
@@ -234,47 +237,61 @@ def stage_one_prepare(repo: Path) -> Path:
         )
     print(f"{len(tarballs)} tarballs to stream")
 
+    # A tarball that will not download is survivable; losing the run is not. The SigLIP
+    # attempt died 20 minutes in because Dataverse answered one request with a 502 and the
+    # whole job went with it. download_corpus.py now retries transient failures, and a
+    # tarball that still fails after that is skipped so the other 27 can train.
+    skipped = []
     for i, name in enumerate(tarballs, 1):
         print(f"\n[{i}/{len(tarballs)}] {name}", flush=True)
-        run(
-            [
-                sys.executable,
-                str(repo / "training" / "download_corpus.py"),
-                "--set",
-                "screenshots",
-                "--only",
-                name,
-                "--out",
-                str(corpus),
-            ]
-        )
-        run(
-            [
-                sys.executable,
-                str(repo / "training" / "prepare_images.py"),
-                "--corpus",
-                str(corpus),
-                "--out",
-                str(out),
-                "--label-cache",
-                str(cache),
-                "--size",
-                str(IMAGE_SIZE),
-                "--max-per-class",
-                str(MAX_PER_CLASS),
-                "--append",
-                "--index",
-                str(labels_dir / "screenshot-index.tab"),
-            ]
-        )
-        for spent in corpus.glob("*.tar.gz"):
-            spent.unlink()
+        try:
+            run(
+                [
+                    sys.executable,
+                    str(repo / "training" / "download_corpus.py"),
+                    "--set",
+                    "screenshots",
+                    "--only",
+                    name,
+                    "--out",
+                    str(corpus),
+                ]
+            )
+            run(
+                [
+                    sys.executable,
+                    str(repo / "training" / "prepare_images.py"),
+                    "--corpus",
+                    str(corpus),
+                    "--out",
+                    str(out),
+                    "--label-cache",
+                    str(cache),
+                    "--size",
+                    str(IMAGE_SIZE),
+                    "--max-per-class",
+                    str(MAX_PER_CLASS),
+                    "--append",
+                    "--index",
+                    str(labels_dir / "screenshot-index.tab"),
+                ]
+            )
+        except subprocess.CalledProcessError as exc:
+            # Named, counted and reported at the end. A silently dropped tarball would
+            # read as full coverage while quietly shrinking the training set.
+            print(f"  SKIPPING {name}: {exc}", flush=True)
+            skipped.append(name)
+        finally:
+            for spent in corpus.glob("*.tar.gz"):
+                spent.unlink()
 
-    # Reclaim the scratch space before training starts.
-    for tarball in corpus.glob("*.tar.gz"):
-        tarball.unlink()
-    print(f"stage 1 complete: {out}")
-    print("PUBLISH THIS AS A KAGGLE DATASET, then set PREPARED_DATASET and re-run.")
+    if skipped:
+        print(
+            f"\n{len(skipped)}/{len(tarballs)} tarballs skipped: {', '.join(skipped)}"
+        )
+    if len(skipped) == len(tarballs):
+        raise SystemExit("every tarball failed; nothing to train on")
+    print(f"stage 1 complete: {out} ({len(tarballs) - len(skipped)} tarballs streamed)")
     return out
 
 
