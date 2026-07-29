@@ -5,11 +5,14 @@
 [![Downloads](https://pepy.tech/badge/piedomains)](https://pepy.tech/project/piedomains)
 [![Documentation](https://img.shields.io/badge/docs-github.io-blue)](https://themains.github.io/piedomains/)
 
-## What's New in v0.9.0
+## What's New in v0.10.0
 
-- **Retrained text model.** A fine-tuned [mmBERT](https://github.com/JHU-CLSP/mmBERT)
-  encoder, no longer fed through an English-dictionary filter that was discarding 39.8%
-  of every page. Macro-F1 on the evaluation set goes 0.602 → **0.707**.
+- **A taxonomy that asks answerable questions.** Classes describing *how a site is built
+  and monetised* (`adv`, `tracker`, `spyware`, `redirector`) are gone — a page does not
+  state them, and they caused a third of all errors. `recreation` and `hobby` are split
+  into their subcategories; `porn`/`sex`/`models` merge into `adult`.
+- **Accuracy 0.627 → 0.725** on the evaluation set across the last two releases,
+  macro-F1 0.602 → 0.705.
 - **Confidence is a real probability**: temperature-scaled softmax, rather than 39
   per-class isotonic regressions applied elementwise and never renormalized.
 - **TensorFlow is gone**, so Python 3.14 works.
@@ -18,9 +21,13 @@
 - **Failures are named.** Every row carries a stable `error_code`; the run report
   aggregates by reason, stage and source.
 
-**Not multilingual.** Despite a multilingual encoder, the training corpus is English, so
-non-English pages classify poorly (0.333 accuracy on a small sample against 0.667 for
-English). Fixing this needs multilingual training data, not a configuration change.
+**Partly multilingual.** The training corpus is overwhelmingly English, so non-English
+pages classify at 0.667 accuracy against 0.738 for English. Usable but not equal, and
+closing the gap needs multilingual training data rather than a multilingual encoder alone.
+
+**Breaking:** the label set is now 47 classes, not 39, and some names changed
+(`porn`→`adult`, `recreation`→`recreation/sports`). See the
+[changelog](https://github.com/themains/piedomains/blob/main/CHANGELOG.md).
 
 **Breaking:** image classification is unavailable while the screenshot model is retrained,
 so `classify()` is text-only and `classify_by_images()` raises. This changes no labels —
@@ -213,7 +220,10 @@ export GOOGLE_API_KEY="..."
 
 ## Categories
 
-39 categories: news, finance, shopping, education, government, adult content, gambling, social networks, search engines, and others based on Shallalist taxonomy.
+47 categories: news, finance, shopping, education, government, adult, gambling,
+social networks, search engines and others. Derived from Shallalist, with classes that
+describe hosting rather than content removed and the grab-bag categories split — see
+[`training/taxonomy.py`](training/taxonomy.py).
 
 ## Security & Docker
 

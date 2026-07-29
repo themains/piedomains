@@ -86,9 +86,10 @@ classes: list[str] = [
 """
 List[str]: Complete list of website classification categories.
 
-This list contains 39 categories used for domain content classification.
-Categories are based on the Shallalist system and cover major website types
-including commerce, media, government, adult content, and technology services.
+This list contains 47 categories used for domain content classification.
+Derived from Shallalist but not identical to it: classes describing how a site is
+hosted or monetised are removed, `recreation` and `hobby` are split, and the adult
+categories are merged. See training/taxonomy.py for the mapping.
 
 The categories are used by both traditional ML models and LLM-based classification
 to provide consistent categorization across different classification methods.
@@ -176,6 +177,6 @@ def get_category_count() -> int:
     Example:
         >>> count = get_category_count()
         >>> print(f"Total categories available: {count}")
-        Total categories available: 39
+        Total categories available: 47
     """
     return len(classes)
