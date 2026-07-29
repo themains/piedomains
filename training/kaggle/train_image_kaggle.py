@@ -35,7 +35,6 @@ epoch rather than the lot.
 from __future__ import annotations
 
 import os
-import re
 import subprocess
 import sys
 from pathlib import Path
@@ -201,15 +200,28 @@ def stage_one_prepare(repo: Path) -> Path:
     # cannot be seeked, so every archive must still be transferred -- the domains we want
     # are scattered across all 28, rare classes especially -- but nothing requires
     # keeping them.
-    names = subprocess.run(  # noqa: S603 -- arguments are module constants
-        [sys.executable, str(repo / "training" / "download_corpus.py"), "--list"],
+    # --names prints one filename per line and nothing else. --list prints per-set
+    # summaries ("screenshots  28 files  47.58 GB") and never a filename, which is what
+    # the previous version parsed and why it enumerated nothing twice.
+    listing = subprocess.run(  # noqa: S603 -- arguments are module constants
+        [
+            sys.executable,
+            str(repo / "training" / "download_corpus.py"),
+            "--set",
+            "screenshots",
+            "--names",
+        ],
         capture_output=True,
         text=True,
         check=False,
-    ).stdout
-    tarballs = sorted(set(re.findall(r"screenshot-\d+\.tar\.gz", names)))
+    )
+    tarballs = [n for n in listing.stdout.split() if n.endswith(".tar.gz")]
     if not tarballs:
-        raise SystemExit("could not enumerate screenshot tarballs")
+        raise SystemExit(
+            "could not enumerate screenshot tarballs.\n"
+            f"stdout: {listing.stdout[:400]!r}\n"
+            f"stderr: {listing.stderr[:400]!r}"
+        )
     print(f"{len(tarballs)} tarballs to stream")
 
     for i, name in enumerate(tarballs, 1):
