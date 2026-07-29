@@ -15,17 +15,20 @@ vanishes when the session ends. So:
 
 1. Download one tarball at a time into `/kaggle/temp`.
 2. Stream it, resize every screenshot to 224px, write the small copy to
-   `/kaggle/working/images-224`.
+   `/kaggle/temp/images-224`.
 3. Delete the tarball before fetching the next.
 
 Peak disk is one tarball (~1.7 GB) plus the growing 224px set (~1 GB at the current
 cap), not 47.58 GB. Every archive is still *transferred* -- a .tar.gz cannot be seeked
 and the domains we want are spread across all 28 -- but none are kept.
 
-**Do this once.** Publish `/kaggle/working/images-224` as a Kaggle Dataset when stage 1
-finishes. Later sessions mount it read-only at `/kaggle/input/...` and skip straight to
-training, which matters because stage 1 is bounded by download speed and stage 2 by the
-12-hour session cap.
+**Everything intermediate stays out of `/kaggle/working`.** That directory is the kernel
+*output*, and retrieving any part of it means enumerating all of it. With the 51,138
+resized JPEGs there, pulling the 350 MB model meant listing 51k files, which exhausted
+the API's rate limit and left a finished run's model unreachable for hours. Only
+`image-v1` is written there now -- about five files. The cost is that stage 1 cannot be
+published as a reusable Dataset and is repeated per session, which is ~1 hour against a
+12-hour cap.
 
 **Resume across sessions.** `train_image.py --resume` picks up from the checkpoint in
 `--out`, and it only ever writes the best epoch, so an interrupted run costs at most one
@@ -50,16 +53,23 @@ REPO = "https://github.com/themains/piedomains.git"
 #: file.
 BRANCH = "image-model"
 
-#: Kaggle's persistent output volume, 20 GB. The resized dataset and the checkpoint live
-#: here so they survive the session.
+#: Kaggle's persistent output volume, 20 GB, and the kernel's *output* -- everything here
+#: has to be enumerated file-by-file to retrieve any of it. Only the checkpoint lives
+#: here: ~5 files.
 WORK = Path("/kaggle/working")
 
 #: Ephemeral scratch, ~60 GB, wiped when the session ends. Tarballs land here and are
-#: deleted as soon as they have been streamed.
+#: deleted as soon as they have been streamed, and the 51,138 resized JPEGs stay here too.
+#:
+#: They used to go to WORK, which made the output 51k files. Retrieving the 350 MB model
+#: then meant listing all of them, which exhausted the ListKernelSessionOutput rate limit
+#: and left a completed run's model unreachable for hours. Stage 1 costs ~1 hour to
+#: repeat; that is cheaper than not being able to get the model out at all.
 TEMP = Path("/kaggle/temp")
 
-#: Set this after publishing stage 1's output as a Kaggle Dataset, then attach it to the
-#: notebook. Skips the download and resize entirely.
+#: Point this at an attached Kaggle Dataset of already-resized images to skip the download
+#: and resize entirely. Stage 1 no longer produces one itself -- see TEMP above -- so this
+#: is for a set uploaded deliberately, not a leftover from a previous run.
 PREPARED_DATASET: str | None = None  # e.g. "/kaggle/input/piedomains-screenshots-224"
 
 IMAGE_SIZE = 224
@@ -106,7 +116,7 @@ def setup() -> Path:
     Returns:
         Path: The repository root.
     """
-    repo = WORK / "piedomains"
+    repo = TEMP / "piedomains"
     if not repo.exists():
         run(["git", "clone", "--depth", "1", "-b", BRANCH, REPO, str(repo)])
 
@@ -156,7 +166,7 @@ def stage_one_prepare(repo: Path) -> Path:
     Returns:
         Path: Directory holding the resized dataset.
     """
-    out = WORK / "images-224"
+    out = TEMP / "images-224"
     if (out / "labels.json").exists():
         print(f"{out} already built; skipping stage 1")
         return out
@@ -165,7 +175,7 @@ def stage_one_prepare(repo: Path) -> Path:
     corpus.mkdir(parents=True, exist_ok=True)
 
     # Labels first: small, and prepare_images.py needs the per-category domain lists.
-    labels_dir = WORK / "labels"
+    labels_dir = TEMP / "labels"
     if not (labels_dir / "shallalist_cats.txt").exists():
         run(
             [
@@ -180,7 +190,7 @@ def stage_one_prepare(repo: Path) -> Path:
 
     # The domain lists are fetched by prepare_text.py's mirror logic on first use; a tiny
     # prepare_text run populates the cache without processing the text corpus.
-    cache = WORK / "labels" / "domains"
+    cache = TEMP / "labels" / "domains"
     if not cache.exists() or not any(cache.glob("*.txt")):
         print("populating the label cache from the Shallalist mirror...")
         run(
