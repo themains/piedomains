@@ -223,7 +223,7 @@ export GOOGLE_API_KEY="..."
 47 categories: news, finance, shopping, education, government, adult, gambling,
 social networks, search engines and others. Derived from Shallalist, with classes that
 describe hosting rather than content removed and the grab-bag categories split — see
-[`training/taxonomy.py`](training/taxonomy.py).
+[`training/taxonomy.py`](https://github.com/themains/piedomains/blob/main/training/taxonomy.py).
 
 ## Security & Docker
 
