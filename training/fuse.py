@@ -82,11 +82,32 @@ def text_probabilities(
     import torch
     from torch.utils.data import DataLoader
     from train_text import TextDataset
-    from transformers import AutoModelForSequenceClassification, AutoTokenizer
+    from transformers import (
+        AutoConfig,
+        AutoModelForSequenceClassification,
+        AutoTokenizer,
+    )
+
+    # ModernBERT compiles its encoder through TorchInductor, whose Triton backend requires
+    # compute capability >= 7.0. On Kaggle's P100 (sm_60) that raises BackendCompilerFailed
+    # and took fusion down with it. Eager is a few percent slower for one inference pass
+    # and works everywhere.
+    #
+    # It has to be set on the config: `from_pretrained(..., reference_compile=False)` is
+    # forwarded to __init__ and raises TypeError, which is only visible by trying it.
+    # Set unconditionally, not behind `hasattr`: a freshly loaded config does not carry
+    # the attribute at all (ModernBERT defaults it at __init__), so a hasattr guard never
+    # fires and the P100 failure comes straight back. Configs accept extra attributes, so
+    # this is inert for architectures that do not read it.
+    torch._dynamo.config.suppress_errors = True
+    config = AutoConfig.from_pretrained(model_dir)
+    config.reference_compile = False
 
     device = pick_device()
     tokenizer = AutoTokenizer.from_pretrained(model_dir)
-    model = AutoModelForSequenceClassification.from_pretrained(model_dir).to(device)
+    model = AutoModelForSequenceClassification.from_pretrained(
+        model_dir, config=config
+    ).to(device)
     model.eval()
     temperature = load_calibrated(model_dir)
 

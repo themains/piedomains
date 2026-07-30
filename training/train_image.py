@@ -32,6 +32,7 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import random
 import sys
 import time
 from dataclasses import asdict, dataclass
@@ -157,15 +158,12 @@ class ScreenshotDataset:
             # epoch. prepare_images.py already filters these; this is belt and braces.
             img = Image.new("RGB", (self.processor.size["height"],) * 2)
 
-        if self.train:
-            # Horizontal flip only. Rotation and heavy colour jitter are wrong here:
-            # page layout is not rotation-invariant, and colour scheme is signal.
-            import random
+        # Horizontal flip only. Rotation and heavy colour jitter are wrong here: page
+        # layout is not rotation-invariant, and colour scheme is signal.
+        if self.train and random.random() < 0.5:  # noqa: S311 -- augmentation
+            from PIL import ImageOps
 
-            if random.random() < 0.5:  # noqa: S311 -- augmentation, not security
-                from PIL import ImageOps
-
-                img = ImageOps.mirror(img)
+            img = ImageOps.mirror(img)
 
         encoded = self.processor(images=img, return_tensors="pt")
         return {
@@ -175,7 +173,7 @@ class ScreenshotDataset:
 
 
 def evaluate_split(
-    model, loader, device: str, labels: list[str]
+    model: Any, loader: Any, device: str, labels: list[str]
 ) -> tuple[float, list[str], list[str]]:
     """Score the model over a loader.
 
@@ -205,7 +203,12 @@ def evaluate_split(
 
 
 def save_checkpoint(
-    out: Path, model, processor, labels: list[str], config: TrainConfig, state: dict
+    out: Path,
+    model: Any,
+    processor: Any,
+    labels: list[str],
+    config: TrainConfig,
+    state: dict,
 ) -> None:
     """Write weights, preprocessor, labels and run state.
 
@@ -283,6 +286,12 @@ def main(argv: list[str] | None = None) -> int:
         seed=args.seed,
     )
     torch.manual_seed(config.seed)
+    # Python's RNG too, not just torch's. ScreenshotDataset's horizontal flip calls
+    # random.random(), which torch.manual_seed does not touch -- so two runs with the same
+    # --seed saw different augmentation and diverged. Two SigLIP2 runs that should have
+    # shared their first three epochs peaked at val macro-F1 0.3953 and 0.3705, which was
+    # large enough to be mistaken for an effect of epoch count.
+    random.seed(config.seed)
 
     data = Path(args.data)
     out = Path(args.out)

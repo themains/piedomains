@@ -80,11 +80,12 @@ PREPARED_DATASET: str | None = None  # e.g. "/kaggle/input/piedomains-screenshot
 
 IMAGE_SIZE = 224
 
-#: Eight. The first image runs used 3, carried over from the text model, whose runs peaked
-#: at epoch 3 and declined at 4. Images do not behave that way: SigLIP2's val macro-F1 went
-#: 0.283 -> 0.365 -> 0.395 and its loss 4.18 -> 1.21, still falling steeply at the cut-off,
-#: so 3 epochs under-trained it. At ~11.6 min/epoch this is still well inside the cap.
-EPOCHS = 8
+#: Five, with patience=2 and best-epoch-only checkpointing doing the real work. Raising
+#: this from 3 to 8 did not help: that run peaked at epoch 4 with val macro-F1 0.3705 and
+#: early-stopped, below the 3-epoch run's 0.3953. The two were not comparable anyway --
+#: augmentation used an unseeded random.random(), now fixed -- so the honest reading is
+#: that the peak is around 3-5 and the rest was run-to-run noise.
+EPOCHS = 5
 BATCH_SIZE = 32
 
 #: Cap per class. The corpus is 78% four classes (adult 55,184, shopping 48,384,

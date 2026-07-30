@@ -156,6 +156,7 @@ def download(entry: dict[str, Any], out_dir: Path) -> Path:
 
     Raises:
         OSError: If the checksum does not match after downloading.
+        requests.RequestException: If the transfer still fails after ATTEMPTS resumes.
     """
     target = out_dir / entry["name"]
     expected = entry.get("md5")
