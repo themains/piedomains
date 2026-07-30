@@ -38,8 +38,6 @@ import sys
 from collections import Counter, defaultdict
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
-
 #: Our 47 classes to Curlie's 14. Only mappings a Curlie editor would plausibly agree
 #: with; everything else is left out and reported as unmappable rather than scored.
 #:
@@ -153,7 +151,7 @@ def main(argv: list[str] | None = None) -> int:
         int: Process exit status.
     """
     args = build_parser().parse_args(argv)
-    from piedomains import DomainClassifier
+    from ..api import DomainClassifier
 
     paired = json.loads(Path(args.paired).read_text(encoding="utf-8"))
     chosen = sample(paired, args.limit, args.max_rank, args.seed)

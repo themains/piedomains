@@ -72,7 +72,7 @@ said. `piedomains.constants.classes` is the source of truth.
 
 ## Model state — read before trusting any accuracy number
 
-Measured by `training/evaluate.py` against `tests/eval/labels.csv`:
+Measured by `piedomains.training.evaluate` against `tests/eval/labels.csv`:
 
 - **Text model: accuracy 0.267, macro-F1 0.191** — against a training-time
   figure of 71.3% (`notebooks/04_train_model.ipynb`). Baseline recorded in
@@ -85,7 +85,7 @@ Measured by `training/evaluate.py` against `tests/eval/labels.csv`:
   preprocessing line without re-measuring — the audit's premise that
   `resnet50.preprocess_input` is baked into the graph did not reproduce.
 
-Do not add accuracy claims to docs without a number from `training/evaluate.py`.
+Do not add accuracy claims to docs without a number from `piedomains.training.evaluate`.
 
 ## Versioning
 

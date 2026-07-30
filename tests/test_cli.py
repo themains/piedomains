@@ -16,10 +16,24 @@ from piedomains.cli import build_parser, main, training_scripts_dir
 class TestTrainingScriptsShip(unittest.TestCase):
     """Every accuracy number in the README comes out of these scripts.
 
-    A figure nobody can re-run is a figure taken on faith, so they install alongside the
-    package rather than living only in the repository. ``pyproject.toml`` force-includes
-    ``training/`` into the wheel; these tests fail if that is ever dropped.
+    A figure nobody can re-run is a figure taken on faith, so they are a subpackage that
+    installs with the library rather than living only in the repository. These tests fail
+    if that is ever undone.
     """
+
+    def test_it_is_a_real_subpackage_not_a_build_time_copy(self):
+        """Importing it must not require torch, or `import piedomains` breaks for users."""
+        import piedomains.training
+
+        self.assertTrue(hasattr(piedomains.training, "__path__"))
+
+    def test_every_script_is_an_importable_module(self):
+        """`python -m piedomains.training.x` is the documented way to run these."""
+        import importlib
+
+        for name in ("metrics", "taxonomy", "evaluate", "fuse"):
+            with self.subTest(module=name):
+                importlib.import_module(f"piedomains.training.{name}")
 
     def test_the_directory_is_found(self):
         self.assertTrue(training_scripts_dir().is_dir())
@@ -54,6 +68,17 @@ class TestTrainingScriptsShip(unittest.TestCase):
         ):
             training_scripts_dir()
         self.assertIn("training scripts not found", str(caught.exception))
+
+    def test_no_sys_path_mutation_survives(self):
+        """The scripts imported each other through sys.path before they were a package.
+
+        That resolved by accident of process state: it worked when run as a script from
+        the right directory and failed as an import, which is how `fuse.py` ended up with
+        two function-local imports that would have broken on install.
+        """
+        for script in training_scripts_dir().rglob("*.py"):
+            with self.subTest(script=script.name):
+                self.assertNotIn("sys.path.insert", script.read_text(encoding="utf-8"))
 
 
 class TestCli(unittest.TestCase):

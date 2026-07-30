@@ -28,15 +28,12 @@ import argparse
 import io
 import json
 import random
-import sys
 import tarfile
 from collections import Counter, defaultdict
 from collections.abc import Iterator
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent))
-
-from taxonomy import map_category
+from .taxonomy import map_category
 
 #: Screenshots whose shorter side is below this are placeholders or errors, not pages.
 MIN_SIDE = 64
@@ -240,7 +237,9 @@ def build_parser() -> argparse.ArgumentParser:
     Returns:
         argparse.ArgumentParser: The configured parser.
     """
-    parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    parser = argparse.ArgumentParser(
+        description="Turn screenshot tarballs into a labelled image dataset"
+    )
     parser.add_argument(
         "--corpus", required=True, help="Directory of screenshot tarballs"
     )

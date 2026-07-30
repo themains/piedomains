@@ -153,7 +153,8 @@ def setup() -> Path:
         "calibrate.py",
         "taxonomy.py",
     ]
-    missing = [n for n in required if not (repo / "training" / n).exists()]
+    training = repo / "src" / "piedomains" / "training"
+    missing = [n for n in required if not (training / n).exists()]
     if missing:
         raise SystemExit(
             f"branch {BRANCH!r} is missing {missing}; nothing downloaded. "
@@ -173,6 +174,15 @@ def setup() -> Path:
             "tqdm",
         ]
     )
+
+    # The training scripts are modules inside the package now, run as
+    # `-m piedomains.training.x`, so the clone has to be importable. PYTHONPATH rather
+    # than `pip install -e` because the clone is scratch: it exists to be read, and
+    # installing it would put a second, stale piedomains ahead of anything else.
+    src = repo / "src"
+    existing = os.environ.get("PYTHONPATH", "")
+    os.environ["PYTHONPATH"] = f"{src}{os.pathsep}{existing}" if existing else str(src)
+    print(f"PYTHONPATH={os.environ['PYTHONPATH']}")
     return repo
 
 
@@ -264,14 +274,11 @@ def ensure_usable_gpu() -> None:
         )
 
 
-def stage_one_prepare(repo: Path) -> Path:
+def stage_one_prepare() -> Path:
     """Download, stream, resize and discard — one tarball at a time.
 
     Peak disk is a single tarball plus the growing resized set, so this fits in
     Kaggle's volumes where the full corpus would not.
-
-    Args:
-        repo: Repository root.
 
     Returns:
         Path: Directory holding the resized dataset.
@@ -293,7 +300,8 @@ def stage_one_prepare(repo: Path) -> Path:
         run(
             [
                 sys.executable,
-                str(repo / "training" / "download_corpus.py"),
+                "-m",
+                "piedomains.training.download_corpus",
                 "--set",
                 "labels",
                 "--out",
@@ -310,8 +318,7 @@ def stage_one_prepare(repo: Path) -> Path:
             [
                 sys.executable,
                 "-c",
-                f"import sys; sys.path.insert(0, {str(repo / 'training')!r});"
-                "from prepare_text import load_category_map;"
+                "from piedomains.training.prepare_text import load_category_map;"
                 f"m = load_category_map(__import__('pathlib').Path({str(labels_dir / 'shallalist_cats.txt')!r}),"
                 f" __import__('pathlib').Path({str(cache)!r}));"
                 "print(f'{len(m):,} labelled domains')",
@@ -326,10 +333,11 @@ def stage_one_prepare(repo: Path) -> Path:
     # --names prints one filename per line and nothing else. --list prints per-set
     # summaries ("screenshots  28 files  47.58 GB") and never a filename, which is what
     # the previous version parsed and why it enumerated nothing twice.
-    listing = subprocess.run(  # noqa: S603 -- arguments are module constants
+    listing = subprocess.run(
         [
             sys.executable,
-            str(repo / "training" / "download_corpus.py"),
+            "-m",
+            "piedomains.training.download_corpus",
             "--set",
             "screenshots",
             "--names",
@@ -358,7 +366,8 @@ def stage_one_prepare(repo: Path) -> Path:
             run(
                 [
                     sys.executable,
-                    str(repo / "training" / "download_corpus.py"),
+                    "-m",
+                    "piedomains.training.download_corpus",
                     "--set",
                     "screenshots",
                     "--only",
@@ -370,7 +379,8 @@ def stage_one_prepare(repo: Path) -> Path:
             run(
                 [
                     sys.executable,
-                    str(repo / "training" / "prepare_images.py"),
+                    "-m",
+                    "piedomains.training.prepare_images",
                     "--corpus",
                     str(corpus),
                     "--out",
@@ -411,11 +421,10 @@ def stage_one_prepare(repo: Path) -> Path:
     return out
 
 
-def stage_two_train(repo: Path, data: Path) -> Path:
+def stage_two_train(data: Path) -> Path:
     """Fine-tune the backbone, resuming if a checkpoint is present.
 
     Args:
-        repo: Repository root.
         data: Directory holding the resized dataset.
 
     Returns:
@@ -424,7 +433,8 @@ def stage_two_train(repo: Path, data: Path) -> Path:
     out = WORK / "image-v1"
     cmd = [
         sys.executable,
-        str(repo / "training" / "train_image.py"),
+        "-m",
+        "piedomains.training.train_image",
         "--data",
         str(data),
         "--out",
@@ -444,7 +454,7 @@ def stage_two_train(repo: Path, data: Path) -> Path:
     return out
 
 
-def stage_three_calibrate(repo: Path, data: Path, model: Path) -> None:
+def stage_three_calibrate(data: Path, model: Path) -> None:
     """Fit the temperature, without which fusion is meaningless.
 
     Averaging an uncalibrated image softmax against a calibrated text distribution is
@@ -452,14 +462,14 @@ def stage_three_calibrate(repo: Path, data: Path, model: Path) -> None:
     before they can be combined.
 
     Args:
-        repo: Repository root.
         data: Directory holding the resized dataset.
         model: Directory holding the trained model.
     """
     run(
         [
             sys.executable,
-            str(repo / "training" / "calibrate.py"),
+            "-m",
+            "piedomains.training.calibrate",
             "--model",
             str(model),
             "--data",
@@ -470,7 +480,7 @@ def stage_three_calibrate(repo: Path, data: Path, model: Path) -> None:
     )
 
 
-def stage_four_fuse(repo: Path, data: Path, model: Path) -> None:
+def stage_four_fuse(data: Path, model: Path) -> None:
     """Fit and score late fusion, in the session where the screenshots still exist.
 
     This has to run here rather than locally. The resized images live in ``/kaggle/temp``
@@ -486,7 +496,6 @@ def stage_four_fuse(repo: Path, data: Path, model: Path) -> None:
     saved by this point, and losing it to a fusion problem would be the worse outcome.
 
     Args:
-        repo: Repository root.
         data: Directory of resized screenshots.
         model: The trained image checkpoint.
     """
@@ -507,7 +516,8 @@ def stage_four_fuse(repo: Path, data: Path, model: Path) -> None:
         run(
             [
                 sys.executable,
-                str(repo / "training" / "fuse.py"),
+                "-m",
+                "piedomains.training.fuse",
                 "--text",
                 str(text_dir),
                 "--image",
@@ -536,13 +546,13 @@ def main() -> int:
         print("This script expects a Kaggle notebook environment.", file=sys.stderr)
         return 1
 
-    repo = setup()
+    setup()
     # Before stage 1, not after: an unusable GPU discovered later costs the whole session.
     ensure_usable_gpu()
-    data = Path(PREPARED_DATASET) if PREPARED_DATASET else stage_one_prepare(repo)
-    model = stage_two_train(repo, data)
-    stage_three_calibrate(repo, data, model)
-    stage_four_fuse(repo, data, model)
+    data = Path(PREPARED_DATASET) if PREPARED_DATASET else stage_one_prepare()
+    model = stage_two_train(data)
+    stage_three_calibrate(data, model)
+    stage_four_fuse(data, model)
 
     print("\nDownload these from the notebook output:")
     print(f"  {model}/  — weights, labels.json, calibration.json, test_metrics.json")

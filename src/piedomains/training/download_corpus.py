@@ -268,7 +268,9 @@ def build_parser() -> argparse.ArgumentParser:
     Returns:
         argparse.ArgumentParser: The configured parser.
     """
-    parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    parser = argparse.ArgumentParser(
+        description="Download the training corpora, resumably"
+    )
     parser.add_argument("--list", action="store_true", help="List available files")
     parser.add_argument(
         "--names",

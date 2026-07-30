@@ -49,8 +49,6 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
-
 #: Written at this edge length, matching prepare_images.py, so the two sources are
 #: interchangeable as training data.
 DEFAULT_SIZE = 224
@@ -145,7 +143,7 @@ def main(argv: list[str] | None = None) -> int:
         int: Process exit status; non-zero if nothing was captured at all.
     """
     args = build_parser().parse_args(argv)
-    from piedomains.data_collector import DataCollector
+    from ..data_collector import DataCollector
 
     out = Path(args.out)
     images = out / "images"

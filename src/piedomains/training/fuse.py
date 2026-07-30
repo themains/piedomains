@@ -38,10 +38,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
-sys.path.insert(0, str(Path(__file__).parent))
-
-from metrics import macro_f1, per_class_report
-from train_text import pick_device, read_jsonl
+from .metrics import macro_f1, per_class_report
+from .train_text import pick_device, read_jsonl
 
 
 def load_calibrated(model_dir: Path) -> float:
@@ -81,12 +79,13 @@ def text_probabilities(
     """
     import torch
     from torch.utils.data import DataLoader
-    from train_text import TextDataset
     from transformers import (
         AutoConfig,
         AutoModelForSequenceClassification,
         AutoTokenizer,
     )
+
+    from .train_text import TextDataset
 
     # ModernBERT compiles its encoder through TorchInductor, whose Triton backend requires
     # compute capability >= 7.0. On Kaggle's P100 (sm_60) that raises BackendCompilerFailed
@@ -111,9 +110,10 @@ def text_probabilities(
     model.eval()
     temperature = load_calibrated(model_dir)
 
-    loader = DataLoader(
-        TextDataset(rows, tokenizer, labels, 128), batch_size=batch_size, shuffle=False
-    )
+    # Typed Any because torch's DataLoader stub demands a Dataset subclass, while the
+    # runtime only needs __len__/__getitem__ -- which TextDataset has. See its docstring.
+    dataset: Any = TextDataset(rows, tokenizer, labels, 128)
+    loader = DataLoader(dataset, batch_size=batch_size, shuffle=False)
     chunks = []
     with torch.no_grad():
         for batch in loader:
@@ -179,8 +179,9 @@ def image_probabilities(
     """
     import torch
     from torch.utils.data import DataLoader
-    from train_image import ScreenshotDataset
     from transformers import AutoImageProcessor, AutoModelForImageClassification
+
+    from .train_image import ScreenshotDataset
 
     device = pick_device()
     processor = AutoImageProcessor.from_pretrained(model_dir)
@@ -188,11 +189,8 @@ def image_probabilities(
     model.eval()
     temperature = load_calibrated(model_dir)
 
-    loader = DataLoader(
-        ScreenshotDataset(rows, image_dir, labels, processor),
-        batch_size=batch_size,
-        shuffle=False,
-    )
+    dataset: Any = ScreenshotDataset(rows, image_dir, labels, processor)
+    loader = DataLoader(dataset, batch_size=batch_size, shuffle=False)
     chunks = []
     with torch.no_grad():
         for batch in loader:

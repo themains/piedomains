@@ -76,8 +76,9 @@ def training_scripts_dir() -> Path:
     """Locate the training scripts that ship with the package.
 
     Every accuracy figure in the README is produced by these, and a number nobody can
-    re-run is a number taken on faith. They install alongside the package, but a path
-    inside ``site-packages`` is not something anyone would guess.
+    re-run is a number taken on faith. They are a subpackage, so they install with the
+    library and run as ``python -m piedomains.training.<name>`` — but a path inside
+    ``site-packages`` is not something anyone would guess, hence this.
 
     Returns:
         Path: The directory holding ``train_text.py``, ``evaluate.py`` and the rest.
@@ -86,18 +87,10 @@ def training_scripts_dir() -> Path:
         SystemExit: If the scripts are not found, rather than returning a path that does
             not exist and failing later somewhere less obvious.
     """
-    installed = Path(__file__).parent / "training"
-    if (installed / "train_text.py").exists():
-        return installed
-    # Running from a checkout, where the scripts live at the repository root and are
-    # copied into the package only at build time.
-    checkout = Path(__file__).resolve().parents[2] / "training"
-    if (checkout / "train_text.py").exists():
-        return checkout
-    raise SystemExit(
-        "training scripts not found; expected them at "
-        f"{installed} or {checkout}. Reinstall piedomains, or run from a checkout."
-    )
+    here = Path(__file__).parent / "training"
+    if not (here / "train_text.py").exists():
+        raise SystemExit(f"training scripts not found at {here}; reinstall piedomains")
+    return here
 
 
 def main(argv: list[str] | None = None) -> int:

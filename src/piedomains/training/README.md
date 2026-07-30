@@ -233,16 +233,16 @@ read-only and skip straight to training, which matters because the 12-hour sessi
 will interrupt you at least once.
 
 ```bash
-uv run python training/prepare_images.py --corpus data/corpus --out data/images-224
-uv run python training/train_image.py --data data/images-224 --out models/image-v1
-uv run python training/calibrate.py --model models/image-v1 \
+uv run python -m piedomains.training.prepare_images --corpus data/corpus --out data/images-224
+uv run python -m piedomains.training.train_image --data data/images-224 --out models/image-v1
+uv run python -m piedomains.training.calibrate --model models/image-v1 \
     --data data/images-224 --modality image
 ```
 
 ### Fusion, and the bar it has to clear
 
 ```bash
-uv run python training/fuse.py \
+uv run python -m piedomains.training.fuse \
     --text models/text-v4 --image models/image-v1 \
     --text-data data/prepared-taxonomy --image-data data/images-224
 ```

@@ -1,30 +1,30 @@
-#!/usr/bin/env python3
-"""Fine-tune a vision backbone to classify a website from its homepage screenshot.
+#!/usr/bin/env python
+r"""Fine-tune a multilingual encoder to classify page text into categories.
 
-Replaces a ResNet50 that reported 52.9% at training time and, in production, labelled
-Khan Academy and Yahoo as `porn`. Two things were wrong with it, and both are fixed here
-rather than tuned around:
+Replaces the shipped bag-of-embeddings model
+(``Embedding(525473, 64) -> GlobalAveragePooling1D -> Dense``), which is 403 MB
+of embedding table and reported 71.3% at training time. Two properties of that
+model motivate the rewrite rather than a port:
 
-* **The backbone was frozen.** ``base_model.trainable = False`` meant only a linear head
-  was ever fitted, on ImageNet features that know about dogs and cars and nothing about
-  page layout. This fine-tunes the whole network.
-* **The serving path divided pixels by 255** before handing them to a graph that already
-  baked in ``resnet50.preprocess_input``, so every image arrived as a near-constant
-  negative array. Preprocessing here is the model's own, applied identically in training
-  and inference.
+* It is **English-only by construction**. The pipeline feeding it strips
+  non-English words and applies NLTK English stopwords, so a non-English site
+  degrades to noise. `mmBERT <https://github.com/JHU-CLSP/mmBERT>`_ is
+  multilingual, which removes that ceiling rather than raising it.
+* Averaged embeddings cannot use word order, so ``free shipping returns`` and
+  ``free returns shipping`` are the same input. A transformer can tell them
+  apart.
+
+Checkpoints every epoch and resumes from the newest one, because this is meant
+to survive a dropped Colab session without losing the run.
 
 Usage::
 
-    uv run --group train python training/train_image.py \
-        --data data/images-224 --out models/image-v1
+    uv run --group train python training/train_text.py \
+        --data data/prepared --out models/text-v2
 
-**What a screenshot can and cannot say.** At 224px a page is unreadable — the model sees
-layout, colour and gross structure, not text. That is a real ceiling, and if image-only
-macro-F1 is poor the first lever is resolution (``--size 384``, roughly 3x the compute),
-not more epochs.
-
-The reported number that matters is macro-F1: the class distribution is long-tailed and
-accuracy flatters a model that only learns `adult` and `shopping`.
+The reported number that matters is macro-F1 on the held-out split, not
+accuracy: the category distribution is long-tailed, and accuracy flatters a
+model that only learns the head.
 """
 
 from __future__ import annotations
@@ -32,28 +32,33 @@ from __future__ import annotations
 import argparse
 import json
 import math
-import random
-import sys
 import time
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
-sys.path.insert(0, str(Path(__file__).parent))
+from .metrics import macro_f1, per_class_report
 
-from metrics import macro_f1, per_class_report
-
-#: ImageNet-pretrained ViT. Base rather than large because the bottleneck here is label
-#: quality and 224px resolution, not model capacity.
-DEFAULT_MODEL = "google/vit-base-patch16-224-in21k"
+#: Multilingual ModernBERT-architecture encoder.
+#:
+#: Small rather than base, on a measurement: on an M4 (16 GB unified memory) the
+#: base model trains at 155 min/epoch against small's 21 -- a 7x gap for only
+#: 2.2x the parameters (308M vs 141M), which is memory pressure, not compute.
+#: Base is the better choice on a real GPU; pass ``--model jhu-clsp/mmBERT-base``
+#: there.
+DEFAULT_MODEL = "jhu-clsp/mmBERT-small"
 
 
 @dataclass
 class TrainConfig:
-    """Everything that determines the run, recorded alongside the weights."""
+    """Everything that determines the run, recorded alongside the weights.
+
+    Written to ``config.json`` next to the checkpoint so a result can be traced
+    back to what produced it.
+    """
 
     model_name: str = DEFAULT_MODEL
-    image_size: int = 224
+    max_length: int = 128
     batch_size: int = 32
     grad_accum: int = 1
     epochs: int = 4
@@ -81,53 +86,57 @@ def pick_device() -> str:
 
 
 def read_jsonl(path: Path) -> list[dict[str, Any]]:
-    """Read a split written by ``prepare_images.py``.
+    """Read a JSONL split written by ``prepare_text.py``.
 
     Args:
         path: File to read.
 
     Returns:
-        list[dict[str, Any]]: One record per line.
+        list[dict[str, Any]]: One dict per line.
 
     Raises:
-        SystemExit: If the file is missing, naming the step that makes it.
+        SystemExit: If the file does not exist, naming the step that makes it.
     """
     if not path.exists():
-        raise SystemExit(f"{path} not found -- run prepare_images.py first")
+        raise SystemExit(f"{path} not found -- run prepare_text.py first")
     with open(path, encoding="utf-8") as handle:
         return [json.loads(line) for line in handle if line.strip()]
 
 
-class ScreenshotDataset:
-    """Screenshots paired with labels, decoded on demand.
+class TextDataset:
+    """Tokenized (text, label) pairs.
 
-    Decoding in ``__getitem__`` rather than up front keeps memory flat: the resized
-    corpus is ~5 GB on disk and would not fit comfortably in RAM as tensors.
+    Map-style by protocol -- it defines ``__len__`` and ``__getitem__``, which is all
+    ``DataLoader`` requires at runtime -- rather than subclassing
+    ``torch.utils.data.Dataset``, which would force a module-level ``torch`` import into a
+    file that is also imported just to print ``--help``. torch's stub is stricter than its
+    behaviour, so the call sites carry a narrow ignore.
+
+    Tokenization is deferred to ``__getitem__`` rather than done up front: the
+    corpus is large enough that pre-tokenizing every split costs more memory
+    than the training step itself, and the tokenizer is fast enough that this
+    does not bottleneck the GPU.
     """
 
     def __init__(
         self,
         rows: list[dict[str, Any]],
-        image_dir: Path,
+        tokenizer: Any,
         labels: list[str],
-        processor: Any,
-        *,
-        train: bool = False,
+        max_length: int,
     ):
-        """Bind rows to an image directory and a preprocessor.
+        """Bind rows to a tokenizer and label vocabulary.
 
         Args:
-            rows: Records with ``domain`` and ``category``.
-            image_dir: Directory of ``<domain>.jpg`` files.
-            labels: Ordered class names; index is the class id.
-            processor: The model's own image processor.
-            train: Whether to apply training-time augmentation.
+            rows: Records with ``text`` and ``category``.
+            tokenizer: A HuggingFace tokenizer.
+            labels: Ordered category names; index is the class id.
+            max_length: Token truncation length.
         """
         self.rows = rows
-        self.image_dir = image_dir
+        self.tokenizer = tokenizer
         self.index = {name: i for i, name in enumerate(labels)}
-        self.processor = processor
-        self.train = train
+        self.max_length = max_length
 
     def __len__(self) -> int:
         """Number of examples.
@@ -138,36 +147,27 @@ class ScreenshotDataset:
         return len(self.rows)
 
     def __getitem__(self, i: int) -> dict:
-        """Load and preprocess one screenshot.
+        """Tokenize one row.
 
         Args:
             i: Row index.
 
         Returns:
-            dict: ``pixel_values`` and ``labels`` tensors.
+            dict: ``input_ids``, ``attention_mask`` and ``labels`` tensors.
         """
         import torch
-        from PIL import Image
 
         row = self.rows[i]
-        path = self.image_dir / f"{row['domain']}.jpg"
-        try:
-            img = Image.open(path).convert("RGB")
-        except Exception:
-            # A missing or corrupt file becomes a black frame rather than killing the
-            # epoch. prepare_images.py already filters these; this is belt and braces.
-            img = Image.new("RGB", (self.processor.size["height"],) * 2)
-
-        # Horizontal flip only. Rotation and heavy colour jitter are wrong here: page
-        # layout is not rotation-invariant, and colour scheme is signal.
-        if self.train and random.random() < 0.5:  # noqa: S311 -- augmentation
-            from PIL import ImageOps
-
-            img = ImageOps.mirror(img)
-
-        encoded = self.processor(images=img, return_tensors="pt")
+        encoded = self.tokenizer(
+            row["text"],
+            truncation=True,
+            max_length=self.max_length,
+            padding="max_length",
+            return_tensors="pt",
+        )
         return {
-            "pixel_values": encoded["pixel_values"].squeeze(0),
+            "input_ids": encoded["input_ids"].squeeze(0),
+            "attention_mask": encoded["attention_mask"].squeeze(0),
             "labels": torch.tensor(self.index[row["category"]], dtype=torch.long),
         }
 
@@ -181,7 +181,7 @@ def evaluate_split(
         model: The classifier.
         loader: A DataLoader over a split.
         device: Torch device string.
-        labels: Ordered class names.
+        labels: Ordered category names.
 
     Returns:
         tuple: ``(macro_f1, truth, predicted)``.
@@ -193,7 +193,9 @@ def evaluate_split(
     predicted: list[str] = []
     with torch.no_grad():
         for batch in loader:
-            logits = model(pixel_values=batch["pixel_values"].to(device)).logits
+            ids = batch["input_ids"].to(device)
+            mask = batch["attention_mask"].to(device)
+            logits = model(input_ids=ids, attention_mask=mask).logits
             for gold, pred in zip(
                 batch["labels"].tolist(), logits.argmax(-1).cpu().tolist(), strict=True
             ):
@@ -205,24 +207,24 @@ def evaluate_split(
 def save_checkpoint(
     out: Path,
     model: Any,
-    processor: Any,
+    tokenizer: Any,
     labels: list[str],
     config: TrainConfig,
     state: dict,
 ) -> None:
-    """Write weights, preprocessor, labels and run state.
+    """Write weights, tokenizer, labels and run state.
 
     Args:
         out: Directory to write into.
         model: The classifier.
-        processor: Its image processor.
-        labels: Ordered class names.
+        tokenizer: Its tokenizer.
+        labels: Ordered category names.
         config: The run configuration.
         state: Epoch/score bookkeeping for resuming.
     """
     out.mkdir(parents=True, exist_ok=True)
     model.save_pretrained(out, safe_serialization=True)
-    processor.save_pretrained(out)
+    tokenizer.save_pretrained(out)
     (out / "labels.json").write_text(json.dumps(labels, indent=2), encoding="utf-8")
     (out / "config.json.piedomains").write_text(
         json.dumps(asdict(config), indent=2), encoding="utf-8"
@@ -236,30 +238,34 @@ def build_parser() -> argparse.ArgumentParser:
     Returns:
         argparse.ArgumentParser: The configured parser.
     """
-    parser = argparse.ArgumentParser(description="Fine-tune a screenshot classifier")
-    parser.add_argument("--data", required=True, help="prepare_images.py output")
+    parser = argparse.ArgumentParser(description="Fine-tune the text classifier")
+    parser.add_argument(
+        "--data", required=True, help="prepare_text.py output directory"
+    )
     parser.add_argument("--out", required=True, help="Where to write the model")
-    parser.add_argument("--model", default=DEFAULT_MODEL, help="Base vision backbone")
+    parser.add_argument("--model", default=DEFAULT_MODEL, help="Base encoder")
     parser.add_argument("--epochs", type=int, default=4)
     parser.add_argument("--batch-size", type=int, default=32)
     parser.add_argument("--grad-accum", type=int, default=1)
     parser.add_argument("--lr", type=float, default=3e-5)
+    parser.add_argument("--max-length", type=int, default=128)
     parser.add_argument("--seed", type=int, default=42)
-    parser.add_argument("--workers", type=int, default=2, help="DataLoader workers")
     parser.add_argument(
         "--limit",
         type=int,
         default=0,
-        help="Train on N examples only, to check the loop",
+        help="Train on this many examples only -- for verifying the loop runs",
     )
     parser.add_argument(
-        "--resume", action="store_true", help="Continue from the checkpoint in --out"
+        "--resume",
+        action="store_true",
+        help="Continue from the checkpoint in --out if one is there",
     )
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
-    """Fine-tune the backbone and report held-out macro-F1.
+    """Fine-tune the encoder and report held-out macro-F1.
 
     Args:
         argv: Command-line arguments.
@@ -272,13 +278,14 @@ def main(argv: list[str] | None = None) -> int:
     import torch
     from torch.utils.data import DataLoader
     from transformers import (
-        AutoImageProcessor,
-        AutoModelForImageClassification,
+        AutoModelForSequenceClassification,
+        AutoTokenizer,
         get_linear_schedule_with_warmup,
     )
 
     config = TrainConfig(
         model_name=args.model,
+        max_length=args.max_length,
         batch_size=args.batch_size,
         grad_accum=args.grad_accum,
         epochs=args.epochs,
@@ -286,39 +293,34 @@ def main(argv: list[str] | None = None) -> int:
         seed=args.seed,
     )
     torch.manual_seed(config.seed)
-    # Python's RNG too, not just torch's. ScreenshotDataset's horizontal flip calls
-    # random.random(), which torch.manual_seed does not touch -- so two runs with the same
-    # --seed saw different augmentation and diverged. Two SigLIP2 runs that should have
-    # shared their first three epochs peaked at val macro-F1 0.3953 and 0.3705, which was
-    # large enough to be mistaken for an effect of epoch count.
-    random.seed(config.seed)
 
     data = Path(args.data)
     out = Path(args.out)
     labels = json.loads((data / "labels.json").read_text(encoding="utf-8"))
-    splits = {n: read_jsonl(data / f"{n}.jsonl") for n in ("train", "val", "test")}
+    train_rows = read_jsonl(data / "train.jsonl")
+    val_rows = read_jsonl(data / "val.jsonl")
+    test_rows = read_jsonl(data / "test.jsonl")
     if args.limit:
-        splits["train"] = splits["train"][: args.limit]
-        for n in ("val", "test"):
-            splits[n] = splits[n][: max(1, args.limit // 8)]
+        train_rows = train_rows[: args.limit]
+        val_rows = val_rows[: max(1, args.limit // 8)]
+        test_rows = test_rows[: max(1, args.limit // 8)]
 
     device = pick_device()
     print(f"device: {device}")
     print(f"classes: {len(labels)}")
-    print(f"train/val/test: {'/'.join(str(len(splits[n])) for n in splits)}")
+    print(f"train/val/test: {len(train_rows)}/{len(val_rows)}/{len(test_rows)}")
 
     source = (
         str(out)
         if (args.resume and (out / "state.json").exists())
         else config.model_name
     )
-    processor = AutoImageProcessor.from_pretrained(source)
-    model = AutoModelForImageClassification.from_pretrained(
+    tokenizer = AutoTokenizer.from_pretrained(source)
+    model = AutoModelForSequenceClassification.from_pretrained(
         source,
         num_labels=len(labels),
         id2label=dict(enumerate(labels)),
         label2id={name: i for i, name in enumerate(labels)},
-        ignore_mismatched_sizes=True,
     ).to(device)
 
     start_epoch, best_f1, stale = 0, 0.0, 0
@@ -327,22 +329,15 @@ def main(argv: list[str] | None = None) -> int:
         start_epoch, best_f1 = state.get("epoch", 0), state.get("best_f1", 0.0)
         print(f"resuming from epoch {start_epoch} (best macro-F1 {best_f1:.4f})")
 
-    image_dir = data / "images"
-
-    def loader(name: str, shuffle: bool) -> Any:
-        return DataLoader(
-            ScreenshotDataset(
-                splits[name], image_dir, labels, processor, train=shuffle
-            ),
-            batch_size=config.batch_size,
-            shuffle=shuffle,
-            num_workers=args.workers,
-            pin_memory=(device == "cuda"),
-        )
-
-    train_loader = loader("train", True)
-    val_loader = loader("val", False)
-    test_loader = loader("test", False)
+    make = lambda rows, shuffle: DataLoader(  # noqa: E731
+        TextDataset(rows, tokenizer, labels, config.max_length),  # pyright: ignore[reportArgumentType]
+        batch_size=config.batch_size,
+        shuffle=shuffle,
+        num_workers=0,
+    )
+    train_loader = make(train_rows, True)
+    val_loader = make(val_rows, False)
+    test_loader = make(test_rows, False)
 
     steps_per_epoch = math.ceil(len(train_loader) / config.grad_accum)
     total_steps = steps_per_epoch * max(1, config.epochs - start_epoch)
@@ -360,12 +355,13 @@ def main(argv: list[str] | None = None) -> int:
         optimizer.zero_grad()
 
         for step, batch in enumerate(train_loader):
-            output = model(
-                pixel_values=batch["pixel_values"].to(device),
+            out_ = model(
+                input_ids=batch["input_ids"].to(device),
+                attention_mask=batch["attention_mask"].to(device),
                 labels=batch["labels"].to(device),
             )
-            (output.loss / config.grad_accum).backward()
-            running += output.loss.item()
+            (out_.loss / config.grad_accum).backward()
+            running += out_.loss.item()
 
             if (step + 1) % config.grad_accum == 0:
                 torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
@@ -373,8 +369,9 @@ def main(argv: list[str] | None = None) -> int:
                 scheduler.step()
                 optimizer.zero_grad()
 
-            # MPS does not release cached blocks aggressively; on a small unified-memory
-            # machine that accumulation is enough to wedge the process in swap.
+            # MPS does not release cached blocks aggressively, and on a 16GB
+            # unified-memory machine that accumulation is enough to push the
+            # process into swap and wedge it in uninterruptible IO wait.
             if step % 50 == 0 and device == "mps":
                 torch.mps.empty_cache()
 
@@ -399,14 +396,16 @@ def main(argv: list[str] | None = None) -> int:
         else:
             stale += 1
 
-        # Only overwrite on an improvement. Saving unconditionally leaves the *last*
-        # epoch on disk rather than the best, which is silently wrong once the model
-        # starts overfitting -- and it does.
+        # Only overwrite on an improvement. Saving every epoch unconditionally
+        # means the artifact left on disk is the *last* epoch, not the best one,
+        # which is silently wrong whenever the model starts overfitting -- and it
+        # does: val macro-F1 peaked at epoch 3 and fell at epoch 4 on the first
+        # real run.
         if improved:
             save_checkpoint(
                 out,
                 model,
-                processor,
+                tokenizer,
                 labels,
                 config,
                 {"epoch": epoch + 1, "best_f1": best_f1, "last_val_f1": val_f1},
@@ -426,10 +425,10 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     print(f"\nheld-out test: accuracy {accuracy:.4f}, macro-F1 {test_f1:.4f}")
-    print(f"{'category':22s} {'prec':>6s} {'rec':>6s} {'f1':>6s} {'n':>6s}")
+    print(f"{'category':18s} {'prec':>6s} {'rec':>6s} {'f1':>6s} {'n':>6s}")
     for name, row in sorted(report.items(), key=lambda kv: -kv[1]["support"]):
         print(
-            f"{name:22s} {row['precision']:6.3f} {row['recall']:6.3f} "
+            f"{name:18s} {row['precision']:6.3f} {row['recall']:6.3f} "
             f"{row['f1']:6.3f} {int(row['support']):6d}"
         )
 
