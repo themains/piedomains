@@ -58,7 +58,11 @@ class TrainConfig:
     """
 
     model_name: str = DEFAULT_MODEL
-    max_length: int = 128
+    #: 256, not 128. Under the old cleaner a page collapsed to a few hundred *unique*
+    #: alphabetised words, so 128 subword tokens rarely truncated anything. Real text
+    #: with order and frequency needs the room, and trafilatura's median page is 251
+    #: words -- which fits here with nothing dropped.
+    max_length: int = 256
     batch_size: int = 32
     grad_accum: int = 1
     epochs: int = 4

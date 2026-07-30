@@ -5,6 +5,7 @@ Test text processing and HTML parsing functionality.
 import unittest
 
 from piedomains.piedomain import Piedomain
+from piedomains.text_processor import TextProcessor
 
 
 class TestTextProcessing(unittest.TestCase):
@@ -160,20 +161,108 @@ class TestDictionaryFilterDefault(unittest.TestCase):
             self.assertIn(token, result, f"{token!r} was dropped")
 
     def test_flag_still_restores_the_old_behaviour(self):
-        """v0.8.0's numbers have to stay reproducible."""
+        """v0.8.0's numbers have to stay reproducible.
+
+        Both flags are needed now: the dictionary filter is part of the legacy cleaner,
+        and minimal cleaning ignores it entirely. That is the point of minimal cleaning.
+        """
         from piedomains.config import get_config
         from piedomains.text_processor import TextProcessor
 
         config = get_config()
-        original = config.get("filter_non_english")
+        original = (config.get("filter_non_english"), config.get("text_cleaning"))
         try:
+            config.set("text_cleaning", "legacy")
             config.set("filter_non_english", True)
             result = TextProcessor.clean_and_normalize_text("spotify computer")
             self.assertIn("computer", result)
             self.assertNotIn("spotify", result)
         finally:
-            config.set("filter_non_english", original)
+            config.set("filter_non_english", original[0])
+            config.set("text_cleaning", original[1])
+
+    def test_minimal_cleaning_ignores_the_dictionary_filter(self):
+        """It discarded 39.8% of tokens on English pages; minimal must not honour it."""
+        from piedomains.config import get_config
+        from piedomains.text_processor import TextProcessor
+
+        config = get_config()
+        original = (config.get("filter_non_english"), config.get("text_cleaning"))
+        try:
+            config.set("text_cleaning", "minimal")
+            config.set("filter_non_english", True)
+            self.assertIn(
+                "spotify", TextProcessor.clean_and_normalize_text("spotify computer")
+            )
+        finally:
+            config.set("filter_non_english", original[0])
+            config.set("text_cleaning", original[1])
 
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestMinimalCleaning(unittest.TestCase):
+    """The representation the model actually receives.
+
+    Until v0.12.0 the cleaner deduplicated twice, sorted alphabetically and dropped every
+    non-ASCII character, so a contextual multilingual encoder was fed an alphabetised set
+    of ASCII words. Across 14 real cached pages that discarded 73% of all words. These
+    tests pin each defect so none can come back.
+    """
+
+    def setUp(self):
+        from piedomains.config import get_config
+
+        self.config = get_config()
+        self.original = self.config.get("text_cleaning")
+        self.config.set("text_cleaning", "minimal")
+
+    def tearDown(self):
+        self.config.set("text_cleaning", self.original)
+
+    def test_term_frequency_survives(self):
+        """One sportsbook advert must not weigh as much as the whole page.
+
+        This is the mechanism behind deadspin.com being classified `gamble` at 0.98:
+        with deduplication, 200 mentions of sport and 3 of casino were both worth 1.
+        """
+        from collections import Counter
+
+        page = (
+            "<html><body>" + "sports " * 200 + "casino bet odds " * 3 + "</body></html>"
+        )
+        counts = Counter(TextProcessor.process_html_to_text(page).split())
+        self.assertEqual(counts["sports"], 200)
+        self.assertEqual(counts["casino"], 3)
+
+    def test_word_order_survives(self):
+        """Sorting alphabetically nullifies the reason to use a contextual encoder."""
+        page = "<html><body>zebra apple monkey banana</body></html>"
+        tokens = TextProcessor.process_html_to_text(page).split()
+        self.assertEqual(tokens, ["zebra", "apple", "monkey", "banana"])
+        self.assertNotEqual(tokens, sorted(tokens))
+
+    def test_non_latin_scripts_survive(self):
+        """mmBERT is multilingual; an ASCII filter made that true in name only."""
+        for label, body in (
+            ("japanese", "ニュース 速報 経済"),
+            ("cyrillic", "новости спорт погода"),
+            ("arabic", "أخبار رياضة طقس"),
+        ):
+            with self.subTest(script=label):
+                out = TextProcessor.process_html_to_text(
+                    f"<html><body>{body}</body></html>"
+                )
+                self.assertTrue(out.strip(), f"{label} was stripped")
+
+    def test_legacy_is_still_reachable(self):
+        """v0.11.0 and earlier cannot be reproduced without it."""
+        self.config.set("text_cleaning", "legacy")
+        page = (
+            "<html><body>" + "sports " * 200 + "casino bet odds " * 3 + "</body></html>"
+        )
+        tokens = TextProcessor.process_html_to_text(page).split()
+        self.assertEqual(tokens, sorted(tokens))
+        self.assertEqual(len(tokens), len(set(tokens)))

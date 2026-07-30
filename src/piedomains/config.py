@@ -33,10 +33,32 @@ class Config:
         "network_quiet_ms": 3000,
         # Minimum usable tokens before a label is meaningful.
         "min_tokens": 30,
-        # "legacy" | "trafilatura". Legacy is the default because the shipped
-        # model was trained on its output; see text_processor.extract_text.
-        "extractor": "legacy",
-        # Keep only words in NLTK's `words` corpus. Off, because it discards
+        # "trafilatura" | "legacy". Measured across 188 cached homepages, both through
+        # the minimal cleaner:
+        #
+        #   legacy       median 1,349 tokens, 0/188 under the floor
+        #   trafilatura  median   251 tokens, 1/188 under the floor
+        #
+        # trafilatura keeps ~29% of the words and costs one page. What it removes is
+        # boilerplate, and that matters much more now that term frequency survives
+        # cleaning: on deadspin.com the legacy extractor yields 264 gambling tokens
+        # (7.2% of the page) against trafilatura's 7 (1.1%). Under the old deduplicating
+        # cleaner both collapsed to one; with frequency restored, 264 would dominate --
+        # which is how a sports site came to be classified `gamble` at 0.98.
+        #
+        # It also fits the model. At max_length=256 legacy's extra ~1,100 words are
+        # truncated away regardless, and truncation keeps the *first* 256 tokens: nav,
+        # header and cookie banners. trafilatura's median fits with nothing dropped.
+        "extractor": "trafilatura",
+        # "minimal" | "legacy". Minimal extracts, collapses whitespace and lowercases,
+        # and nothing else. Legacy is what shipped through v0.11.0: it deduplicated
+        # tokens twice, sorted them alphabetically and stripped every non-ASCII
+        # character, so the model saw an alphabetised set of words with no term
+        # frequency, no order and no non-Latin script -- 73% of words discarded across
+        # 14 real pages. Harmless for the 2022 bag-of-embeddings model, actively wrong
+        # for a contextual multilingual encoder. Kept so v0.11.0 stays reproducible.
+        "text_cleaning": "minimal",
+        # Legacy-only. Keep only words in NLTK's `words` corpus. Off, because it discards
         # 39.8% of tokens on *English* pages -- it is a Webster's-era list with
         # no brand names and no inflected forms, so bbc.com loses `america`,
         # `american`, `accuses` and `acclaimed` along with `afrique`. It also
