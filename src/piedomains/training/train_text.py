@@ -32,15 +32,12 @@ from __future__ import annotations
 import argparse
 import json
 import math
-import sys
 import time
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
-sys.path.insert(0, str(Path(__file__).parent))
-
-from metrics import macro_f1, per_class_report
+from .metrics import macro_f1, per_class_report
 
 #: Multilingual ModernBERT-architecture encoder.
 #:
@@ -109,6 +106,12 @@ def read_jsonl(path: Path) -> list[dict[str, Any]]:
 class TextDataset:
     """Tokenized (text, label) pairs.
 
+    Map-style by protocol -- it defines ``__len__`` and ``__getitem__``, which is all
+    ``DataLoader`` requires at runtime -- rather than subclassing
+    ``torch.utils.data.Dataset``, which would force a module-level ``torch`` import into a
+    file that is also imported just to print ``--help``. torch's stub is stricter than its
+    behaviour, so the call sites carry a narrow ignore.
+
     Tokenization is deferred to ``__getitem__`` rather than done up front: the
     corpus is large enough that pre-tokenizing every split costs more memory
     than the training step itself, and the tokenizer is fast enough that this
@@ -116,7 +119,11 @@ class TextDataset:
     """
 
     def __init__(
-        self, rows: list[dict[str, Any]], tokenizer, labels: list[str], max_length: int
+        self,
+        rows: list[dict[str, Any]],
+        tokenizer: Any,
+        labels: list[str],
+        max_length: int,
     ):
         """Bind rows to a tokenizer and label vocabulary.
 
@@ -166,7 +173,7 @@ class TextDataset:
 
 
 def evaluate_split(
-    model, loader, device: str, labels: list[str]
+    model: Any, loader: Any, device: str, labels: list[str]
 ) -> tuple[float, list[str], list[str]]:
     """Score the model over a loader.
 
@@ -198,7 +205,12 @@ def evaluate_split(
 
 
 def save_checkpoint(
-    out: Path, model, tokenizer, labels: list[str], config: TrainConfig, state: dict
+    out: Path,
+    model: Any,
+    tokenizer: Any,
+    labels: list[str],
+    config: TrainConfig,
+    state: dict,
 ) -> None:
     """Write weights, tokenizer, labels and run state.
 
@@ -220,13 +232,39 @@ def save_checkpoint(
     (out / "state.json").write_text(json.dumps(state, indent=2), encoding="utf-8")
 
 
+def load_best(out: Path, fallback: Any) -> Any:
+    """Load the saved checkpoint, so metrics describe the artifact.
+
+    Args:
+        out: Directory the best epoch was written to.
+        fallback: The in-memory model, used when nothing was ever saved.
+
+    Returns:
+        Any: The model to evaluate, on the same device as ``fallback``.
+    """
+    from transformers import AutoModelForSequenceClassification
+
+    if not (out / "config.json").exists():
+        print("no checkpoint on disk; scoring the in-memory model")
+        return fallback
+    device = next(fallback.parameters()).device
+    best = AutoModelForSequenceClassification.from_pretrained(out).to(device)
+    best.eval()
+    state = json.loads((out / "state.json").read_text(encoding="utf-8"))
+    print(
+        f"scoring the saved checkpoint (epoch {state['epoch']}, "
+        f"val macro-F1 {state['best_f1']:.4f})"
+    )
+    return best
+
+
 def build_parser() -> argparse.ArgumentParser:
     """Build the command-line parser.
 
     Returns:
         argparse.ArgumentParser: The configured parser.
     """
-    parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    parser = argparse.ArgumentParser(description="Fine-tune the text classifier")
     parser.add_argument(
         "--data", required=True, help="prepare_text.py output directory"
     )
@@ -318,7 +356,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"resuming from epoch {start_epoch} (best macro-F1 {best_f1:.4f})")
 
     make = lambda rows, shuffle: DataLoader(  # noqa: E731
-        TextDataset(rows, tokenizer, labels, config.max_length),
+        TextDataset(rows, tokenizer, labels, config.max_length),  # pyright: ignore[reportArgumentType]
         batch_size=config.batch_size,
         shuffle=shuffle,
         num_workers=0,
@@ -406,7 +444,13 @@ def main(argv: list[str] | None = None) -> int:
             print(f"no improvement in {stale} epochs; stopping")
             break
 
-    test_f1, truth, predicted = evaluate_split(model, test_loader, device, labels)
+    # Score the checkpoint on disk, not the model in memory. With best-epoch-only
+    # checkpointing, `model` holds the *last* epoch's weights whenever validation peaked
+    # earlier or early stopping fired -- so test_metrics.json described a model nobody
+    # would ever load. The published image model was saved at epoch 4 and reported epoch
+    # 5's score.
+    best = load_best(out, model)
+    test_f1, truth, predicted = evaluate_split(best, test_loader, device, labels)
     report = per_class_report(truth, predicted)
     accuracy = sum(t == p for t, p in zip(truth, predicted, strict=True)) / max(
         1, len(truth)

@@ -21,6 +21,12 @@ class Config:
         "playwright_timeout": 30000,  # milliseconds
         "playwright_headless": True,
         "playwright_viewport": {"width": 1280, "height": 1024},
+        # Device pixel ratio for screenshots. 1 because the image model reads
+        # 224px: capturing 4x the pixels only to discard them would quadruple
+        # every cached file and risk train/serve skew against a corpus captured
+        # at 1x. Raise it when the screenshot is the deliverable rather than
+        # model input.
+        "screenshot_scale": 1,
         # Wait for the DOM, settle briefly, then race a capped network-quiet
         # window. `networkidle` alone loses whole sites (see fetchers.py).
         "settle_ms": 1500,

@@ -5,6 +5,77 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.0] - 2026-07-30
+
+Screenshot classification works again, and it is opt-in because the measurement says so.
+
+`classify_by_images()` has raised since 0.8.0, when the old ResNet50 was withdrawn: it
+reported 52.9% with `base_model.trainable = False` — only a linear head was ever fitted —
+and in production labelled Khan Academy and Yahoo as `porn`, because the serving path
+divided pixels by 255 before a graph that already baked in `resnet50.preprocess_input`.
+It is replaced by a fully fine-tuned, temperature-calibrated SigLIP2 model.
+
+### The number that matters
+
+**On screenshots taken today the image model scores 0.317 accuracy / 0.212 macro-F1.**
+Not the 0.429 it gets on the corpus it was trained from. The training screenshots are 2022
+captures and inference runs on pages rendered now; measured on 183 self-captured
+screenshots of held-out domains, that four-year shift costs about 0.11 accuracy.
+
+### Fusion was measured and not adopted
+
+Calibrated late fusion, fitted on 1,704 held-out paired domains and scored on 1,742 more:
+
+| model | accuracy | macro-F1 |
+|---|---|---|
+| text only | 0.794 | 0.699 |
+| image only | 0.429 | 0.306 |
+| fused (per-class) | 0.798 | 0.700 |
+
++0.001 macro-F1 is noise at that sample size, and the fitted text weight is **0.973** — the
+optimiser puts almost nothing on the screenshot. So `classify()` now returns the text
+answer by default and does not load a 350MB vision model to gain nothing.
+
+**Read this before re-deriving a different number.** The first fusion run reported image
+only at 0.768 and made fusion look like a clear win. It was wrong. `prepare_text.py` and
+`prepare_images.py` each shuffled *their own* list with the same seed, and the lists differ
+(46,754 documents against 44,712 screenshots), so a domain landed in unrelated splits on
+each side — about 80% of the domains fusion scored on were in the image model's training
+set. `prepare_images.py --respect-splits` fixes it; image only fell 0.768 → 0.429.
+
+### Breaking
+
+- **`classify()` is text-only by default.** Pass `use_screenshots=True` to fuse. The CLI's
+  `--method` default moves from `combined` to `text` for the same reason.
+- `classify()`'s docstring no longer claims to be "the most comprehensive classification
+  method ... for maximum accuracy". It was not.
+
+### Added
+
+- **The training scripts ship with the package**, as `piedomains.training`. Every accuracy
+  figure here is produced by one of them, and a number nobody can re-run is a number taken
+  on faith. `classify_domains --training-scripts` prints where they installed; each runs as
+  `python -m piedomains.training.<name>`.
+- `piedomains.training.validate_curlie` — scores the model against Curlie's human labels on
+  Tranco-ranked domains, an independent set that shares neither the taxonomy nor the
+  selection bias of the training corpus.
+- `piedomains.training.capture_screenshots` — captures through the same `DataCollector`
+  used at inference, so training data matches serving.
+- `screenshot_scale` config (default 1), threaded into Playwright's `device_scale_factor`.
+
+### Fixed
+
+- **Archived captures bypassed the thin-content floor.** Archive text is fetched as raw
+  HTML rather than rendered, so it never reached the check the live path has had since
+  0.7.0. `sapphirecasino.com` was recorded as a successful fetch from a 114-byte capture
+  holding four characters of text — a blank document and a blank screenshot, stored as data.
+- **Corpus downloads gave up on transient failures.** One 502 from Harvard Dataverse killed
+  a two-hour training run. Downloads now retry 429/5xx with backoff and resume a broken
+  transfer by range; a tarball that still fails is skipped, named and counted rather than
+  aborting the run.
+- Browser-context settings are built in one place, so screenshots taken by the batch path
+  cannot drift from those taken by the single-domain path.
+
 ## [0.10.0] - 2026-07-28
 
 Stops asking the model questions a page cannot answer.

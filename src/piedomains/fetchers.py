@@ -81,6 +81,24 @@ class BaseFetcher:
         self.config = get_config()
         self.validator = ContentValidator(self.config)
 
+    def _context_kwargs(self) -> dict:
+        """Build the browser-context settings every capture path shares.
+
+        Three call sites used to spell this out independently, which is how they drift:
+        a setting added to one is silently absent from the others, and screenshots taken
+        by the batch path stop matching those taken by the single path.
+
+        Returns:
+            dict: Keyword arguments for ``browser.new_context``.
+        """
+        return {
+            "user_agent": self.config.user_agent,
+            "viewport": self.config.get(
+                "playwright_viewport", {"width": 1280, "height": 1024}
+            ),
+            "device_scale_factor": self.config.get("screenshot_scale", 1),
+        }
+
     def _validate_url_security(
         self,
         url: str,
@@ -540,12 +558,8 @@ class PlaywrightFetcher(BaseFetcher):
                 args=["--disable-blink-features=AutomationControlled"],
             )
 
-            viewport = self.config.get(
-                "playwright_viewport", {"width": 1280, "height": 1024}
-            )
             context = await browser.new_context(
-                user_agent=self.config.user_agent,
-                viewport=viewport,
+                **self._context_kwargs(),
                 ignore_https_errors=False,
             )
 
@@ -602,16 +616,11 @@ class PlaywrightFetcher(BaseFetcher):
                 args=["--disable-blink-features=AutomationControlled"],
             )
 
-            viewport = self.config.get(
-                "playwright_viewport", {"width": 1280, "height": 1024}
-            )
-
             # Create parallel contexts
             contexts = []
             for i in range(min(self.max_parallel, len(validated_urls))):
                 context = await browser.new_context(
-                    user_agent=self.config.user_agent,
-                    viewport=viewport,
+                    **self._context_kwargs(),
                     ignore_https_errors=False,
                 )
                 contexts.append(context)
@@ -868,9 +877,6 @@ class ArchiveFetcher(BaseFetcher):
         Returns:
             str: The screenshot path on success, or ``""`` on failure.
         """
-        viewport = self.config.get(
-            "playwright_viewport", {"width": 1280, "height": 1024}
-        )
         timeout = self.config.get("playwright_timeout", 30000)
         try:
             async with async_playwright() as p:
@@ -878,9 +884,7 @@ class ArchiveFetcher(BaseFetcher):
                     headless=self.config.get("playwright_headless", True)
                 )
                 try:
-                    context = await browser.new_context(
-                        user_agent=self.config.user_agent, viewport=viewport
-                    )
+                    context = await browser.new_context(**self._context_kwargs())
                     page = await context.new_page()
 
                     # archive.org serves assets slowly; fonts and media are not
@@ -966,6 +970,31 @@ class ArchiveFetcher(BaseFetcher):
         result.html = html
         result.text = TextProcessor.process_html_to_text(html)
         result.snapshot_timestamp = record.timestamp.strftime("%Y%m%d%H%M%S")
+
+        # The same floor the live path applies. It was missing here because archived text
+        # is fetched as raw HTML rather than rendered, so it never passes through
+        # `_extract_from_page` where the live check lives -- and a capture of a dead site
+        # is often a stub. sapphirecasino.com came back as a "success" from a 114-byte
+        # capture with 4 characters of text, which is a blank screenshot and a blank
+        # document presented as data.
+        floor = self.config.get("min_tokens", 30)
+        if is_thin(result.text, min_tokens=floor):
+            result.success = False
+            result.error = (
+                f"archived capture {result.snapshot_timestamp} has only "
+                f"{len(result.text.split())} words, below the {floor}-word floor"
+            )
+            result.error_code = ErrorCode.THIN_CONTENT.value
+            logger.warning(
+                f"{url}: {result.error}",
+                extra={
+                    "domain": url,
+                    "stage": "fetch",
+                    "error_code": ErrorCode.THIN_CONTENT.value,
+                    "snapshot_timestamp": result.snapshot_timestamp,
+                },
+            )
+            return result
 
         soup = BeautifulSoup(html, "html.parser")
         if soup.title and soup.title.string:

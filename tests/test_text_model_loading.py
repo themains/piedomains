@@ -17,13 +17,8 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from piedomains.text import (
-    DEFAULT_TEXT_MODEL,
-    _read_labels,
-    _read_temperature,
-    _sidecar,
-    resolve_text_model,
-)
+from piedomains.checkpoints import read_labels, read_sidecar, read_temperature
+from piedomains.text import DEFAULT_TEXT_MODEL, resolve_text_model
 
 
 class TestModelResolution(unittest.TestCase):
@@ -50,7 +45,7 @@ class TestSidecarFiles(unittest.TestCase):
             (Path(tmp) / "calibration.json").write_text(
                 json.dumps({"temperature": 2.5})
             )
-            self.assertEqual(_read_temperature(tmp), 2.5)
+            self.assertEqual(read_temperature(tmp), 2.5)
 
     def test_missing_file_in_a_local_directory_is_not_a_hub_lookup(self):
         """A local dir without the file must not hit the network."""
@@ -58,7 +53,7 @@ class TestSidecarFiles(unittest.TestCase):
             tempfile.TemporaryDirectory() as tmp,
             patch("huggingface_hub.hf_hub_download") as download,
         ):
-            self.assertIsNone(_sidecar(tmp, "calibration.json"))
+            self.assertIsNone(read_sidecar(tmp, "calibration.json"))
             download.assert_not_called()
 
     def test_reads_from_a_hub_repo_id(self):
@@ -69,12 +64,12 @@ class TestSidecarFiles(unittest.TestCase):
             with patch(
                 "huggingface_hub.hf_hub_download", return_value=str(downloaded)
             ) as download:
-                self.assertAlmostEqual(_read_temperature("owner/model"), 3.4161)
+                self.assertAlmostEqual(read_temperature("owner/model"), 3.4161)
             download.assert_called_once()
 
     def test_absent_calibration_falls_back_to_no_scaling(self):
         with patch("huggingface_hub.hf_hub_download", side_effect=OSError("404")):
-            self.assertEqual(_read_temperature("owner/model"), 1.0)
+            self.assertEqual(read_temperature("owner/model"), 1.0)
 
 
 class TestLabels(unittest.TestCase):
@@ -84,13 +79,13 @@ class TestLabels(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             (Path(tmp) / "labels.json").write_text(json.dumps(["news", "shopping"]))
             config = SimpleNamespace(id2label={0: "wrong", 1: "alsowrong"})
-            self.assertEqual(_read_labels(tmp, config), ["news", "shopping"])
+            self.assertEqual(read_labels(tmp, config, []), ["news", "shopping"])
 
     def test_falls_back_to_id2label_in_index_order(self):
         """Order matters: getting it wrong renames every class silently."""
         with tempfile.TemporaryDirectory() as tmp:
             config = SimpleNamespace(id2label={1: "shopping", 0: "news", 2: "porn"})
-            self.assertEqual(_read_labels(tmp, config), ["news", "shopping", "porn"])
+            self.assertEqual(read_labels(tmp, config, []), ["news", "shopping", "porn"])
 
     def test_placeholder_id2label_is_rejected(self):
         """`LABEL_0` means the checkpoint carries no real names."""
@@ -98,7 +93,7 @@ class TestLabels(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as tmp:
             config = SimpleNamespace(id2label={0: "LABEL_0", 1: "LABEL_1"})
-            self.assertEqual(_read_labels(tmp, config), list(classes))
+            self.assertEqual(read_labels(tmp, config, classes), list(classes))
 
 
 if __name__ == "__main__":

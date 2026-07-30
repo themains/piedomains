@@ -8,6 +8,22 @@ dependency group so installing `piedomains` does not pull them.
 uv sync --group train
 ```
 
+## They ship with the package
+
+Every accuracy figure in the README comes out of these scripts, and a number
+nobody can re-run is a number taken on faith. So they install alongside the
+package rather than living only in this repository — `pip install piedomains` is
+enough to reproduce any published claim.
+
+```bash
+classify_domains --training-scripts     # prints where they landed
+cd "$(classify_domains --training-scripts)"
+python evaluate.py --method text --out /tmp/eval.json
+```
+
+From a checkout they resolve here instead, so the same commands work either way.
+`tests/test_cli.py` fails if any script behind a published number stops shipping.
+
 ## Why retrain
 
 Measured, not assumed — run `evaluate.py` yourself and see:
@@ -187,8 +203,66 @@ load. Writes `calibration.json` and reports ECE before and after.
 | `download_corpus.py` | done — resumable, checksum-verified |
 | `prepare_text.py` | done — filtering reproduced from notebooks/04 |
 | `train_text.py` | done — mmBERT fine-tune, resumable, early stopping |
-| `calibrate.py` | done — temperature scaling on val, reports ECE |
+| `calibrate.py` | done — temperature scaling on val, text or image |
+| `taxonomy.py` | done — Shallalist to the 47-class label set |
+| `prepare_images.py` | done — streams the screenshot tarballs, resizes to 224px |
+| `train_image.py` | done — ViT fine-tune, fully unfrozen |
+| `fuse.py` | done — fits late fusion, gates on beating text alone |
+| `kaggle/train_image_kaggle.py` | done — the whole image pipeline on Kaggle's free tier |
 
 The `notebooks/` directory holds the original Colab pipeline that produced the
 shipped models. It is kept for provenance; the paths in it are Colab-specific
 (`/content/drive/MyDrive/...`) and it is excluded from linting.
+
+
+## 6. The image model
+
+Run it on [Kaggle](https://www.kaggle.com/code): 30 GPU-hours a week free, 12-hour
+sessions, 200 GB of dataset storage. The job needs 3–5 hours, so it costs nothing. Paste
+`kaggle/train_image_kaggle.py` into a notebook with Accelerator set to GPU and Internet
+on.
+
+**Never download the whole corpus.** It is 47.58 GB across 28 tarballs — more than
+Kaggle's 20 GB persistent volume and, on the machine this was written on, more than the
+free disk. The notebook fetches one tarball at a time, streams it through
+`prepare_images.py` to write 224px copies, and deletes it before fetching the next. Peak
+disk is one tarball plus the growing resized set.
+
+Publish that resized set as a Kaggle Dataset when it finishes. Later sessions mount it
+read-only and skip straight to training, which matters because the 12-hour session cap
+will interrupt you at least once.
+
+```bash
+uv run python -m piedomains.training.prepare_images --corpus data/corpus --out data/images-224
+uv run python -m piedomains.training.train_image --data data/images-224 --out models/image-v1
+uv run python -m piedomains.training.calibrate --model models/image-v1 \
+    --data data/images-224 --modality image
+```
+
+### Fusion, and the bar it has to clear
+
+```bash
+uv run python -m piedomains.training.fuse \
+    --text models/text-v4 --image models/image-v1 \
+    --text-data data/prepared-taxonomy --image-data data/images-224
+```
+
+Both models are calibrated first, because averaging an uncalibrated softmax against a
+calibrated distribution is exactly what the original package did — and why its "ensemble"
+could not change an answer. Weights are fitted on the 26,280 domains that have both a
+page and a screenshot, not assumed to be 0.5.
+
+`fuse.py` exits non-zero when fusion fails to beat text alone. **Text alone is accuracy
+0.725 / macro-F1 0.705.** If fusion does not clear it, image classification ships opt-in
+with that number in the README rather than because we built it.
+
+### What a 224px screenshot can say
+
+Not much text — a page is unreadable at that resolution, so the model sees layout, colour
+and gross structure. If image-only macro-F1 is poor, resolution is the first lever
+(`--size 384`, roughly 3× the compute), not more epochs.
+
+Also worth knowing: the screenshots are 2022 captures and inference runs on today's
+pages. Visual design ages faster than prose, so expect the image model to transfer worse
+than its held-out score suggests. The evaluation set is the check, since its screenshots
+were taken by our own pipeline this week.

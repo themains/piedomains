@@ -134,13 +134,26 @@ class TestNewAPIIntegration(unittest.TestCase):
         self.assertEqual(result[0]["model_used"], "text/shallalist_ml")
         self.assertNotIn("image_category", result[0])
 
-    def test_image_classification_says_why_it_is_unavailable(self):
-        """A removed model must explain itself, not fail obscurely."""
+    def test_an_unloadable_image_model_raises_rather_than_predicting(self):
+        """The predecessor substituted a model returning zeros on any load failure.
+
+        Nothing read the ``_is_dummy_model`` flag it set, so every domain came back as a
+        confident-looking wrong answer instead of an error. A load failure has to be
+        fatal.
+        """
+        import os
+        from unittest.mock import patch
+
         from piedomains.image import ImageClassifier
 
-        with self.assertRaises(NotImplementedError) as caught:
+        with (
+            patch.dict(
+                os.environ, {"PIEDOMAINS_IMAGE_MODEL": "/nonexistent/checkpoint"}
+            ),
+            self.assertRaises(RuntimeError) as caught,
+        ):
             ImageClassifier().load_models()
-        self.assertIn("classify_by_text", str(caught.exception))
+        self.assertIn("screenshot classification model", str(caught.exception))
 
     def test_classify_empty_domains_error(self):
         """Test error handling for empty domain list."""

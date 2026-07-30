@@ -35,17 +35,15 @@ from __future__ import annotations
 
 import argparse
 import json
-import sys
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-sys.path.insert(0, str(Path(__file__).parent))
-
-from metrics import expected_calibration_error
-from train_text import TextDataset, pick_device, read_jsonl
+from .metrics import expected_calibration_error
+from .train_text import TextDataset, pick_device, read_jsonl
 
 
-def collect_logits(model, loader, device: str) -> tuple[Any, Any]:
+def collect_logits(model: Any, loader: Any, device: str) -> tuple[Any, Any]:
     """Run the model over a split and keep the raw logits.
 
     Args:
@@ -62,16 +60,20 @@ def collect_logits(model, loader, device: str) -> tuple[Any, Any]:
     chunks, golds = [], []
     with torch.no_grad():
         for batch in loader:
-            logits = model(
-                input_ids=batch["input_ids"].to(device),
-                attention_mask=batch["attention_mask"].to(device),
-            ).logits
+            # The two modalities differ only in what the forward pass is fed.
+            if "pixel_values" in batch:
+                logits = model(pixel_values=batch["pixel_values"].to(device)).logits
+            else:
+                logits = model(
+                    input_ids=batch["input_ids"].to(device),
+                    attention_mask=batch["attention_mask"].to(device),
+                ).logits
             chunks.append(logits.cpu())
             golds.append(batch["labels"])
     return torch.cat(chunks), torch.cat(golds)
 
 
-def fit_temperature(logits, targets, *, max_iter: int = 200) -> float:
+def fit_temperature(logits: Any, targets: Any, *, max_iter: int = 200) -> float:
     """Find the temperature minimizing NLL on held-out logits.
 
     A single scalar, optimized with LBFGS. Fitting on the validation split
@@ -103,7 +105,7 @@ def fit_temperature(logits, targets, *, max_iter: int = 200) -> float:
     return float(log_t.exp().item())
 
 
-def ece_of(logits, targets, labels: list[str], temperature: float) -> float:
+def ece_of(logits: Any, targets: Any, labels: list[str], temperature: float) -> float:
     """Compute ECE at a given temperature.
 
     Args:
@@ -132,8 +134,20 @@ def build_parser() -> argparse.ArgumentParser:
     Returns:
         argparse.ArgumentParser: The configured parser.
     """
-    parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    parser.add_argument("--model", required=True, help="train_text.py output directory")
+    parser = argparse.ArgumentParser(
+        description="Fit a temperature and report calibration"
+    )
+    parser.add_argument(
+        "--model",
+        required=True,
+        help="train_text.py or train_image.py output directory",
+    )
+    parser.add_argument(
+        "--modality",
+        choices=("text", "image"),
+        default="text",
+        help="Which kind of model this is",
+    )
     parser.add_argument(
         "--data", required=True, help="prepare_text.py output directory"
     )
@@ -154,24 +168,52 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
 
     from torch.utils.data import DataLoader
-    from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
     model_dir = Path(args.model)
     data = Path(args.data)
     labels = json.loads((model_dir / "labels.json").read_text(encoding="utf-8"))
-
     device = pick_device()
-    tokenizer = AutoTokenizer.from_pretrained(model_dir)
-    model = AutoModelForSequenceClassification.from_pretrained(model_dir).to(device)
+
+    # Declared once so the two branch-local definitions are the same symbol rather than a
+    # redeclaration. Returns Any because torch's DataLoader stub wants a Dataset subclass
+    # while the runtime only needs __len__/__getitem__.
+    make_dataset: Callable[[str], Any]
+
+    if args.modality == "image":
+        from transformers import AutoImageProcessor, AutoModelForImageClassification
+
+        from .train_image import ScreenshotDataset
+
+        processor = AutoImageProcessor.from_pretrained(model_dir)
+        model = AutoModelForImageClassification.from_pretrained(model_dir).to(device)
+
+        def build_image_dataset(split: str) -> Any:
+            return ScreenshotDataset(
+                read_jsonl(data / f"{split}.jsonl"),
+                data / "images",
+                labels,
+                processor,
+            )
+
+        make_dataset = build_image_dataset
+    else:
+        from transformers import AutoModelForSequenceClassification, AutoTokenizer
+
+        tokenizer = AutoTokenizer.from_pretrained(model_dir)
+        model = AutoModelForSequenceClassification.from_pretrained(model_dir).to(device)
+
+        def build_text_dataset(split: str) -> Any:
+            return TextDataset(
+                read_jsonl(data / f"{split}.jsonl"), tokenizer, labels, args.max_length
+            )
+
+        make_dataset = build_text_dataset
 
     def loader(split: str):
-        return DataLoader(
-            TextDataset(
-                read_jsonl(data / f"{split}.jsonl"), tokenizer, labels, args.max_length
-            ),
-            batch_size=args.batch_size,
-            shuffle=False,
-        )
+        # Any because torch's DataLoader stub wants a Dataset subclass while the runtime
+        # only needs __len__/__getitem__, which both dataset classes provide.
+        built: Any = make_dataset(split)
+        return DataLoader(built, batch_size=args.batch_size, shuffle=False)
 
     print("collecting validation logits...")
     val_logits, val_targets = collect_logits(model, loader("val"), device)
@@ -198,6 +240,7 @@ def main(argv: list[str] | None = None) -> int:
                 "ece_before": before,
                 "ece_after": after,
                 "fitted_on": "val",
+                "modality": args.modality,
             },
             indent=2,
         ),

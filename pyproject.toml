@@ -56,6 +56,11 @@ dependencies = [
     # CDX + Memento client for archive.org. Deps are only requests + urllib3,
     # both already pulled in above.
     "wayback>=0.5.1",
+    # Required by transformers' AutoImageProcessor, which the screenshot path uses.
+    # It lived in the `train` group until a clean `pip install piedomains` proved that
+    # PEP 735 groups are not installed for ordinary users and classify_by_images() then
+    # died with "AutoImageProcessor requires the Torchvision library".
+    "torchvision>=0.20",
     # Optional extractor, off by default (config `extractor`). It powers
     # FineWeb/RefinedWeb and tops the WCXB benchmark on articles, but measured
     # on our own homepages it is worse than the legacy cleaner (16/33 pages
@@ -88,6 +93,7 @@ exclude = [
 [tool.hatch.build.targets.wheel]
 packages = ["src/piedomains"]
 
+
 # Ruff configuration
 
 [tool.hatch.version]
@@ -118,8 +124,8 @@ convention = "google"
 # `docker run --tmpfs` arguments rather than paths this process writes to.
 "examples/**" = ["T201", "D", "S101", "S603", "S607", "S108", "RUF059"]
 "streamlit/**" = ["T201", "D"]
-# Training/eval scripts are CLIs: printing the report is their whole purpose.
-"training/**" = ["T201"]
+# Training/eval scripts are CLIs: reporting progress to stdout is their whole purpose.
+"src/piedomains/training/**" = ["T201"]
 
 [tool.pytest.ini_options]
 minversion = "7.0"

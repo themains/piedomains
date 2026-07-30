@@ -11,13 +11,9 @@ measured failure before it was a design decision:
 * `porn`/`sex`/`models` competed for the same pages three ways.
 """
 
-import sys
 import unittest
-from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent.parent / "training"))
-
-from taxonomy import EXCLUDED, map_category, target_classes
+from piedomains.training.taxonomy import EXCLUDED, map_category, target_classes
 
 
 class TestExcluded(unittest.TestCase):

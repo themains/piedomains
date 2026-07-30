@@ -248,11 +248,29 @@ class DomainClassifier:
         archive_date: str | datetime | None = None,
         use_cache: bool = True,
         latest: bool = False,
+        use_screenshots: bool = False,
     ) -> dict:
-        """Classify domains using combined text and image analysis.
+        """Classify domains from their page text.
 
-        This is the most comprehensive classification method, using both
-        textual content and homepage screenshots for maximum accuracy.
+        **Screenshots are opt-in, and the reason is measured.** Combining the two models
+        by calibrated late fusion was fitted on 1,704 held-out paired domains and scored
+        on 1,742 more:
+
+        ===================  ========  ========
+        model                accuracy  macro-F1
+        ===================  ========  ========
+        text only               0.794     0.699
+        image only              0.429     0.306
+        fused (per-class)       0.798     0.700
+        ===================  ========  ========
+
+        +0.001 macro-F1 is noise at that sample size, and the fitted text weight is
+        0.973 — the optimiser puts almost nothing on the screenshot. So the default does
+        not pay for loading a 350MB vision model and running it per domain.
+
+        Pass ``use_screenshots=True`` to fuse anyway. It is honest about its own value:
+        without published fusion weights, or with the screenshot model unavailable, it
+        returns the text answer rather than falling back to averaging.
 
         Args:
             domains: List of domain names or URLs to classify
@@ -261,34 +279,25 @@ class DomainClassifier:
                                                     Format: "YYYYMMDD" or datetime object
             use_cache: Whether to reuse cached content (default: True)
             latest: Whether to download latest model versions (default: False)
+            use_screenshots: Fuse the screenshot model in (default: False). See above for
+                what it is worth.
 
         Returns:
-            list[dict]: Classification results in JSON format with fields:
-                - url: Original URL/domain input
-                - domain: Parsed domain name
-                - text_path: Path to collected HTML file
-                - image_path: Path to collected screenshot
-                - date_time_collected: When data was collected (ISO format)
-                - model_used: "combined/text_image_ml"
-                - category: Best prediction (ensemble of text + image)
-                - confidence: Confidence score (0-1)
-                - reason: None (reasoning field for LLM models)
-                - error: Error message if classification failed
-                - text_category: Text-only prediction
-                - text_confidence: Text confidence
-                - image_category: Image-only prediction
-                - image_confidence: Image confidence
-                - raw_predictions: Full probability distributions
-
+            dict: ``{"results": [...], "report": {...}}``. Each result carries ``url``,
+            ``domain``, ``text_path``, ``image_path``, ``date_time_collected``,
+            ``model_used``, ``category``, ``confidence``, ``raw_predictions``, plus the
+            ``status``/``stage``/``error_code``/``retryable`` outcome fields.
 
         Example:
             >>> classifier = DomainClassifier()
-            >>> results = classifier.classify(["cnn.com", "bbc.com"])
-            >>> print(f"{results[0]['domain']}: {results[0]['category']} ({results[0]['confidence']:.3f})")
-            cnn.com: news (0.876)
+            >>> run = classifier.classify(["cnn.com", "bbc.com"])
+            >>> first = run["results"][0]
+            >>> print(f"{first['domain']}: {first['category']}")
+            cnn.com: news
 
         """
-        return self._run(domains, "combined", archive_date, use_cache, latest)
+        method = "combined" if use_screenshots else "text"
+        return self._run(domains, method, archive_date, use_cache, latest)
 
     def classify_by_text(
         self,
@@ -613,24 +622,7 @@ class DomainClassifier:
             return classifier.classify_from_data(collection_data, output_file, latest)
 
         elif method == "combined":
-            # Text-only, deliberately. This branch used to run both models and
-            # call the result an ensemble, but it never merged the probability
-            # vectors: it returned the *text* label every time and only averaged
-            # the two confidences -- averaging a calibrated, unnormalized text
-            # score against an uncalibrated image softmax. The image model could
-            # not change an answer, only blur the number attached to it.
-            #
-            # With the TensorFlow image model gone (see image.ImageClassifier),
-            # this is what "combined" already was. PR 6 builds the real thing:
-            # late fusion over both vectors with weights fit on validation.
-            from .text import TextClassifier
-
-            logger.info(
-                "method='combined' is text-only in this version; the image "
-                "model is being retrained (see ImageClassifier.load_models)"
-            )
-            classifier = TextClassifier(cache_dir=self.cache_dir)
-            return classifier.classify_from_data(collection_data, output_file, latest)
+            return self._classify_combined(collection_data, output_file, latest)
 
         else:  # method == "llm"; other values rejected by the guard above
             if self._llm_classifier is None:
@@ -638,6 +630,105 @@ class DomainClassifier:
             return self._llm_classifier.classify_from_data(
                 collection_data, output_file, mode="multimodal"
             )
+
+    def _classify_combined(
+        self, collection_data: dict, output_file: str | None, latest: bool
+    ) -> list[dict]:
+        """Blend the text and screenshot models into one answer per domain.
+
+        Both models' probabilities are calibrated by their own fitted temperature before
+        being mixed, and the mixing weights come from ``fusion.json`` rather than a
+        hard-coded average. That is the whole difference from what this used to do: the
+        old branch returned the text label every time and averaged a calibrated,
+        unnormalized text score against a raw image softmax, so the image model could not
+        change an answer, only blur the number attached to it.
+
+        When no fusion weights are published, or the screenshot model is unavailable,
+        this returns text-only and says so. It does not fall back to averaging.
+
+        Args:
+            collection_data: The collection envelope.
+            output_file: Optional path to write JSON results to.
+            latest: Whether to re-resolve the models.
+
+        Returns:
+            list[dict]: One result row per collected domain.
+        """
+        from .fusion import fuse_probabilities, load_fusion_weights
+        from .text import TextClassifier
+
+        text_classifier = TextClassifier(cache_dir=self.cache_dir)
+        text_rows = text_classifier.classify_from_data(collection_data, None, latest)
+
+        try:
+            from .image import ImageClassifier, resolve_image_model
+
+            weights = load_fusion_weights(resolve_image_model(latest))
+            if weights is None:
+                logger.info(
+                    "No fusion weights published for the screenshot model; "
+                    "returning text-only. Run training/fuse.py to fit them."
+                )
+                return self._maybe_write(text_rows, output_file)
+
+            image_classifier = ImageClassifier(cache_dir=self.cache_dir)
+            image_rows = image_classifier.classify_from_data(
+                collection_data, None, latest
+            )
+        except Exception as e:
+            logger.warning(f"Screenshot model unavailable ({e}); returning text-only")
+            return self._maybe_write(text_rows, output_file)
+
+        image_by_domain = {r.get("domain"): r for r in image_rows}
+        fused: list[dict] = []
+        for row in text_rows:
+            image_row = image_by_domain.get(row.get("domain"), {})
+            text_probs = row.get("raw_predictions")
+            image_probs = image_row.get("raw_predictions")
+
+            if not text_probs and not image_probs:
+                fused.append(row)
+                continue
+            try:
+                blended = fuse_probabilities(text_probs, image_probs, weights)
+            except ValueError as e:
+                # A label-order mismatch mislabels everything while looking healthy.
+                # Refuse the blend rather than ship a plausible wrong answer.
+                logger.error(f"Cannot fuse {row.get('domain')}: {e}")
+                fused.append(row)
+                continue
+
+            best = max(blended, key=lambda k: blended[k])
+            merged = dict(row)
+            merged["category"] = best
+            merged["confidence"] = blended[best]
+            merged["raw_predictions"] = blended
+            merged["model_used"] = "combined/text_image"
+            merged["modalities"] = [
+                m for m, p in (("text", text_probs), ("image", image_probs)) if p
+            ]
+            fused.append(merged)
+
+        return self._maybe_write(fused, output_file)
+
+    @staticmethod
+    def _maybe_write(rows: list[dict], output_file: str | None) -> list[dict]:
+        """Write results to disk when a path was given.
+
+        Args:
+            rows: Result rows.
+            output_file: Where to write, or ``None``.
+
+        Returns:
+            list[dict]: The rows, unchanged.
+        """
+        if output_file:
+            import json as _json
+
+            os.makedirs(os.path.dirname(output_file) or ".", exist_ok=True)
+            with open(output_file, "w", encoding="utf-8") as handle:
+                _json.dump({"results": rows}, handle, indent=2)
+        return rows
 
     def _parse_domain_name(self, url_or_domain: str) -> str:
         """Extract domain name from URL or domain string."""

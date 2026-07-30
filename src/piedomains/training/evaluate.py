@@ -25,9 +25,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-sys.path.insert(0, str(Path(__file__).parent))
-
-from metrics import format_summary, summarize
+from .metrics import format_summary, summarize
 
 
 def load_labels(path: Path) -> list[dict[str, str]]:
@@ -42,7 +40,7 @@ def load_labels(path: Path) -> list[dict[str, str]]:
     Raises:
         ValueError: If a label is not one of the model's known categories.
     """
-    from piedomains.constants import classes
+    from ..constants import classes
 
     rows: list[dict[str, str]] = []
     with open(path, encoding="utf-8") as handle:
@@ -79,7 +77,7 @@ def evaluate(
         list[dict]: Rows with ``expected``, ``predicted``, ``confidence`` and
         the failure fields from the run report.
     """
-    from piedomains.api import DomainClassifier
+    from ..api import DomainClassifier
 
     classifier = DomainClassifier(cache_dir=cache_dir)
     domains = [row["domain"] for row in labels]
@@ -144,7 +142,9 @@ def build_parser() -> argparse.ArgumentParser:
     Returns:
         argparse.ArgumentParser: The configured parser.
     """
-    parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    parser = argparse.ArgumentParser(
+        description="Measure the models against labelled domains"
+    )
     parser.add_argument(
         "--labels",
         default="tests/eval/labels.csv",

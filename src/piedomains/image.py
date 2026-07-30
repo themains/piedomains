@@ -1,61 +1,69 @@
 #!/usr/bin/env python3
-"""Screenshot-based classification — currently unavailable.
+"""Screenshot-based classification.
 
-The screenshot model was a frozen-backbone ResNet50 in TensorFlow SavedModel
-format. It is gone for two independent reasons, and neither is worth working
-around:
+Replaces a ResNet50 that reported 52.9% at training time with a frozen backbone — only a
+linear head was ever fitted — and, in production, labelled Khan Academy and Yahoo as
+``porn``. Two independent bugs produced that: the backbone was never fine-tuned, and the
+serving path divided pixels by 255 before handing them to a graph that already baked in
+``resnet50.preprocess_input``, so every image arrived as a near-constant negative array.
 
-* **TensorFlow had to go.** It ships no ``cp314`` wheels, which pinned the whole
-  package below Python 3.14.
-* **It did not work.** It reported 52.9% at training time with
-  ``base_model.trainable = False`` — only a linear head was ever fitted — and in
-  practice labelled Khan Academy and Yahoo as ``porn``. Separately, the serving
-  path divided pixels by 255 before handing them to a graph that already baked in
-  ``resnet50.preprocess_input``, so every image arrived as a near-constant
-  negative array. The 52.9% was a training-time number users never got.
+Both are gone. The backbone is fully fine-tuned (``training/train_image.py``) and
+preprocessing is the model's own ``AutoImageProcessor``, so training and inference cannot
+drift apart.
 
-**Nothing measurable is lost in the meantime.** The "combined" path never merged
-the two probability vectors: it returned the *text* label every time and only
-averaged the confidences, so the image model could not change an answer, only
-blur the number attached to it.
-
-The class is kept so the import and the public surface stay stable, and so the
-failure names itself instead of surfacing as a missing attribute somewhere
-downstream. The replacement — a properly fine-tuned backbone plus late fusion
-over both probability vectors — is the next piece of work.
+**A screenshot is a weak signal on its own, and that is the point.** At 224px a page is
+unreadable — the model sees layout, colour and gross structure, not text. It exists to
+say something the text model cannot, which matters most on pages carrying almost no text.
+It is combined with text through calibrated late fusion, never used to overrule it
+blindly.
 """
 
+import json
+import os
 from pathlib import Path
 from typing import Any
 
+from .checkpoints import read_labels, read_temperature
+from .constants import classes
 from .content_processor import ContentProcessor
 from .piedomains_logging import get_logger
 
 logger = get_logger()
 
-_UNAVAILABLE = (
-    "Image classification is unavailable in this version. The TensorFlow "
-    "screenshot model was removed (it ships no Python 3.14 wheels, and it "
-    "labelled Khan Academy as 'porn'); the PyTorch replacement is not trained "
-    "yet. Use classify_by_text(), or classify(), which is text-only for now."
-)
+#: Where the fine-tuned screenshot model lives. Overridable with
+#: ``PIEDOMAINS_IMAGE_MODEL`` (a Hub repo id or a local directory).
+DEFAULT_IMAGE_MODEL = "soodoku/piedomains-image"
+
+
+def resolve_image_model(latest: bool = False) -> str:
+    """Decide which checkpoint to load.
+
+    A local directory is preferred when configured, so a freshly trained model can be
+    evaluated before it is published.
+
+    Args:
+        latest: Re-resolve from the Hub even if a copy is cached.
+
+    Returns:
+        str: A local path or a Hugging Face Hub repo id.
+    """
+    from .config import get_config
+
+    configured = os.environ.get("PIEDOMAINS_IMAGE_MODEL") or get_config().get(
+        "image_model"
+    )
+    if configured:
+        return str(configured)
+    if latest:
+        logger.info("latest=True: re-resolving %s from the Hub", DEFAULT_IMAGE_MODEL)
+    return DEFAULT_IMAGE_MODEL
 
 
 class ImageClassifier:
-    """Placeholder for the screenshot classifier while it is being retrained.
-
-    Every entry point raises :class:`NotImplementedError` with the reason.
-    Screenshot *collection* is unaffected — ``DataCollector`` still captures and
-    caches them, so no data is lost while the model is rebuilt.
-    """
-
-    MODELFN = "model/shallalist"
+    """Classify a website from a screenshot of its homepage."""
 
     def __init__(self, cache_dir: str | None = None, archive_date: str | None = None):
-        """Initialize the placeholder.
-
-        Constructing this is deliberately allowed: callers that build one up
-        front should fail when they try to classify, not at import time.
+        """Initialize the classifier.
 
         Args:
             cache_dir: Directory for caching content.
@@ -63,34 +71,154 @@ class ImageClassifier:
         """
         self.cache_dir = Path(cache_dir or "cache")
         self.archive_date = archive_date
-        self.processor = ContentProcessor(str(self.cache_dir), archive_date)
+        self.processor_cache = ContentProcessor(str(self.cache_dir), archive_date)
         self._model: Any = None
+        self._processor: Any = None
+        self._device: str = "cpu"
+        self._labels: list[str] = list(classes)
+        #: Fitted by training/calibrate.py --modality image; 1.0 means no scaling.
+        self._temperature: float = 1.0
 
     def load_models(self, latest: bool = False) -> None:
-        """Report that no image model is available.
+        """Load the classifier, its preprocessor, labels and temperature.
 
         Args:
-            latest: Accepted for interface compatibility; unused.
+            latest: Re-resolve the model even if one is already loaded.
 
         Raises:
-            NotImplementedError: Always, naming the path to use instead.
+            RuntimeError: If the model cannot be loaded. Deliberately fatal — the
+                predecessor substituted a model returning zeros, so every domain came
+                back as a confident-looking wrong answer.
         """
-        raise NotImplementedError(_UNAVAILABLE)
+        if self._model is not None and not latest:
+            return
 
-    def classify(self, domains: list[str], latest: bool = False) -> list[dict]:
-        """Reject a screenshot classification request.
+        try:
+            from transformers import (  # pyright: ignore[reportMissingImports]
+                AutoImageProcessor,
+                AutoModelForImageClassification,
+            )
 
-        Args:
-            domains: Domains that would have been classified.
-            latest: Accepted for interface compatibility; unused.
+            from .text import _pick_device
+
+            source = resolve_image_model(latest)
+            self._processor = AutoImageProcessor.from_pretrained(source)
+            self._model = AutoModelForImageClassification.from_pretrained(source)
+            self._model.eval()
+            self._device = _pick_device()
+            self._model.to(self._device)
+
+            self._labels = read_labels(source, self._model.config, classes)
+            self._temperature = read_temperature(source)
+
+            logger.info(
+                f"Loaded image model from {source} on {self._device}: "
+                f"{len(self._labels)} classes, temperature {self._temperature:.3f}"
+            )
+        except Exception as e:
+            logger.error(f"Failed to load image model: {e}")
+            raise RuntimeError(
+                f"Could not load the screenshot classification model: {e}"
+            ) from e
+
+    def _backbone_name(self) -> str:
+        """Name the architecture actually loaded.
 
         Returns:
-            list[dict]: Never returns.
-
-        Raises:
-            NotImplementedError: Always, naming the path to use instead.
+            str: The checkpoint's ``model_type`` (e.g. ``siglip2``), or ``unknown`` before
+            a model is loaded.
         """
-        raise NotImplementedError(_UNAVAILABLE)
+        config = getattr(self._model, "config", None)
+        return str(getattr(config, "model_type", "unknown"))
+
+    def predict_proba(self, image_path: str | Path) -> dict[str, float] | None:
+        """Score one screenshot into a calibrated probability distribution.
+
+        Args:
+            image_path: Path to the screenshot.
+
+        Returns:
+            dict[str, float] | None: Class probabilities summing to 1, or ``None`` when
+            the image cannot be read.
+        """
+        import torch  # pyright: ignore[reportMissingImports]
+        from PIL import Image
+
+        path = Path(image_path)
+        if not path.is_absolute():
+            path = self.cache_dir / path
+        try:
+            img = Image.open(path).convert("RGB")
+        except Exception as e:
+            logger.warning(f"Could not read screenshot {path}: {e}")
+            return None
+
+        encoded = self._processor(images=img, return_tensors="pt").to(self._device)
+        with torch.no_grad():
+            logits = self._model(**encoded).logits[0]
+        probabilities = torch.softmax(logits / self._temperature, dim=-1)
+        return {name: float(probabilities[i]) for i, name in enumerate(self._labels)}
+
+    def _classify_one(self, domain: str, image_path: str | Path | None) -> dict:
+        """Build one result row for a domain.
+
+        Args:
+            domain: Domain being classified.
+            image_path: Path to its screenshot, if there is one.
+
+        Returns:
+            dict: A result row, carrying an ``error`` when no screenshot was usable.
+        """
+        from .outcomes import ErrorCode, Stage
+
+        result: dict[str, Any] = {
+            "url": domain,
+            "domain": domain,
+            "image_path": str(image_path) if image_path else None,
+            # Named from the loaded checkpoint rather than hardcoded: it said
+            # "image/vit" after the model became SigLIP2, which is a wrong fact in
+            # every result row.
+            "model_used": f"image/{self._backbone_name()}",
+            "category": None,
+            "confidence": None,
+            "raw_predictions": None,
+            "error": None,
+        }
+        if not image_path:
+            result["error"] = "No screenshot available"
+            result["error_code"] = ErrorCode.MISSING_SCREENSHOT.value
+            result["stage"] = Stage.PROCESS.value
+            return result
+
+        scores = self.predict_proba(image_path)
+        if scores is None:
+            result["error"] = f"Screenshot could not be read: {image_path}"
+            result["error_code"] = ErrorCode.MISSING_SCREENSHOT.value
+            result["stage"] = Stage.PROCESS.value
+            return result
+
+        best = max(scores, key=lambda k: scores[k])
+        result["category"] = best
+        result["confidence"] = scores[best]
+        result["raw_predictions"] = scores
+        return result
+
+    def classify(self, domains: list[str], latest: bool = False) -> list[dict]:
+        """Classify domains from their cached screenshots.
+
+        Args:
+            domains: Domain names to classify.
+            latest: Whether to re-resolve the model.
+
+        Returns:
+            list[dict]: One result row per domain.
+        """
+        self.load_models(latest)
+        rows = []
+        for domain in domains:
+            path = self.cache_dir / "images" / f"{domain}.png"
+            rows.append(self._classify_one(domain, path if path.exists() else None))
+        return rows
 
     def classify_from_paths(
         self,
@@ -98,20 +226,30 @@ class ImageClassifier:
         output_file: str | None = None,
         latest: bool = False,
     ) -> list[dict]:
-        """Reject a screenshot classification request.
+        """Classify domains from collected screenshot paths.
 
         Args:
-            data_paths: Collected screenshot paths.
-            output_file: Where results would have been written.
-            latest: Accepted for interface compatibility; unused.
+            data_paths: Records carrying ``domain`` and ``image_path``.
+            output_file: Optional path to write JSON results to.
+            latest: Whether to re-resolve the model.
 
         Returns:
-            list[dict]: Never returns.
-
-        Raises:
-            NotImplementedError: Always, naming the path to use instead.
+            list[dict]: One result row per record.
         """
-        raise NotImplementedError(_UNAVAILABLE)
+        self.load_models(latest)
+        rows = []
+        for entry in data_paths:
+            domain = entry.get("domain") or entry.get("url") or ""
+            row = self._classify_one(domain, entry.get("image_path"))
+            row["url"] = entry.get("url", domain)
+            row["date_time_collected"] = entry.get("date_time_collected")
+            rows.append(row)
+
+        if output_file:
+            Path(output_file).parent.mkdir(parents=True, exist_ok=True)
+            Path(output_file).write_text(json.dumps({"results": rows}, indent=2))
+            logger.info(f"Saved image classification results to {output_file}")
+        return rows
 
     def classify_from_data(
         self,
@@ -119,17 +257,24 @@ class ImageClassifier:
         output_file: str | None = None,
         latest: bool = False,
     ) -> list[dict]:
-        """Reject a screenshot classification request.
+        """Classify every successfully collected domain in a collection envelope.
 
         Args:
-            collection_data: The collection envelope.
-            output_file: Where results would have been written.
-            latest: Accepted for interface compatibility; unused.
+            collection_data: The envelope from ``DataCollector``.
+            output_file: Optional path to write JSON results to.
+            latest: Whether to re-resolve the model.
 
         Returns:
-            list[dict]: Never returns.
-
-        Raises:
-            NotImplementedError: Always, naming the path to use instead.
+            list[dict]: One result row per collected domain.
         """
-        raise NotImplementedError(_UNAVAILABLE)
+        # Filtered on fetch_success alone, deliberately. Requiring image_path here drops
+        # the domains that fetched fine but rendered no screenshot -- archived HTML that
+        # succeeded while the archived page failed to render, say -- before
+        # `_classify_one` can report them. It already handles that case and emits
+        # `missing_screenshot` at the `process` stage; dropping the row instead made
+        # reconciliation invent an `unknown` failure at the `fetch` stage, which is the
+        # wrong reason and the wrong stage for a fetch that worked.
+        entries = [
+            d for d in collection_data.get("domains", []) if d.get("fetch_success")
+        ]
+        return self.classify_from_paths(entries, output_file, latest)
