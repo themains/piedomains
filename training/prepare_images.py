@@ -184,6 +184,56 @@ def resize(raw: bytes, size: int) -> bytes | None:
     return buffer.getvalue()
 
 
+def align_splits(
+    kept: list[tuple[str, str]], text_data: Path
+) -> dict[str, list[tuple[str, str]]]:
+    """Assign screenshots to the split their domain already has on the text side.
+
+    **The bug this fixes.** Both preparers shuffled their own list with the same seed, but
+    the lists differ -- 46,754 text documents against 44,712 screenshots -- so the same
+    domain landed in unrelated splits. Roughly 80% of the domains held out from the text
+    model were therefore in the image model's *training* set, and fusion, which fits and
+    scores on exactly those paired domains, was reading the image model's memory. It
+    showed: image-only scored 0.473 on its own held-out split and 0.768 on the paired
+    domains.
+
+    Aligning to the text splits rather than re-splitting both keeps the trained text model
+    valid -- its held-out data stays held out. A domain absent from the text splits cannot
+    reach fusion, so it goes to train.
+
+    Args:
+        kept: ``(domain, category)`` pairs that have a usable screenshot.
+        text_data: A ``prepare_text.py`` output directory to take assignments from.
+
+    Returns:
+        dict[str, list[tuple[str, str]]]: Split name to rows.
+
+    Raises:
+        SystemExit: If no split files are found, since silently falling back to the
+            unaligned split is what made the numbers wrong in the first place.
+    """
+    assignment: dict[str, str] = {}
+    for split in ("train", "val", "test"):
+        path = text_data / f"{split}.jsonl"
+        if not path.exists():
+            continue
+        with open(path, encoding="utf-8") as handle:
+            for line in handle:
+                if line.strip():
+                    assignment[json.loads(line)["domain"].lower()] = split
+    if not assignment:
+        raise SystemExit(f"no train/val/test.jsonl under {text_data}")
+
+    splits: dict[str, list[tuple[str, str]]] = {"train": [], "val": [], "test": []}
+    for domain, label in kept:
+        splits[assignment.get(domain.lower(), "train")].append((domain, label))
+    print(
+        f"  aligned to {text_data}: "
+        + ", ".join(f"{k} {len(v):,}" for k, v in splits.items())
+    )
+    return splits
+
+
 def build_parser() -> argparse.ArgumentParser:
     """Construct the argument parser.
 
@@ -221,6 +271,15 @@ def build_parser() -> argparse.ArgumentParser:
         help="Cap images per class to balance the long tail; 0 keeps everything",
     )
     parser.add_argument("--seed", type=int, default=42, help="Split seed")
+    parser.add_argument(
+        "--respect-splits",
+        default="",
+        help="A prepare_text.py output directory. Assign each screenshot to the split "
+        "its domain already has there, so a domain held out from the text model is "
+        "never in the image model's training set. Required for an honest fusion "
+        "measurement -- without it the two splits are independent and ~80%% of the "
+        "domains fusion scores on were trained on by the image model.",
+    )
     parser.add_argument("--limit", type=int, default=0, help="Stop after N images")
     parser.add_argument(
         "--append",
@@ -241,6 +300,10 @@ def main(argv: list[str] | None = None) -> int:
 
     Returns:
         int: Process exit status.
+
+    Raises:
+        SystemExit: If the label cache, index or split files are missing, or if no
+            screenshot matched a label at all.
     """
     args = build_parser().parse_args(argv)
     out = Path(args.out)
@@ -313,6 +376,9 @@ def main(argv: list[str] | None = None) -> int:
         "val": kept[int(0.8 * n) : int(0.9 * n)],
         "test": kept[int(0.9 * n) :],
     }
+
+    if args.respect_splits:
+        splits = align_splits(kept, Path(args.respect_splits))
     for name, rows in splits.items():
         with open(out / f"{name}.jsonl", "w", encoding="utf-8") as handle:
             for domain, label in rows:

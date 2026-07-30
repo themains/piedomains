@@ -384,6 +384,12 @@ def stage_one_prepare(repo: Path) -> Path:
                     "--append",
                     "--index",
                     str(labels_dir / "screenshot-index.tab"),
+                    # Give each screenshot the split its domain already has on the text
+                    # side. Without this the two splits are independent and ~80% of the
+                    # domains fusion scores on are in the image model's training set --
+                    # which is why the first fused number looked good and was not.
+                    "--respect-splits",
+                    FUSION_SPLITS,
                 ]
             )
         except subprocess.CalledProcessError as exc:
