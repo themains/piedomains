@@ -11,9 +11,19 @@ They are also the only way to fuse locally. ``fuse.py`` needs a screenshot for e
 paired domain, and the Kaggle runs keep their resized corpus in ``/kaggle/temp`` so the
 kernel output stays retrievable -- meaning it is gone when the session ends.
 
-**Resumable, because it will be interrupted.** At roughly 0.4-0.8 domains/sec the full
-46,754 is 16-32 hours. A domain whose JPEG already exists is skipped, so re-running
-continues rather than restarting.
+**Measured throughput, and why the training corpus is the wrong target.** Over 304
+Shallalist domains this managed 0.017 domains/sec and reached only 60% of them: 253 TLS
+failures, 184 exhausted retries, 56 unresolvable names, 38 timeouts, 26 refused
+connections. Those are 2022 registrations being asked to answer in 2026, and every dead
+one costs a full timeout. At that rate the 46,754-domain corpus is ~33 days, not the
+16-32 hours a healthy domain list would take -- so point this at a *current* list
+(Tranco) rather than at the training corpus.
+
+The 60% reachability is itself worth knowing: about two in five domains the models were
+trained on no longer exist.
+
+**Resumable, because it will be interrupted.** A domain whose JPEG already exists is
+skipped, so re-running continues rather than restarting.
 
 Reuses the acquisition pipeline rather than writing a second scraper: bot-wall detection,
 archive.org fallback and thin-content refusal all apply, and a domain that only yields a

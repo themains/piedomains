@@ -971,6 +971,31 @@ class ArchiveFetcher(BaseFetcher):
         result.text = TextProcessor.process_html_to_text(html)
         result.snapshot_timestamp = record.timestamp.strftime("%Y%m%d%H%M%S")
 
+        # The same floor the live path applies. It was missing here because archived text
+        # is fetched as raw HTML rather than rendered, so it never passes through
+        # `_extract_from_page` where the live check lives -- and a capture of a dead site
+        # is often a stub. sapphirecasino.com came back as a "success" from a 114-byte
+        # capture with 4 characters of text, which is a blank screenshot and a blank
+        # document presented as data.
+        floor = self.config.get("min_tokens", 30)
+        if is_thin(result.text, min_tokens=floor):
+            result.success = False
+            result.error = (
+                f"archived capture {result.snapshot_timestamp} has only "
+                f"{len(result.text.split())} words, below the {floor}-word floor"
+            )
+            result.error_code = ErrorCode.THIN_CONTENT.value
+            logger.warning(
+                f"{url}: {result.error}",
+                extra={
+                    "domain": url,
+                    "stage": "fetch",
+                    "error_code": ErrorCode.THIN_CONTENT.value,
+                    "snapshot_timestamp": result.snapshot_timestamp,
+                },
+            )
+            return result
+
         soup = BeautifulSoup(html, "html.parser")
         if soup.title and soup.title.string:
             result.title = soup.title.string.strip()
