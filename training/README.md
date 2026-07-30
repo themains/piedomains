@@ -8,6 +8,22 @@ dependency group so installing `piedomains` does not pull them.
 uv sync --group train
 ```
 
+## They ship with the package
+
+Every accuracy figure in the README comes out of these scripts, and a number
+nobody can re-run is a number taken on faith. So they install alongside the
+package rather than living only in this repository — `pip install piedomains` is
+enough to reproduce any published claim.
+
+```bash
+classify_domains --training-scripts     # prints where they landed
+cd "$(classify_domains --training-scripts)"
+python evaluate.py --method text --out /tmp/eval.json
+```
+
+From a checkout they resolve here instead, so the same commands work either way.
+`tests/test_cli.py` fails if any script behind a published number stops shipping.
+
 ## Why retrain
 
 Measured, not assumed — run `evaluate.py` yourself and see:

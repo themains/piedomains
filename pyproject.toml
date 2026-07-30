@@ -88,6 +88,16 @@ exclude = [
 [tool.hatch.build.targets.wheel]
 packages = ["src/piedomains"]
 
+# The training and evaluation scripts ship with the package. Every accuracy claim in
+# the README comes out of these, and a claim you cannot re-run is a claim you have to
+# take on faith -- `pip install piedomains` should be enough to reproduce them.
+#
+# force-include rather than a src/piedomains/training package because the scripts import
+# each other by path (`sys.path.insert(0, Path(__file__).parent)`), which keeps them
+# runnable straight from a checkout as well as from site-packages.
+[tool.hatch.build.targets.wheel.force-include]
+"training" = "piedomains/training"
+
 # Ruff configuration
 
 [tool.hatch.version]

@@ -3,6 +3,7 @@
 import argparse
 import json
 import sys
+from pathlib import Path
 
 
 def _read_domains(args: argparse.Namespace) -> list[str]:
@@ -63,7 +64,40 @@ def build_parser() -> argparse.ArgumentParser:
         "--report",
         help="Write the run report (counts by reason, missing domains) to this path",
     )
+    parser.add_argument(
+        "--training-scripts",
+        action="store_true",
+        help="Print where the bundled training and evaluation scripts are installed",
+    )
     return parser
+
+
+def training_scripts_dir() -> Path:
+    """Locate the training scripts that ship with the package.
+
+    Every accuracy figure in the README is produced by these, and a number nobody can
+    re-run is a number taken on faith. They install alongside the package, but a path
+    inside ``site-packages`` is not something anyone would guess.
+
+    Returns:
+        Path: The directory holding ``train_text.py``, ``evaluate.py`` and the rest.
+
+    Raises:
+        SystemExit: If the scripts are not found, rather than returning a path that does
+            not exist and failing later somewhere less obvious.
+    """
+    installed = Path(__file__).parent / "training"
+    if (installed / "train_text.py").exists():
+        return installed
+    # Running from a checkout, where the scripts live at the repository root and are
+    # copied into the package only at build time.
+    checkout = Path(__file__).resolve().parents[2] / "training"
+    if (checkout / "train_text.py").exists():
+        return checkout
+    raise SystemExit(
+        "training scripts not found; expected them at "
+        f"{installed} or {checkout}. Reinstall piedomains, or run from a checkout."
+    )
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -76,6 +110,11 @@ def main(argv: list[str] | None = None) -> int:
         int: Process exit code.
     """
     args = build_parser().parse_args(argv)
+
+    if args.training_scripts:
+        sys.stdout.write(f"{training_scripts_dir()}\n")
+        return 0
+
     domains = _read_domains(args)
 
     from .api import classify_domains
