@@ -17,10 +17,10 @@ It is replaced by a fully fine-tuned, temperature-calibrated SigLIP2 model.
 
 ### The number that matters
 
-**On screenshots taken today the image model scores 0.344 accuracy / 0.254 macro-F1.**
-Not the 0.426 it gets on the corpus it was trained from. The training screenshots are 2022
+**On screenshots taken today the image model scores 0.317 accuracy / 0.212 macro-F1.**
+Not the 0.429 it gets on the corpus it was trained from. The training screenshots are 2022
 captures and inference runs on pages rendered now; measured on 183 self-captured
-screenshots of held-out domains, that four-year shift costs about 0.19 accuracy.
+screenshots of held-out domains, that four-year shift costs about 0.11 accuracy.
 
 ### Fusion was measured and not adopted
 

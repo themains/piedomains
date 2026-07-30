@@ -259,6 +259,64 @@ def score(probabilities: Any, targets: Any, labels: list[str]) -> dict[str, Any]
     }
 
 
+def refuse_if_leaky(text_data: Path, image_data: Path) -> None:
+    """Refuse to fuse when the image model trained on the domains fusion scores.
+
+    **This is the bug that made the first fused number look like a clear win.**
+    ``prepare_text.py`` and ``prepare_images.py`` each shuffled *their own* list with the
+    same seed, and the lists differ -- 46,754 documents against 44,712 screenshots -- so a
+    domain landed in unrelated splits on each side. Around 80% of the domains fusion fits
+    and scores on were in the image model's training set, and image-only read 0.768 where
+    the honest figure was 0.429.
+
+    ``prepare_images.py --respect-splits`` fixes it, but a flag you can forget is not a
+    fix for a failure that produces a plausible wrong number rather than an error. So this
+    checks rather than trusts.
+
+    Args:
+        text_data: A ``prepare_text.py`` output directory.
+        image_data: A ``prepare_images.py`` output directory.
+
+    Raises:
+        SystemExit: If any domain held out on the text side is in the image training
+            split, naming the count and the remedy.
+    """
+    train_path = image_data / "train.jsonl"
+    if not train_path.exists():
+        print(
+            f"WARNING: no {train_path}, so the image splits cannot be checked against "
+            "the text splits. If the image model trained on the domains scored below, "
+            "every number in this report is inflated.",
+            file=sys.stderr,
+        )
+        return
+
+    image_train = {
+        json.loads(line)["domain"].lower()
+        for line in train_path.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    }
+    held_out = set()
+    for split in ("val", "test"):
+        path = text_data / f"{split}.jsonl"
+        if path.exists():
+            held_out |= {
+                json.loads(line)["domain"].lower()
+                for line in path.read_text(encoding="utf-8").splitlines()
+                if line.strip()
+            }
+
+    leaked = held_out & image_train
+    if leaked:
+        raise SystemExit(
+            f"{len(leaked):,} domains held out from the text model are in the image "
+            f"model's training split (e.g. {', '.join(sorted(leaked)[:3])}).\n"
+            "Fusion would be fitted and scored on data the image model memorised. "
+            "Re-run prepare_images.py with --respect-splits <text-data>."
+        )
+    print(f"splits are aligned: no overlap across {len(held_out):,} held-out domains")
+
+
 def build_parser() -> argparse.ArgumentParser:
     """Build the command-line parser.
 
@@ -320,6 +378,7 @@ def main(argv: list[str] | None = None) -> int:
 
     text_data, image_data = Path(args.text_data), Path(args.image_data)
     available = {p.stem for p in (image_data / "images").glob("*.jpg")}
+    refuse_if_leaky(text_data, image_data)
 
     def paired(split: str) -> list[dict[str, Any]]:
         rows = read_jsonl(text_data / f"{split}.jsonl")
@@ -358,6 +417,24 @@ def main(argv: list[str] | None = None) -> int:
     # sigmoid(0) = 0.5 -- halving it. Pin those to text-only.
     for i in absent:
         per_class[i] = 1.0
+
+    # Pick the form on the *fit* split, before the test split is scored. Choosing by test
+    # macro-F1 -- which this used to do -- makes the test set part of model selection, so
+    # the number reported and the fusion.json published are both optimistically biased.
+    # The choice is small (the two forms differ by ~0.001 here) but the principle is the
+    # same one that made the split leak matter: held-out data must not steer a decision.
+    fit_scalar = score(
+        scalar * fit_text + (1 - scalar) * fit_image, fit_targets, labels
+    )
+    fit_per_class = score(
+        per_class * fit_text + (1 - per_class) * fit_image, fit_targets, labels
+    )
+    better_per_class = fit_per_class["macro_f1"] >= fit_scalar["macro_f1"]
+    print(
+        f"fusion form chosen on the fit split: "
+        f"{'per-class' if better_per_class else 'scalar'} "
+        f"({fit_per_class['macro_f1']:.4f} vs {fit_scalar['macro_f1']:.4f} macro-F1)"
+    )
 
     test_text, test_image, test_targets = results["test"]
     report = {
@@ -402,9 +479,6 @@ def main(argv: list[str] | None = None) -> int:
     # The weights are an artifact, not just a number in a log. Write them next to the
     # image model so inference can load them; without this file `combined` refuses to
     # fuse rather than falling back to a guessed 0.5.
-    better_per_class = (
-        report["fused_per_class"]["macro_f1"] >= report["fused_scalar"]["macro_f1"]
-    )
     chosen = per_class if better_per_class else scalar
     (image_dir / "fusion.json").write_text(
         json.dumps(

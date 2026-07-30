@@ -232,6 +232,32 @@ def save_checkpoint(
     (out / "state.json").write_text(json.dumps(state, indent=2), encoding="utf-8")
 
 
+def load_best(out: Path, fallback: Any) -> Any:
+    """Load the saved checkpoint, so metrics describe the artifact.
+
+    Args:
+        out: Directory the best epoch was written to.
+        fallback: The in-memory model, used when nothing was ever saved.
+
+    Returns:
+        Any: The model to evaluate, on the same device as ``fallback``.
+    """
+    from transformers import AutoModelForSequenceClassification
+
+    if not (out / "config.json").exists():
+        print("no checkpoint on disk; scoring the in-memory model")
+        return fallback
+    device = next(fallback.parameters()).device
+    best = AutoModelForSequenceClassification.from_pretrained(out).to(device)
+    best.eval()
+    state = json.loads((out / "state.json").read_text(encoding="utf-8"))
+    print(
+        f"scoring the saved checkpoint (epoch {state['epoch']}, "
+        f"val macro-F1 {state['best_f1']:.4f})"
+    )
+    return best
+
+
 def build_parser() -> argparse.ArgumentParser:
     """Build the command-line parser.
 
@@ -418,7 +444,13 @@ def main(argv: list[str] | None = None) -> int:
             print(f"no improvement in {stale} epochs; stopping")
             break
 
-    test_f1, truth, predicted = evaluate_split(model, test_loader, device, labels)
+    # Score the checkpoint on disk, not the model in memory. With best-epoch-only
+    # checkpointing, `model` holds the *last* epoch's weights whenever validation peaked
+    # earlier or early stopping fired -- so test_metrics.json described a model nobody
+    # would ever load. The published image model was saved at epoch 4 and reported epoch
+    # 5's score.
+    best = load_best(out, model)
+    test_f1, truth, predicted = evaluate_split(best, test_loader, device, labels)
     report = per_class_report(truth, predicted)
     accuracy = sum(t == p for t, p in zip(truth, predicted, strict=True)) / max(
         1, len(truth)

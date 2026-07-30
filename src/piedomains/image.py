@@ -267,9 +267,14 @@ class ImageClassifier:
         Returns:
             list[dict]: One result row per collected domain.
         """
+        # Filtered on fetch_success alone, deliberately. Requiring image_path here drops
+        # the domains that fetched fine but rendered no screenshot -- archived HTML that
+        # succeeded while the archived page failed to render, say -- before
+        # `_classify_one` can report them. It already handles that case and emits
+        # `missing_screenshot` at the `process` stage; dropping the row instead made
+        # reconciliation invent an `unknown` failure at the `fetch` stage, which is the
+        # wrong reason and the wrong stage for a fetch that worked.
         entries = [
-            d
-            for d in collection_data.get("domains", [])
-            if d.get("fetch_success") and d.get("image_path")
+            d for d in collection_data.get("domains", []) if d.get("fetch_success")
         ]
         return self.classify_from_paths(entries, output_file, latest)

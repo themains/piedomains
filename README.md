@@ -9,7 +9,7 @@
 
 - **Screenshot classification works again, and it is opt-in.** `classify_by_images()` has
   raised since 0.8.0; it now runs a fully fine-tuned, temperature-calibrated SigLIP2 model.
-- **On screenshots taken today it scores 0.344 accuracy / 0.254 macro-F1** — not the 0.426
+- **On screenshots taken today it scores 0.317 accuracy / 0.212 macro-F1** — not the 0.429
   it gets on the 2022 corpus it learned from. That four-year gap between training captures
   and live pages is measured, on 183 self-captured screenshots of held-out domains.
 - **Fusion was measured and not adopted.** On 1,742 held-out paired domains: text
@@ -154,7 +154,7 @@ PIEDOMAINS_LOG_FORMAT=json classify_domains --file domains.txt
 run = classifier.classify(["github.com"])
 run = classifier.classify_by_text(["news.google.com"])
 
-# Screenshots, opt-in. The image model is weak on current pages (0.344 accuracy)
+# Screenshots, opt-in. The image model is weak on current pages (0.317 accuracy)
 # and fusing it gains +0.001 macro-F1 -- inside noise. On cnn.com it turns a
 # correct `news` into `movies`.
 run = classifier.classify(["github.com"], use_screenshots=True)

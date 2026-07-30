@@ -56,6 +56,11 @@ dependencies = [
     # CDX + Memento client for archive.org. Deps are only requests + urllib3,
     # both already pulled in above.
     "wayback>=0.5.1",
+    # Required by transformers' AutoImageProcessor, which the screenshot path uses.
+    # It lived in the `train` group until a clean `pip install piedomains` proved that
+    # PEP 735 groups are not installed for ordinary users and classify_by_images() then
+    # died with "AutoImageProcessor requires the Torchvision library".
+    "torchvision>=0.20",
     # Optional extractor, off by default (config `extractor`). It powers
     # FineWeb/RefinedWeb and tops the WCXB benchmark on articles, but measured
     # on our own homepages it is worse than the legacy cleaner (16/33 pages
@@ -217,9 +222,6 @@ docs = [
 train = [
     "datasets>=2.20",
     "accelerate>=0.34",
-    # Image preprocessing for the screenshot model. transformers'
-    # AutoImageProcessor requires it.
-    "torchvision>=0.20",
 ]
 dev = [
     { include-group = "test" },
