@@ -121,6 +121,16 @@ class ImageClassifier:
                 f"Could not load the screenshot classification model: {e}"
             ) from e
 
+    def _backbone_name(self) -> str:
+        """Name the architecture actually loaded.
+
+        Returns:
+            str: The checkpoint's ``model_type`` (e.g. ``siglip2``), or ``unknown`` before
+            a model is loaded.
+        """
+        config = getattr(self._model, "config", None)
+        return str(getattr(config, "model_type", "unknown"))
+
     def predict_proba(self, image_path: str | Path) -> dict[str, float] | None:
         """Score one screenshot into a calibrated probability distribution.
 
@@ -165,7 +175,10 @@ class ImageClassifier:
             "url": domain,
             "domain": domain,
             "image_path": str(image_path) if image_path else None,
-            "model_used": "image/vit",
+            # Named from the loaded checkpoint rather than hardcoded: it said
+            # "image/vit" after the model became SigLIP2, which is a wrong fact in
+            # every result row.
+            "model_used": f"image/{self._backbone_name()}",
             "category": None,
             "confidence": None,
             "raw_predictions": None,

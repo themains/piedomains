@@ -113,6 +113,42 @@ class TestBlending(unittest.TestCase):
             fuse_probabilities(wrong_order, self.image, self.scalar)
         self.assertIn("label order", str(caught.exception))
 
+    def test_a_class_the_image_model_cannot_emit_does_not_crash(self):
+        """This crashed every fused call in production.
+
+        The shipped screenshot model covers 42 of the 47 classes -- five had too few
+        screenshots to train on -- and `fuse_probabilities` indexed the image dict by all
+        47, so `use_screenshots=True` raised KeyError('aggressive') for every domain.
+        training/fuse.py had the projection; the inference path never got it.
+        """
+        weights = FusionWeights(text=(0.5, 1.0, 0.5), labels=LABELS)
+        partial = {"news": 0.4, "adult": 0.6}  # no "shopping"
+        got = fuse_probabilities(self.text, partial, weights)
+        self.assertAlmostEqual(sum(got.values()), 1.0, places=6)
+        self.assertEqual(set(got), set(LABELS))
+
+    def test_pinning_an_uncovered_class_stops_it_being_shrunk(self):
+        """Zero image mass at weight < 1 quietly halves a class the image model cannot see.
+
+        `training/fuse.py` pins those classes to text-only for exactly this reason. The
+        comparison is the point: the same inputs, differing only in whether `shopping`
+        is pinned.
+        """
+        text = {"news": 0.2, "shopping": 0.45, "adult": 0.35}
+        image = {"news": 0.9, "adult": 0.1}  # confident, and silent on shopping
+
+        pinned = fuse_probabilities(
+            text, image, FusionWeights(text=(0.5, 1.0, 0.5), labels=LABELS)
+        )
+        unpinned = fuse_probabilities(
+            text, image, FusionWeights(text=(0.5, 0.5, 0.5), labels=LABELS)
+        )
+        # Halved before renormalisation (0.45 -> 0.225); 0.367 vs 0.225 after, because
+        # the pinned blend sums to more than 1 before it is normalised.
+        self.assertGreater(pinned["shopping"], unpinned["shopping"])
+        self.assertAlmostEqual(pinned["shopping"], 0.367, places=2)
+        self.assertAlmostEqual(unpinned["shopping"], 0.225, places=2)
+
     def test_a_different_class_count_is_refused(self):
         five = FusionWeights(text=(0.5,), labels=(*LABELS, "porn", "finance"))
         with self.assertRaises(ValueError):

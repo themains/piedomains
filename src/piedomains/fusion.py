@@ -122,10 +122,27 @@ def fuse_probabilities(
         logger.debug("no page text; returning image-only rather than blending")
         return dict(present)
 
+    # The screenshot model covers 42 of the 47 classes -- `aggressive`, `homestyle`,
+    # `library`, `military` and `ringtones` had too few screenshots to train on. Reading
+    # `image[name]` for those raised KeyError, so every fused call crashed.
+    #
+    # Zero is the honest value: a model never trained on a class does not vote for it.
+    # The weights fitted by training/fuse.py pin those classes to text-only precisely so
+    # the zero does not shrink them against classes the image model can emit.
+    missing = [name for name in weights.labels if name not in image]
+    if missing:
+        logger.debug(
+            "screenshot model does not cover %d of %d classes (%s); "
+            "those fall back to text",
+            len(missing),
+            len(weights.labels),
+            ", ".join(missing[:5]),
+        )
+
     blended = {}
     for i, name in enumerate(weights.labels):
         w = weights.weight_for(i)
-        blended[name] = w * text[name] + (1.0 - w) * image[name]
+        blended[name] = w * text[name] + (1.0 - w) * image.get(name, 0.0)
 
     total = sum(blended.values())
     if total <= 0:

@@ -5,7 +5,25 @@
 [![Downloads](https://pepy.tech/badge/piedomains)](https://pepy.tech/project/piedomains)
 [![Documentation](https://img.shields.io/badge/docs-github.io-blue)](https://themains.github.io/piedomains/)
 
-## What's New in v0.10.0
+## What's New in v0.11.0
+
+- **Screenshot classification works again, and it is opt-in.** `classify_by_images()` has
+  raised since 0.8.0; it now runs a fully fine-tuned, temperature-calibrated SigLIP2 model.
+- **On screenshots taken today it scores 0.344 accuracy / 0.254 macro-F1** — not the 0.426
+  it gets on the 2022 corpus it learned from. That four-year gap between training captures
+  and live pages is measured, on 183 self-captured screenshots of held-out domains.
+- **Fusion was measured and not adopted.** On 1,742 held-out paired domains: text
+  0.794/0.699, image 0.429/0.306, fused 0.798/0.700. +0.001 macro-F1 is noise, and the
+  fitted text weight is 0.973. So `classify()` returns the text answer by default.
+- **The training scripts ship with the package.** Every number above comes out of one of
+  them; `classify_domains --training-scripts` prints where they installed.
+- **Archived captures now face the same thin-content floor as live ones**, so a 114-byte
+  stub stops counting as a successful fetch.
+
+**Breaking:** `classify()` is text-only by default. Pass `use_screenshots=True` to fuse;
+the CLI's `--method` default moves from `combined` to `text`.
+
+## From v0.10.0
 
 - **A taxonomy that asks answerable questions.** Classes describing *how a site is built
   and monetised* (`adv`, `tracker`, `spyware`, `redirector`) are gone — a page does not
@@ -16,8 +34,6 @@
 - **Confidence is a real probability**: temperature-scaled softmax, rather than 39
   per-class isotonic regressions applied elementwise and never renormalized.
 - **TensorFlow is gone**, so Python 3.14 works.
-- **Bot walls are recovered from archive.org** rather than classified as if the challenge
-  page were the site.
 - **Failures are named.** Every row carries a stable `error_code`; the run report
   aggregates by reason, stage and source.
 
@@ -25,14 +41,8 @@
 pages classify at 0.667 accuracy against 0.738 for English. Usable but not equal, and
 closing the gap needs multilingual training data rather than a multilingual encoder alone.
 
-**Breaking:** the label set is now 47 classes, not 39, and some names changed
+**Breaking:** the label set is 47 classes, not 39, and some names changed
 (`porn`→`adult`, `recreation`→`recreation/sports`). See the
-[changelog](https://github.com/themains/piedomains/blob/main/CHANGELOG.md).
-
-**Breaking:** image classification is unavailable while the screenshot model is retrained,
-so `classify()` is text-only and `classify_by_images()` raises. This changes no labels —
-the old "combined" path returned the text label every time and only averaged the
-confidences, so the image model could not affect an answer. See the
 [changelog](https://github.com/themains/piedomains/blob/main/CHANGELOG.md).
 
 ## Installation
@@ -139,10 +149,16 @@ PIEDOMAINS_LOG_FORMAT=json classify_domains --file domains.txt
 ## Classification Methods
 
 ```python
-# Text-only. `classify` and `classify_by_text` are the same thing in this
-# version -- see the note on image classification above.
+# Text. This is the default, and on the measurements above it is also the most
+# accurate thing available.
 run = classifier.classify(["github.com"])
 run = classifier.classify_by_text(["news.google.com"])
+
+# Screenshots, opt-in. The image model is weak on current pages (0.344 accuracy)
+# and fusing it gains +0.001 macro-F1 -- inside noise. On cnn.com it turns a
+# correct `news` into `movies`.
+run = classifier.classify(["github.com"], use_screenshots=True)
+run = classifier.classify_by_images(["github.com"])
 
 # Batch processing with separated workflow
 collector = DataCollector()

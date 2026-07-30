@@ -101,8 +101,20 @@ class TestCli(unittest.TestCase):
     def test_parser_defaults(self):
         args = build_parser().parse_args(["example.com"])
         self.assertEqual(args.domains, ["example.com"])
-        self.assertEqual(args.method, "combined")
         self.assertEqual(args.output, "text")
+
+    def test_the_default_method_is_text_not_combined(self):
+        """Screenshots are opt-in, and the CLI has to agree with the library.
+
+        Fusing gains +0.001 macro-F1 over text alone on 1,742 paired domains, with a
+        fitted text weight of 0.973. Defaulting to `combined` would load a 350MB vision
+        model on every invocation to buy noise.
+        """
+        self.assertEqual(build_parser().parse_args(["x.com"]).method, "text")
+        self.assertEqual(
+            build_parser().parse_args(["x.com", "--method", "combined"]).method,
+            "combined",
+        )
 
 
 if __name__ == "__main__":

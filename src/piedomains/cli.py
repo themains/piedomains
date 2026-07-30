@@ -45,9 +45,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--file", help="File with one domain per line")
     parser.add_argument(
         "--method",
-        default="combined",
-        choices=["combined", "text", "images"],
-        help="Classification method (default: combined)",
+        default="text",
+        choices=["text", "images", "combined"],
+        help="Classification method (default: text). `combined` fuses the screenshot "
+        "model in, which measured +0.001 macro-F1 over text alone -- opt in knowingly.",
     )
     parser.add_argument(
         "--archive-date",
