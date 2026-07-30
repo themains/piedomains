@@ -38,9 +38,7 @@ from collections import Counter
 from collections.abc import Iterator
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
-
-from taxonomy import DROPPED_BY_NAME, map_category
+from .taxonomy import DROPPED_BY_NAME, map_category
 
 #: Surviving Shallalist mirror. The one the original notebooks used
 #: (``cbuijs/shallalist``) 404s -- the taxonomy was discontinued in 2022.
@@ -147,7 +145,7 @@ def extract(html_path: Path) -> str:
     Returns:
         str: Cleaned text, or ``""`` if the file could not be read.
     """
-    from piedomains.text_processor import TextProcessor
+    from ..text_processor import TextProcessor
 
     try:
         html = html_path.read_text(encoding="utf-8", errors="ignore")
@@ -176,7 +174,9 @@ def build_parser() -> argparse.ArgumentParser:
     Returns:
         argparse.ArgumentParser: The configured parser.
     """
-    parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    parser = argparse.ArgumentParser(
+        description="Turn the HTML corpus into labelled text splits"
+    )
     parser.add_argument(
         "--corpus",
         required=True,
@@ -240,7 +240,7 @@ def main(argv: list[str] | None = None) -> int:
         sys.stderr.write(f"corpus not found: {corpus}\n")
         return 1
 
-    from piedomains.text_processor import TextProcessor
+    from ..text_processor import TextProcessor
 
     records: list[dict[str, str]] = []
     seen_text: Counter[str] = Counter()

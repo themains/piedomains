@@ -112,7 +112,14 @@ class TestSuccessfulFetch(unittest.TestCase):
 
     def test_reports_realized_timestamp_and_extracts_text(self):
         ts = datetime(2010, 1, 1, 4, 17, 27, tzinfo=UTC)
-        html = "<html><head><title>CNN</title></head><body>breaking news today</body></html>"
+        # A realistic amount of copy: the archive path now applies the same 30-token
+        # floor as the live path, and the old three-word fixture is exactly the stub
+        # that floor exists to reject.
+        html = (
+            "<html><head><title>CNN</title></head><body>"
+            "breaking news today london paris tokyo markets sports weather travel finance health science culture music films books politics economy business technology europe asia america africa research university hospital government election climate energy transport housing education justice defence agriculture"
+            "</body></html>"
+        )
         fetcher = ArchiveFetcher("20100101")
         with patch.object(
             ArchiveFetcher, "_fetch_html", return_value=(record(ts), html, "")
@@ -190,6 +197,46 @@ class TestScreenshotReporting(unittest.TestCase):
     def test_snapshot_timestamp_is_surfaced_in_collection(self):
         row = self._collect("/tmp/whatever/cnn.com@20100101.png")
         self.assertEqual(row["snapshot_timestamp"], "20100101041727")
+
+
+class TestArchivedThinContent(unittest.TestCase):
+    """An archived stub is a failure, not a document.
+
+    The live path has refused thin pages since 0.7.0, but archived text is fetched as raw
+    HTML rather than rendered, so it never reached that check. ``sapphirecasino.com`` came
+    back as a success from a 114-byte capture holding four characters of text -- a blank
+    screenshot and an empty document, presented as data and then trained on.
+    """
+
+    def _fetch(self, html):
+        import asyncio
+        from datetime import datetime
+        from unittest.mock import MagicMock, patch
+
+        from piedomains.fetchers import ArchiveFetcher
+
+        record = MagicMock()
+        record.timestamp = datetime(2025, 8, 7, 16, 39, 49, tzinfo=UTC)
+        record.raw_url = "http://web.archive.org/web/20250807163949id_/http://x.com/"
+
+        fetcher = ArchiveFetcher("20250807")
+        with patch.object(fetcher, "_fetch_html", return_value=(record, html, "")):
+            return asyncio.run(fetcher.fetch_single("x.com"))
+
+    def test_a_stub_capture_is_refused(self):
+        result = self._fetch("<html><body>Coming soon</body></html>")
+        self.assertFalse(result.success)
+        self.assertEqual(result.error_code, "thin_content")
+        self.assertIn("below the 30-word floor", result.error)
+
+    def test_a_real_capture_still_succeeds(self):
+        # Distinct words, because the cleaner deduplicates: 60 repetitions of one word
+        # survive as a single token, so the floor is really 30 *distinct* tokens.
+        result = self._fetch(
+            "<html><body>breaking news today london paris tokyo markets sports weather travel finance health science culture music films books politics economy business technology europe asia america africa research university hospital government election climate energy transport housing education justice defence agriculture</body></html>"
+        )
+        self.assertTrue(result.success, result.error)
+        self.assertEqual(result.snapshot_timestamp, "20250807163949")
 
 
 if __name__ == "__main__":

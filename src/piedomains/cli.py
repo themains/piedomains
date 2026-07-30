@@ -3,6 +3,7 @@
 import argparse
 import json
 import sys
+from pathlib import Path
 
 
 def _read_domains(args: argparse.Namespace) -> list[str]:
@@ -44,9 +45,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--file", help="File with one domain per line")
     parser.add_argument(
         "--method",
-        default="combined",
-        choices=["combined", "text", "images"],
-        help="Classification method (default: combined)",
+        default="text",
+        choices=["text", "images", "combined"],
+        help="Classification method (default: text). `combined` fuses the screenshot "
+        "model in, which measured +0.001 macro-F1 over text alone -- opt in knowingly.",
     )
     parser.add_argument(
         "--archive-date",
@@ -63,7 +65,33 @@ def build_parser() -> argparse.ArgumentParser:
         "--report",
         help="Write the run report (counts by reason, missing domains) to this path",
     )
+    parser.add_argument(
+        "--training-scripts",
+        action="store_true",
+        help="Print where the bundled training and evaluation scripts are installed",
+    )
     return parser
+
+
+def training_scripts_dir() -> Path:
+    """Locate the training scripts that ship with the package.
+
+    Every accuracy figure in the README is produced by these, and a number nobody can
+    re-run is a number taken on faith. They are a subpackage, so they install with the
+    library and run as ``python -m piedomains.training.<name>`` — but a path inside
+    ``site-packages`` is not something anyone would guess, hence this.
+
+    Returns:
+        Path: The directory holding ``train_text.py``, ``evaluate.py`` and the rest.
+
+    Raises:
+        SystemExit: If the scripts are not found, rather than returning a path that does
+            not exist and failing later somewhere less obvious.
+    """
+    here = Path(__file__).parent / "training"
+    if not (here / "train_text.py").exists():
+        raise SystemExit(f"training scripts not found at {here}; reinstall piedomains")
+    return here
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -76,6 +104,11 @@ def main(argv: list[str] | None = None) -> int:
         int: Process exit code.
     """
     args = build_parser().parse_args(argv)
+
+    if args.training_scripts:
+        sys.stdout.write(f"{training_scripts_dir()}\n")
+        return 0
+
     domains = _read_domains(args)
 
     from .api import classify_domains

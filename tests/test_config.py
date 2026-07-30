@@ -168,5 +168,41 @@ class TestConfig(unittest.TestCase):
         self.assertIn("Mozilla", user_agent)
 
 
+class TestScreenshotScale(unittest.TestCase):
+    """Capture resolution, and the fact that one place decides it.
+
+    The three browser-context call sites each used to spell out their own settings, so a
+    change to one silently skipped the others and screenshots taken by the batch path
+    could differ from those taken by the single path.
+    """
+
+    def test_scale_defaults_to_one(self):
+        """1x because the model reads 224px; 4x the pixels would only be discarded."""
+        self.assertEqual(get_config().get("screenshot_scale"), 1)
+
+    def test_scale_reaches_the_browser_context(self):
+        from piedomains.fetchers import BaseFetcher
+
+        self.assertEqual(BaseFetcher()._context_kwargs()["device_scale_factor"], 1)
+
+    def test_a_raised_scale_is_honoured(self):
+        from piedomains.fetchers import BaseFetcher
+
+        config = get_config()
+        original = config.get("screenshot_scale")
+        try:
+            config.set("screenshot_scale", 2)
+            self.assertEqual(BaseFetcher()._context_kwargs()["device_scale_factor"], 2)
+        finally:
+            config.set("screenshot_scale", original)
+
+    def test_every_context_setting_comes_from_one_place(self):
+        """A missing key here means one capture path diverges from the others."""
+        from piedomains.fetchers import BaseFetcher
+
+        kwargs = BaseFetcher()._context_kwargs()
+        self.assertEqual(set(kwargs), {"user_agent", "viewport", "device_scale_factor"})
+
+
 if __name__ == "__main__":
     unittest.main()

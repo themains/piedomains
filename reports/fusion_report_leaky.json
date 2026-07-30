@@ -1,0 +1,1158 @@
+{
+  "text_only": {
+    "accuracy": 0.7944890929965557,
+    "macro_f1": 0.6992987178987947,
+    "per_class": {
+      "adult": {
+        "precision": 0.2222222222222222,
+        "recall": 0.6666666666666666,
+        "f1": 0.3333333333333333,
+        "support": 3
+      },
+      "aggressive": {
+        "precision": 0.3333333333333333,
+        "recall": 0.14285714285714285,
+        "f1": 0.2,
+        "support": 7
+      },
+      "alcohol": {
+        "precision": 0.92,
+        "recall": 0.8214285714285714,
+        "f1": 0.8679245283018867,
+        "support": 28
+      },
+      "automobile": {
+        "precision": 0.8513513513513513,
+        "recall": 0.7777777777777778,
+        "f1": 0.8129032258064517,
+        "support": 81
+      },
+      "dating": {
+        "precision": 0.8,
+        "recall": 0.875,
+        "f1": 0.8358208955223881,
+        "support": 32
+      },
+      "downloads": {
+        "precision": 0.7692307692307693,
+        "recall": 0.6818181818181818,
+        "f1": 0.7228915662650602,
+        "support": 44
+      },
+      "drugs": {
+        "precision": 0.5945945945945946,
+        "recall": 0.5116279069767442,
+        "f1": 0.55,
+        "support": 43
+      },
+      "education": {
+        "precision": 0.8734177215189873,
+        "recall": 0.92,
+        "f1": 0.896103896103896,
+        "support": 75
+      },
+      "finance": {
+        "precision": 0.922077922077922,
+        "recall": 0.9342105263157895,
+        "f1": 0.9281045751633986,
+        "support": 76
+      },
+      "fortunetelling": {
+        "precision": 0.84375,
+        "recall": 0.84375,
+        "f1": 0.84375,
+        "support": 32
+      },
+      "forum": {
+        "precision": 0.898876404494382,
+        "recall": 0.8421052631578947,
+        "f1": 0.8695652173913043,
+        "support": 95
+      },
+      "gamble": {
+        "precision": 0.967741935483871,
+        "recall": 0.8955223880597015,
+        "f1": 0.930232558139535,
+        "support": 67
+      },
+      "government": {
+        "precision": 0.9285714285714286,
+        "recall": 0.7222222222222222,
+        "f1": 0.8125000000000001,
+        "support": 18
+      },
+      "hobby/cooking": {
+        "precision": 0.9285714285714286,
+        "recall": 0.8125,
+        "f1": 0.8666666666666666,
+        "support": 16
+      },
+      "hobby/games-misc": {
+        "precision": 0.6875,
+        "recall": 0.43137254901960786,
+        "f1": 0.5301204819277109,
+        "support": 51
+      },
+      "hobby/games-online": {
+        "precision": 0.6304347826086957,
+        "recall": 0.7837837837837838,
+        "f1": 0.6987951807228915,
+        "support": 74
+      },
+      "hobby/gardening": {
+        "precision": 0.9444444444444444,
+        "recall": 0.7391304347826086,
+        "f1": 0.8292682926829269,
+        "support": 23
+      },
+      "hobby/pets": {
+        "precision": 0.8,
+        "recall": 0.8275862068965517,
+        "f1": 0.8135593220338982,
+        "support": 58
+      },
+      "homestyle": {
+        "precision": 0.6,
+        "recall": 0.6,
+        "f1": 0.6,
+        "support": 5
+      },
+      "hospitals": {
+        "precision": 0.927536231884058,
+        "recall": 0.9411764705882353,
+        "f1": 0.9343065693430658,
+        "support": 68
+      },
+      "imagehosting": {
+        "precision": 0.6666666666666666,
+        "recall": 0.5714285714285714,
+        "f1": 0.6153846153846153,
+        "support": 14
+      },
+      "isp": {
+        "precision": 0.6875,
+        "recall": 0.6470588235294118,
+        "f1": 0.6666666666666667,
+        "support": 17
+      },
+      "jobsearch": {
+        "precision": 0.8666666666666667,
+        "recall": 0.9285714285714286,
+        "f1": 0.896551724137931,
+        "support": 84
+      },
+      "library": {
+        "precision": 1.0,
+        "recall": 0.5714285714285714,
+        "f1": 0.7272727272727273,
+        "support": 7
+      },
+      "military": {
+        "precision": 0.75,
+        "recall": 0.5,
+        "f1": 0.6,
+        "support": 6
+      },
+      "movies": {
+        "precision": 0.8421052631578947,
+        "recall": 0.9014084507042254,
+        "f1": 0.8707482993197279,
+        "support": 71
+      },
+      "music": {
+        "precision": 0.9078947368421053,
+        "recall": 0.9078947368421053,
+        "f1": 0.9078947368421053,
+        "support": 76
+      },
+      "news": {
+        "precision": 0.21052631578947367,
+        "recall": 0.42105263157894735,
+        "f1": 0.2807017543859649,
+        "support": 19
+      },
+      "politics": {
+        "precision": 0.8909090909090909,
+        "recall": 0.875,
+        "f1": 0.8828828828828829,
+        "support": 56
+      },
+      "radiotv": {
+        "precision": 0.7796610169491526,
+        "recall": 0.647887323943662,
+        "f1": 0.7076923076923076,
+        "support": 71
+      },
+      "realestate": {
+        "precision": 0.9069767441860465,
+        "recall": 0.9512195121951219,
+        "f1": 0.9285714285714286,
+        "support": 41
+      },
+      "recreation/humor": {
+        "precision": 0.75,
+        "recall": 0.5294117647058824,
+        "f1": 0.6206896551724139,
+        "support": 17
+      },
+      "recreation/restaurants": {
+        "precision": 0.9622641509433962,
+        "recall": 0.9107142857142857,
+        "f1": 0.9357798165137615,
+        "support": 56
+      },
+      "recreation/sports": {
+        "precision": 0.21739130434782608,
+        "recall": 0.7142857142857143,
+        "f1": 0.3333333333333333,
+        "support": 7
+      },
+      "recreation/travel": {
+        "precision": 0.23529411764705882,
+        "recall": 0.5,
+        "f1": 0.31999999999999995,
+        "support": 8
+      },
+      "recreation/wellness": {
+        "precision": 0.8333333333333334,
+        "recall": 0.6521739130434783,
+        "f1": 0.7317073170731708,
+        "support": 23
+      },
+      "religion": {
+        "precision": 0.9607843137254902,
+        "recall": 0.9607843137254902,
+        "f1": 0.9607843137254902,
+        "support": 102
+      },
+      "ringtones": {
+        "precision": 1.0,
+        "recall": 0.5555555555555556,
+        "f1": 0.7142857142857143,
+        "support": 9
+      },
+      "science": {
+        "precision": 1.0,
+        "recall": 0.9375,
+        "f1": 0.967741935483871,
+        "support": 32
+      },
+      "searchengines": {
+        "precision": 0.5,
+        "recall": 0.5454545454545454,
+        "f1": 0.5217391304347826,
+        "support": 11
+      },
+      "shopping": {
+        "precision": 0.08333333333333333,
+        "recall": 0.75,
+        "f1": 0.15,
+        "support": 4
+      },
+      "socialnet": {
+        "precision": 0.5,
+        "recall": 0.3333333333333333,
+        "f1": 0.4,
+        "support": 18
+      },
+      "urlshortener": {
+        "precision": 0.7,
+        "recall": 0.5833333333333334,
+        "f1": 0.6363636363636365,
+        "support": 12
+      },
+      "warez": {
+        "precision": 0.5,
+        "recall": 0.42857142857142855,
+        "f1": 0.4615384615384615,
+        "support": 7
+      },
+      "weapons": {
+        "precision": 0.9230769230769231,
+        "recall": 0.9230769230769231,
+        "f1": 0.9230769230769231,
+        "support": 13
+      },
+      "webmail": {
+        "precision": 0.8148148148148148,
+        "recall": 0.6470588235294118,
+        "f1": 0.7213114754098361,
+        "support": 34
+      },
+      "webradio": {
+        "precision": 0.5357142857142857,
+        "recall": 0.4838709677419355,
+        "f1": 0.5084745762711865,
+        "support": 31
+      }
+    }
+  },
+  "image_only": {
+    "accuracy": 0.7680826636050516,
+    "macro_f1": 0.63906201476072,
+    "per_class": {
+      "adult": {
+        "precision": 0.034482758620689655,
+        "recall": 0.6666666666666666,
+        "f1": 0.06557377049180328,
+        "support": 3
+      },
+      "aggressive": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "support": 7
+      },
+      "alcohol": {
+        "precision": 1.0,
+        "recall": 0.8571428571428571,
+        "f1": 0.923076923076923,
+        "support": 28
+      },
+      "automobile": {
+        "precision": 0.881578947368421,
+        "recall": 0.8271604938271605,
+        "f1": 0.8535031847133758,
+        "support": 81
+      },
+      "dating": {
+        "precision": 0.8928571428571429,
+        "recall": 0.78125,
+        "f1": 0.8333333333333334,
+        "support": 32
+      },
+      "downloads": {
+        "precision": 0.8108108108108109,
+        "recall": 0.6818181818181818,
+        "f1": 0.7407407407407407,
+        "support": 44
+      },
+      "drugs": {
+        "precision": 0.8928571428571429,
+        "recall": 0.5813953488372093,
+        "f1": 0.7042253521126761,
+        "support": 43
+      },
+      "education": {
+        "precision": 0.8292682926829268,
+        "recall": 0.9066666666666666,
+        "f1": 0.8662420382165605,
+        "support": 75
+      },
+      "finance": {
+        "precision": 0.7558139534883721,
+        "recall": 0.8552631578947368,
+        "f1": 0.8024691358024691,
+        "support": 76
+      },
+      "fortunetelling": {
+        "precision": 0.9285714285714286,
+        "recall": 0.8125,
+        "f1": 0.8666666666666666,
+        "support": 32
+      },
+      "forum": {
+        "precision": 0.8383838383838383,
+        "recall": 0.8736842105263158,
+        "f1": 0.8556701030927836,
+        "support": 95
+      },
+      "gamble": {
+        "precision": 0.9032258064516129,
+        "recall": 0.835820895522388,
+        "f1": 0.8682170542635659,
+        "support": 67
+      },
+      "government": {
+        "precision": 0.9230769230769231,
+        "recall": 0.6666666666666666,
+        "f1": 0.7741935483870968,
+        "support": 18
+      },
+      "hobby/cooking": {
+        "precision": 1.0,
+        "recall": 0.75,
+        "f1": 0.8571428571428571,
+        "support": 16
+      },
+      "hobby/games-misc": {
+        "precision": 0.875,
+        "recall": 0.5490196078431373,
+        "f1": 0.674698795180723,
+        "support": 51
+      },
+      "hobby/games-online": {
+        "precision": 0.5981308411214953,
+        "recall": 0.8648648648648649,
+        "f1": 0.7071823204419888,
+        "support": 74
+      },
+      "hobby/gardening": {
+        "precision": 1.0,
+        "recall": 0.6086956521739131,
+        "f1": 0.7567567567567568,
+        "support": 23
+      },
+      "hobby/pets": {
+        "precision": 0.7580645161290323,
+        "recall": 0.8103448275862069,
+        "f1": 0.7833333333333333,
+        "support": 58
+      },
+      "homestyle": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "support": 5
+      },
+      "hospitals": {
+        "precision": 1.0,
+        "recall": 0.8235294117647058,
+        "f1": 0.9032258064516129,
+        "support": 68
+      },
+      "imagehosting": {
+        "precision": 1.0,
+        "recall": 0.5714285714285714,
+        "f1": 0.7272727272727273,
+        "support": 14
+      },
+      "isp": {
+        "precision": 0.8125,
+        "recall": 0.7647058823529411,
+        "f1": 0.787878787878788,
+        "support": 17
+      },
+      "jobsearch": {
+        "precision": 0.8641975308641975,
+        "recall": 0.8333333333333334,
+        "f1": 0.8484848484848484,
+        "support": 84
+      },
+      "library": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "support": 7
+      },
+      "military": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "support": 6
+      },
+      "movies": {
+        "precision": 0.921875,
+        "recall": 0.8309859154929577,
+        "f1": 0.874074074074074,
+        "support": 71
+      },
+      "music": {
+        "precision": 0.8313253012048193,
+        "recall": 0.9078947368421053,
+        "f1": 0.8679245283018868,
+        "support": 76
+      },
+      "news": {
+        "precision": 0.3148148148148148,
+        "recall": 0.8947368421052632,
+        "f1": 0.4657534246575343,
+        "support": 19
+      },
+      "politics": {
+        "precision": 0.9375,
+        "recall": 0.8035714285714286,
+        "f1": 0.8653846153846154,
+        "support": 56
+      },
+      "radiotv": {
+        "precision": 0.8709677419354839,
+        "recall": 0.7605633802816901,
+        "f1": 0.8120300751879699,
+        "support": 71
+      },
+      "realestate": {
+        "precision": 0.9354838709677419,
+        "recall": 0.7073170731707317,
+        "f1": 0.8055555555555556,
+        "support": 41
+      },
+      "recreation/humor": {
+        "precision": 1.0,
+        "recall": 0.5294117647058824,
+        "f1": 0.6923076923076924,
+        "support": 17
+      },
+      "recreation/restaurants": {
+        "precision": 0.9387755102040817,
+        "recall": 0.8214285714285714,
+        "f1": 0.8761904761904763,
+        "support": 56
+      },
+      "recreation/sports": {
+        "precision": 0.25,
+        "recall": 1.0,
+        "f1": 0.4,
+        "support": 7
+      },
+      "recreation/travel": {
+        "precision": 0.13513513513513514,
+        "recall": 0.625,
+        "f1": 0.22222222222222224,
+        "support": 8
+      },
+      "recreation/wellness": {
+        "precision": 0.9411764705882353,
+        "recall": 0.6956521739130435,
+        "f1": 0.7999999999999999,
+        "support": 23
+      },
+      "religion": {
+        "precision": 0.8504672897196262,
+        "recall": 0.8921568627450981,
+        "f1": 0.8708133971291867,
+        "support": 102
+      },
+      "ringtones": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0,
+        "support": 9
+      },
+      "science": {
+        "precision": 0.9310344827586207,
+        "recall": 0.84375,
+        "f1": 0.8852459016393444,
+        "support": 32
+      },
+      "searchengines": {
+        "precision": 1.0,
+        "recall": 0.18181818181818182,
+        "f1": 0.3076923076923077,
+        "support": 11
+      },
+      "shopping": {
+        "precision": 0.05405405405405406,
+        "recall": 0.5,
+        "f1": 0.0975609756097561,
+        "support": 4
+      },
+      "socialnet": {
+        "precision": 0.7692307692307693,
+        "recall": 0.5555555555555556,
+        "f1": 0.6451612903225806,
+        "support": 18
+      },
+      "urlshortener": {
+        "precision": 0.8333333333333334,
+        "recall": 0.4166666666666667,
+        "f1": 0.5555555555555556,
+        "support": 12
+      },
+      "warez": {
+        "precision": 1.0,
+        "recall": 0.42857142857142855,
+        "f1": 0.6,
+        "support": 7
+      },
+      "weapons": {
+        "precision": 1.0,
+        "recall": 0.6923076923076923,
+        "f1": 0.8181818181818181,
+        "support": 13
+      },
+      "webmail": {
+        "precision": 0.8148148148148148,
+        "recall": 0.6470588235294118,
+        "f1": 0.7213114754098361,
+        "support": 34
+      },
+      "webradio": {
+        "precision": 0.8888888888888888,
+        "recall": 0.5161290322580645,
+        "f1": 0.6530612244897959,
+        "support": 31
+      }
+    }
+  },
+  "fused_scalar": {
+    "accuracy": 0.8398392652123995,
+    "macro_f1": 0.7417102115394858,
+    "per_class": {
+      "adult": {
+        "precision": 0.2,
+        "recall": 0.6666666666666666,
+        "f1": 0.30769230769230765,
+        "support": 3
+      },
+      "aggressive": {
+        "precision": 0.3333333333333333,
+        "recall": 0.14285714285714285,
+        "f1": 0.2,
+        "support": 7
+      },
+      "alcohol": {
+        "precision": 0.9310344827586207,
+        "recall": 0.9642857142857143,
+        "f1": 0.9473684210526316,
+        "support": 28
+      },
+      "automobile": {
+        "precision": 0.8765432098765432,
+        "recall": 0.8765432098765432,
+        "f1": 0.8765432098765432,
+        "support": 81
+      },
+      "dating": {
+        "precision": 0.8333333333333334,
+        "recall": 0.9375,
+        "f1": 0.8823529411764706,
+        "support": 32
+      },
+      "downloads": {
+        "precision": 0.8823529411764706,
+        "recall": 0.6818181818181818,
+        "f1": 0.7692307692307693,
+        "support": 44
+      },
+      "drugs": {
+        "precision": 0.725,
+        "recall": 0.6744186046511628,
+        "f1": 0.6987951807228916,
+        "support": 43
+      },
+      "education": {
+        "precision": 0.9090909090909091,
+        "recall": 0.9333333333333333,
+        "f1": 0.9210526315789475,
+        "support": 75
+      },
+      "finance": {
+        "precision": 0.9156626506024096,
+        "recall": 1.0,
+        "f1": 0.9559748427672956,
+        "support": 76
+      },
+      "fortunetelling": {
+        "precision": 0.875,
+        "recall": 0.875,
+        "f1": 0.875,
+        "support": 32
+      },
+      "forum": {
+        "precision": 0.9130434782608695,
+        "recall": 0.8842105263157894,
+        "f1": 0.8983957219251336,
+        "support": 95
+      },
+      "gamble": {
+        "precision": 0.96875,
+        "recall": 0.9253731343283582,
+        "f1": 0.9465648854961832,
+        "support": 67
+      },
+      "government": {
+        "precision": 0.9375,
+        "recall": 0.8333333333333334,
+        "f1": 0.8823529411764706,
+        "support": 18
+      },
+      "hobby/cooking": {
+        "precision": 0.9375,
+        "recall": 0.9375,
+        "f1": 0.9375,
+        "support": 16
+      },
+      "hobby/games-misc": {
+        "precision": 0.8125,
+        "recall": 0.5098039215686274,
+        "f1": 0.6265060240963856,
+        "support": 51
+      },
+      "hobby/games-online": {
+        "precision": 0.7032967032967034,
+        "recall": 0.8648648648648649,
+        "f1": 0.7757575757575758,
+        "support": 74
+      },
+      "hobby/gardening": {
+        "precision": 0.9444444444444444,
+        "recall": 0.7391304347826086,
+        "f1": 0.8292682926829269,
+        "support": 23
+      },
+      "hobby/pets": {
+        "precision": 0.8793103448275862,
+        "recall": 0.8793103448275862,
+        "f1": 0.8793103448275863,
+        "support": 58
+      },
+      "homestyle": {
+        "precision": 0.6,
+        "recall": 0.6,
+        "f1": 0.6,
+        "support": 5
+      },
+      "hospitals": {
+        "precision": 0.927536231884058,
+        "recall": 0.9411764705882353,
+        "f1": 0.9343065693430658,
+        "support": 68
+      },
+      "imagehosting": {
+        "precision": 0.6923076923076923,
+        "recall": 0.6428571428571429,
+        "f1": 0.6666666666666666,
+        "support": 14
+      },
+      "isp": {
+        "precision": 0.7333333333333333,
+        "recall": 0.6470588235294118,
+        "f1": 0.6875,
+        "support": 17
+      },
+      "jobsearch": {
+        "precision": 0.9069767441860465,
+        "recall": 0.9285714285714286,
+        "f1": 0.9176470588235294,
+        "support": 84
+      },
+      "library": {
+        "precision": 1.0,
+        "recall": 0.5714285714285714,
+        "f1": 0.7272727272727273,
+        "support": 7
+      },
+      "military": {
+        "precision": 0.75,
+        "recall": 0.5,
+        "f1": 0.6,
+        "support": 6
+      },
+      "movies": {
+        "precision": 0.8904109589041096,
+        "recall": 0.9154929577464789,
+        "f1": 0.9027777777777778,
+        "support": 71
+      },
+      "music": {
+        "precision": 0.9342105263157895,
+        "recall": 0.9342105263157895,
+        "f1": 0.9342105263157895,
+        "support": 76
+      },
+      "news": {
+        "precision": 0.36666666666666664,
+        "recall": 0.5789473684210527,
+        "f1": 0.44897959183673464,
+        "support": 19
+      },
+      "politics": {
+        "precision": 0.8771929824561403,
+        "recall": 0.8928571428571429,
+        "f1": 0.8849557522123894,
+        "support": 56
+      },
+      "radiotv": {
+        "precision": 0.8088235294117647,
+        "recall": 0.7746478873239436,
+        "f1": 0.7913669064748201,
+        "support": 71
+      },
+      "realestate": {
+        "precision": 0.9302325581395349,
+        "recall": 0.975609756097561,
+        "f1": 0.9523809523809524,
+        "support": 41
+      },
+      "recreation/humor": {
+        "precision": 0.8333333333333334,
+        "recall": 0.5882352941176471,
+        "f1": 0.6896551724137931,
+        "support": 17
+      },
+      "recreation/restaurants": {
+        "precision": 0.9629629629629629,
+        "recall": 0.9285714285714286,
+        "f1": 0.9454545454545454,
+        "support": 56
+      },
+      "recreation/sports": {
+        "precision": 0.3333333333333333,
+        "recall": 0.8571428571428571,
+        "f1": 0.48,
+        "support": 7
+      },
+      "recreation/travel": {
+        "precision": 0.35294117647058826,
+        "recall": 0.75,
+        "f1": 0.48,
+        "support": 8
+      },
+      "recreation/wellness": {
+        "precision": 0.8888888888888888,
+        "recall": 0.6956521739130435,
+        "f1": 0.7804878048780488,
+        "support": 23
+      },
+      "religion": {
+        "precision": 0.9519230769230769,
+        "recall": 0.9705882352941176,
+        "f1": 0.9611650485436893,
+        "support": 102
+      },
+      "ringtones": {
+        "precision": 1.0,
+        "recall": 0.5555555555555556,
+        "f1": 0.7142857142857143,
+        "support": 9
+      },
+      "science": {
+        "precision": 1.0,
+        "recall": 0.9375,
+        "f1": 0.967741935483871,
+        "support": 32
+      },
+      "searchengines": {
+        "precision": 0.5454545454545454,
+        "recall": 0.5454545454545454,
+        "f1": 0.5454545454545454,
+        "support": 11
+      },
+      "shopping": {
+        "precision": 0.10714285714285714,
+        "recall": 0.75,
+        "f1": 0.1875,
+        "support": 4
+      },
+      "socialnet": {
+        "precision": 0.5,
+        "recall": 0.2777777777777778,
+        "f1": 0.35714285714285715,
+        "support": 18
+      },
+      "urlshortener": {
+        "precision": 0.875,
+        "recall": 0.5833333333333334,
+        "f1": 0.7000000000000001,
+        "support": 12
+      },
+      "warez": {
+        "precision": 0.6,
+        "recall": 0.42857142857142855,
+        "f1": 0.5,
+        "support": 7
+      },
+      "weapons": {
+        "precision": 0.9230769230769231,
+        "recall": 0.9230769230769231,
+        "f1": 0.9230769230769231,
+        "support": 13
+      },
+      "webmail": {
+        "precision": 0.8571428571428571,
+        "recall": 0.7058823529411765,
+        "f1": 0.7741935483870968,
+        "support": 34
+      },
+      "webradio": {
+        "precision": 0.6538461538461539,
+        "recall": 0.5483870967741935,
+        "f1": 0.5964912280701755,
+        "support": 31
+      }
+    }
+  },
+  "fused_per_class": {
+    "accuracy": 0.8461538461538461,
+    "macro_f1": 0.7448327594512927,
+    "per_class": {
+      "adult": {
+        "precision": 0.16666666666666666,
+        "recall": 0.6666666666666666,
+        "f1": 0.26666666666666666,
+        "support": 3
+      },
+      "aggressive": {
+        "precision": 0.2,
+        "recall": 0.14285714285714285,
+        "f1": 0.16666666666666666,
+        "support": 7
+      },
+      "alcohol": {
+        "precision": 0.9285714285714286,
+        "recall": 0.9285714285714286,
+        "f1": 0.9285714285714286,
+        "support": 28
+      },
+      "automobile": {
+        "precision": 0.8888888888888888,
+        "recall": 0.8888888888888888,
+        "f1": 0.8888888888888888,
+        "support": 81
+      },
+      "dating": {
+        "precision": 0.8108108108108109,
+        "recall": 0.9375,
+        "f1": 0.8695652173913043,
+        "support": 32
+      },
+      "downloads": {
+        "precision": 0.8648648648648649,
+        "recall": 0.7272727272727273,
+        "f1": 0.7901234567901235,
+        "support": 44
+      },
+      "drugs": {
+        "precision": 0.8181818181818182,
+        "recall": 0.627906976744186,
+        "f1": 0.7105263157894738,
+        "support": 43
+      },
+      "education": {
+        "precision": 0.8846153846153846,
+        "recall": 0.92,
+        "f1": 0.9019607843137256,
+        "support": 75
+      },
+      "finance": {
+        "precision": 0.9375,
+        "recall": 0.9868421052631579,
+        "f1": 0.9615384615384615,
+        "support": 76
+      },
+      "fortunetelling": {
+        "precision": 0.8787878787878788,
+        "recall": 0.90625,
+        "f1": 0.8923076923076922,
+        "support": 32
+      },
+      "forum": {
+        "precision": 0.9130434782608695,
+        "recall": 0.8842105263157894,
+        "f1": 0.8983957219251336,
+        "support": 95
+      },
+      "gamble": {
+        "precision": 0.9841269841269841,
+        "recall": 0.9253731343283582,
+        "f1": 0.9538461538461538,
+        "support": 67
+      },
+      "government": {
+        "precision": 0.9375,
+        "recall": 0.8333333333333334,
+        "f1": 0.8823529411764706,
+        "support": 18
+      },
+      "hobby/cooking": {
+        "precision": 0.9333333333333333,
+        "recall": 0.875,
+        "f1": 0.9032258064516129,
+        "support": 16
+      },
+      "hobby/games-misc": {
+        "precision": 0.7894736842105263,
+        "recall": 0.5882352941176471,
+        "f1": 0.6741573033707866,
+        "support": 51
+      },
+      "hobby/games-online": {
+        "precision": 0.7619047619047619,
+        "recall": 0.8648648648648649,
+        "f1": 0.810126582278481,
+        "support": 74
+      },
+      "hobby/gardening": {
+        "precision": 0.9444444444444444,
+        "recall": 0.7391304347826086,
+        "f1": 0.8292682926829269,
+        "support": 23
+      },
+      "hobby/pets": {
+        "precision": 0.9090909090909091,
+        "recall": 0.8620689655172413,
+        "f1": 0.8849557522123893,
+        "support": 58
+      },
+      "homestyle": {
+        "precision": 0.5,
+        "recall": 0.4,
+        "f1": 0.4444444444444445,
+        "support": 5
+      },
+      "hospitals": {
+        "precision": 0.9411764705882353,
+        "recall": 0.9411764705882353,
+        "f1": 0.9411764705882353,
+        "support": 68
+      },
+      "imagehosting": {
+        "precision": 0.6923076923076923,
+        "recall": 0.6428571428571429,
+        "f1": 0.6666666666666666,
+        "support": 14
+      },
+      "isp": {
+        "precision": 0.7647058823529411,
+        "recall": 0.7647058823529411,
+        "f1": 0.7647058823529412,
+        "support": 17
+      },
+      "jobsearch": {
+        "precision": 0.9176470588235294,
+        "recall": 0.9285714285714286,
+        "f1": 0.923076923076923,
+        "support": 84
+      },
+      "library": {
+        "precision": 1.0,
+        "recall": 0.5714285714285714,
+        "f1": 0.7272727272727273,
+        "support": 7
+      },
+      "military": {
+        "precision": 0.75,
+        "recall": 0.5,
+        "f1": 0.6,
+        "support": 6
+      },
+      "movies": {
+        "precision": 0.9041095890410958,
+        "recall": 0.9295774647887324,
+        "f1": 0.9166666666666666,
+        "support": 71
+      },
+      "music": {
+        "precision": 0.9333333333333333,
+        "recall": 0.9210526315789473,
+        "f1": 0.9271523178807947,
+        "support": 76
+      },
+      "news": {
+        "precision": 0.5652173913043478,
+        "recall": 0.6842105263157895,
+        "f1": 0.6190476190476191,
+        "support": 19
+      },
+      "politics": {
+        "precision": 0.8771929824561403,
+        "recall": 0.8928571428571429,
+        "f1": 0.8849557522123894,
+        "support": 56
+      },
+      "radiotv": {
+        "precision": 0.8142857142857143,
+        "recall": 0.8028169014084507,
+        "f1": 0.8085106382978723,
+        "support": 71
+      },
+      "realestate": {
+        "precision": 0.8888888888888888,
+        "recall": 0.975609756097561,
+        "f1": 0.9302325581395349,
+        "support": 41
+      },
+      "recreation/humor": {
+        "precision": 0.9285714285714286,
+        "recall": 0.7647058823529411,
+        "f1": 0.8387096774193549,
+        "support": 17
+      },
+      "recreation/restaurants": {
+        "precision": 0.9622641509433962,
+        "recall": 0.9107142857142857,
+        "f1": 0.9357798165137615,
+        "support": 56
+      },
+      "recreation/sports": {
+        "precision": 0.25,
+        "recall": 0.8571428571428571,
+        "f1": 0.3870967741935483,
+        "support": 7
+      },
+      "recreation/travel": {
+        "precision": 0.29411764705882354,
+        "recall": 0.625,
+        "f1": 0.4,
+        "support": 8
+      },
+      "recreation/wellness": {
+        "precision": 0.8888888888888888,
+        "recall": 0.6956521739130435,
+        "f1": 0.7804878048780488,
+        "support": 23
+      },
+      "religion": {
+        "precision": 0.9428571428571428,
+        "recall": 0.9705882352941176,
+        "f1": 0.9565217391304348,
+        "support": 102
+      },
+      "ringtones": {
+        "precision": 1.0,
+        "recall": 0.5555555555555556,
+        "f1": 0.7142857142857143,
+        "support": 9
+      },
+      "science": {
+        "precision": 1.0,
+        "recall": 0.9375,
+        "f1": 0.967741935483871,
+        "support": 32
+      },
+      "searchengines": {
+        "precision": 0.625,
+        "recall": 0.45454545454545453,
+        "f1": 0.5263157894736842,
+        "support": 11
+      },
+      "shopping": {
+        "precision": 0.11538461538461539,
+        "recall": 0.75,
+        "f1": 0.19999999999999998,
+        "support": 4
+      },
+      "socialnet": {
+        "precision": 0.5833333333333334,
+        "recall": 0.3888888888888889,
+        "f1": 0.4666666666666666,
+        "support": 18
+      },
+      "urlshortener": {
+        "precision": 0.7,
+        "recall": 0.5833333333333334,
+        "f1": 0.6363636363636365,
+        "support": 12
+      },
+      "warez": {
+        "precision": 0.6,
+        "recall": 0.42857142857142855,
+        "f1": 0.5,
+        "support": 7
+      },
+      "weapons": {
+        "precision": 0.9230769230769231,
+        "recall": 0.9230769230769231,
+        "f1": 0.9230769230769231,
+        "support": 13
+      },
+      "webmail": {
+        "precision": 0.8709677419354839,
+        "recall": 0.7941176470588235,
+        "f1": 0.8307692307692308,
+        "support": 34
+      },
+      "webradio": {
+        "precision": 0.6071428571428571,
+        "recall": 0.5483870967741935,
+        "f1": 0.5762711864406779,
+        "support": 31
+      }
+    }
+  },
+  "scalar_text_weight": 0.6965898275375366,
+  "paired_fit": 1704,
+  "paired_test": 1742,
+  "fusion_helps": true
+}
