@@ -104,24 +104,57 @@ def text_probabilities(
     return torch.cat(chunks)
 
 
+def project(probabilities: Any, source: list[str], target: list[str]) -> Any:
+    """Widen a distribution into a larger label space, zero for classes it cannot emit.
+
+    The image model has 42 classes against the text model's 47: ``aggressive``,
+    ``homestyle``, ``library``, ``military`` and ``ringtones`` had too few screenshots
+    clearing the per-class floor. Refusing to fuse over that would throw away a usable
+    model; asserting the two are identical would silently permute every class.
+
+    Zero is the honest value — the screenshot model never votes for a class it was never
+    trained on — but it does mean those columns lose mass under a scalar weight. That is
+    what the per-class weight override in :func:`main` exists to correct.
+
+    Args:
+        probabilities: A ``(n, len(source))`` tensor.
+        source: Class order of ``probabilities``.
+        target: Class order to widen into; must contain every name in ``source``.
+
+    Returns:
+        Any: A ``(n, len(target))`` tensor.
+    """
+    import torch
+
+    index = {name: i for i, name in enumerate(target)}
+    widened = torch.zeros(probabilities.shape[0], len(target))
+    for j, name in enumerate(source):
+        widened[:, index[name]] = probabilities[:, j]
+    return widened
+
+
 def image_probabilities(
     model_dir: Path,
     rows: list[dict[str, Any]],
     image_dir: Path,
     labels: list[str],
+    image_labels: list[str],
     batch_size: int,
 ) -> Any:
-    """Score domains with the image model, temperature applied.
+    """Score domains with the image model, temperature applied, in the text label space.
 
     Args:
         model_dir: Image checkpoint directory.
         rows: Records carrying ``domain``.
         image_dir: Directory of ``<domain>.jpg``.
-        labels: Ordered class names.
+        labels: The full (text) class order to return columns in. Also used for the
+            dataset's own label lookup, since rows can carry categories the image model
+            has no class for; those targets are discarded here, only logits are used.
+        image_labels: The image checkpoint's own class order.
         batch_size: Inference batch size.
 
     Returns:
-        Any: A ``(n, classes)`` tensor of calibrated probabilities.
+        Any: A ``(n, len(labels))`` tensor of calibrated probabilities.
     """
     import torch
     from torch.utils.data import DataLoader
@@ -144,7 +177,7 @@ def image_probabilities(
         for batch in loader:
             logits = model(pixel_values=batch["pixel_values"].to(device)).logits
             chunks.append(torch.softmax(logits.cpu() / temperature, dim=-1))
-    return torch.cat(chunks)
+    return project(torch.cat(chunks), image_labels, labels)
 
 
 def fit_weight(text_p: Any, image_p: Any, targets: Any, *, per_class: bool) -> Any:
@@ -234,6 +267,10 @@ def main(argv: list[str] | None = None) -> int:
     Returns:
         int: Process exit status. Non-zero when fusion fails to beat text alone,
         so a pipeline can gate on it.
+
+    Raises:
+        SystemExit: If the two label spaces cannot be reconciled, or no domain has both a
+            page and a screenshot.
     """
     args = build_parser().parse_args(argv)
 
@@ -242,11 +279,24 @@ def main(argv: list[str] | None = None) -> int:
     text_dir, image_dir = Path(args.text), Path(args.image)
     labels = json.loads((text_dir / "labels.json").read_text(encoding="utf-8"))
     image_labels = json.loads((image_dir / "labels.json").read_text(encoding="utf-8"))
-    if labels != image_labels:
-        # Fusing across different label orders silently permutes every class.
+    # A different *order* silently permutes every class, so it is still fatal. A smaller
+    # image label space is not: it means some classes had too few screenshots to train on,
+    # and those columns can be projected to zero instead of discarding the model.
+    extra = sorted(set(image_labels) - set(labels))
+    if extra:
         raise SystemExit(
-            "text and image models disagree on the label set; "
-            f"{len(labels)} vs {len(image_labels)} classes"
+            f"image model emits classes the text model does not know: {extra}"
+        )
+    ordered = [name for name in labels if name in set(image_labels)]
+    if ordered != image_labels:
+        raise SystemExit(
+            "text and image label orders disagree; fusing would permute every class"
+        )
+    absent = [i for i, name in enumerate(labels) if name not in set(image_labels)]
+    if absent:
+        print(
+            f"image model covers {len(image_labels)}/{len(labels)} classes; "
+            f"no screenshots for {[labels[i] for i in absent]}"
         )
 
     text_data, image_data = Path(args.text_data), Path(args.image_data)
@@ -268,7 +318,12 @@ def main(argv: list[str] | None = None) -> int:
         print(f"scoring the {name} split...")
         text_p = text_probabilities(text_dir, rows, labels, args.batch_size)
         image_p = image_probabilities(
-            image_dir, rows, image_data / "images", labels, args.batch_size
+            image_dir,
+            rows,
+            image_data / "images",
+            labels,
+            image_labels,
+            args.batch_size,
         )
         targets = torch.tensor([index[r["category"]] for r in rows])
         results[name] = (text_p, image_p, targets)
@@ -276,6 +331,14 @@ def main(argv: list[str] | None = None) -> int:
     fit_text, fit_image, fit_targets = results["fit"]
     scalar = fit_weight(fit_text, fit_image, fit_targets, per_class=False)
     per_class = fit_weight(fit_text, fit_image, fit_targets, per_class=True)
+
+    # Classes the image model cannot emit carry zero image mass, so blending them at any
+    # weight below 1 shrinks them against every other class and invents misses the text
+    # model would not have made. LBFGS will not discover this on its own: if no fitting
+    # example carries the class, its gradient is zero and the weight stays at
+    # sigmoid(0) = 0.5 -- halving it. Pin those to text-only.
+    for i in absent:
+        per_class[i] = 1.0
 
     test_text, test_image, test_targets = results["test"]
     report = {
