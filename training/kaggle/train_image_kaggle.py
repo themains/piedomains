@@ -80,8 +80,11 @@ PREPARED_DATASET: str | None = None  # e.g. "/kaggle/input/piedomains-screenshot
 
 IMAGE_SIZE = 224
 
-#: Three, not four. Both text runs peaked at epoch 3 and declined at 4.
-EPOCHS = 3
+#: Eight. The first image runs used 3, carried over from the text model, whose runs peaked
+#: at epoch 3 and declined at 4. Images do not behave that way: SigLIP2's val macro-F1 went
+#: 0.283 -> 0.365 -> 0.395 and its loss 4.18 -> 1.21, still falling steeply at the cut-off,
+#: so 3 epochs under-trained it. At ~11.6 min/epoch this is still well inside the cap.
+EPOCHS = 8
 BATCH_SIZE = 32
 
 #: Cap per class. The corpus is 78% four classes (adult 55,184, shopping 48,384,
@@ -96,6 +99,12 @@ MAX_PER_CLASS = 3000
 #: so `google/siglip2-base-patch16-224` is the challenger against the ViT baseline.
 #: Unmeasured on this data, which is why both are run rather than one being argued for.
 BACKBONE = "google/vit-base-patch16-224-in21k"
+
+#: Published text model, pulled from the Hub for stage 4. Public, so no token is needed.
+TEXT_MODEL = "soodoku/piedomains-text"
+
+#: Attached Dataset holding the paired text val/test splits, for fitting fusion in-session.
+FUSION_SPLITS = "/kaggle/input/piedomains-fusion-splits"
 
 
 def run(cmd: list[str], **kwargs) -> None:
@@ -454,6 +463,62 @@ def stage_three_calibrate(repo: Path, data: Path, model: Path) -> None:
     )
 
 
+def stage_four_fuse(repo: Path, data: Path, model: Path) -> None:
+    """Fit and score late fusion, in the session where the screenshots still exist.
+
+    This has to run here rather than locally. The resized images live in ``/kaggle/temp``
+    so that the kernel output stays retrievable, which means they are gone the moment the
+    session ends -- and ``fuse.py`` needs them to score every paired domain. Fusing after
+    the fact would mean either re-downloading 47.58 GB or capturing tens of thousands of
+    screenshots first.
+
+    The text side comes from the Hub, and the paired text splits from an attached Dataset;
+    only ``fusion.json`` and the report come back, both small.
+
+    Skipped rather than fatal if either input is missing: the trained model is already
+    saved by this point, and losing it to a fusion problem would be the worse outcome.
+
+    Args:
+        repo: Repository root.
+        data: Directory of resized screenshots.
+        model: The trained image checkpoint.
+    """
+    splits = Path(FUSION_SPLITS)
+    if not splits.exists():
+        print(
+            f"\nno {splits}; skipping fusion. Attach the "
+            "'piedomains-fusion-splits' Dataset to fuse in-session."
+        )
+        return
+
+    print(f"\ndownloading the text model from {TEXT_MODEL}...")
+    from huggingface_hub import snapshot_download
+
+    text_dir = snapshot_download(repo_id=TEXT_MODEL)
+
+    try:
+        run(
+            [
+                sys.executable,
+                str(repo / "training" / "fuse.py"),
+                "--text",
+                str(text_dir),
+                "--image",
+                str(model),
+                "--text-data",
+                str(splits),
+                "--image-data",
+                str(data),
+                "--out",
+                str(WORK / "fusion_report.json"),
+            ]
+        )
+    except subprocess.CalledProcessError as exc:
+        # fuse.py exits non-zero *by design* when fusion does not beat text alone. That is
+        # a result, not a crash, and the report is already written.
+        print(f"fuse.py exited {exc.returncode} -- see fusion_report.json for why")
+
+
 def main() -> int:
     """Run the whole pipeline.
 
@@ -470,6 +535,7 @@ def main() -> int:
     data = Path(PREPARED_DATASET) if PREPARED_DATASET else stage_one_prepare(repo)
     model = stage_two_train(repo, data)
     stage_three_calibrate(repo, data, model)
+    stage_four_fuse(repo, data, model)
 
     print("\nDownload these from the notebook output:")
     print(f"  {model}/  — weights, labels.json, calibration.json, test_metrics.json")

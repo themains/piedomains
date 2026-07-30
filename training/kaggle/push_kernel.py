@@ -111,6 +111,13 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--id", default="soodoku/piedomains-image", help="Kaggle slug")
     parser.add_argument("--backbone", default=None, help="Override BACKBONE")
     parser.add_argument(
+        "--dataset",
+        action="append",
+        default=None,
+        help="Dataset to attach, repeatable. Stage 4 needs the fusion splits mounted; "
+        "without them fusion is skipped rather than fitted.",
+    )
+    parser.add_argument(
         "--dry-run", action="store_true", help="Write the notebook but do not push"
     )
     return parser
@@ -151,7 +158,7 @@ def main(argv: list[str] | None = None) -> int:
                     "is_private": True,
                     "enable_gpu": True,
                     "enable_internet": True,
-                    "dataset_sources": [],
+                    "dataset_sources": args.dataset or [],
                     "competition_sources": [],
                     "kernel_sources": [],
                 },
