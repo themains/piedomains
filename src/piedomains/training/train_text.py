@@ -216,8 +216,15 @@ def save_checkpoint(
     labels: list[str],
     config: TrainConfig,
     state: dict,
+    train_domains: list[str] | None = None,
 ) -> None:
-    """Write weights, tokenizer, labels and run state.
+    """Write weights, tokenizer, labels, run state and the training domain list.
+
+    ``train_domains.json`` is the only thing that can later prove an evaluation was
+    clean. Split *files* cannot: a checkpoint outlives the splits it was fitted against,
+    and re-preparing the corpus reshuffles assignments, so a directory's train and test
+    lists stay perfectly consistent while sharing 79% of their domains with an older
+    checkpoint's training set. That happened twice here, and both times the audit passed.
 
     Args:
         out: Directory to write into.
@@ -226,6 +233,7 @@ def save_checkpoint(
         labels: Ordered category names.
         config: The run configuration.
         state: Epoch/score bookkeeping for resuming.
+        train_domains: Domains this run trained on.
     """
     out.mkdir(parents=True, exist_ok=True)
     model.save_pretrained(out, safe_serialization=True)
@@ -235,6 +243,10 @@ def save_checkpoint(
         json.dumps(asdict(config), indent=2), encoding="utf-8"
     )
     (out / "state.json").write_text(json.dumps(state, indent=2), encoding="utf-8")
+    if train_domains is not None:
+        (out / "train_domains.json").write_text(
+            json.dumps(sorted(train_domains)), encoding="utf-8"
+        )
 
 
 def load_best(out: Path, fallback: Any) -> Any:
@@ -445,6 +457,7 @@ def main(argv: list[str] | None = None) -> int:
                 labels,
                 config,
                 {"epoch": epoch + 1, "best_f1": best_f1, "last_val_f1": val_f1},
+                train_domains=[r["domain"] for r in train_rows],
             )
             print(f"  checkpoint saved to {out} (new best)")
         else:

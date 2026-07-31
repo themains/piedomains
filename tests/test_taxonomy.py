@@ -39,6 +39,15 @@ class TestExcluded(unittest.TestCase):
             with self.subTest(category=category):
                 self.assertIsNone(map_category(category))
 
+    def test_aggressive_is_excluded_for_want_of_data(self):
+        """Not invisible -- just too rare to learn.
+
+        9 held-out documents and recall 0.111, while the pages that did attract the
+        label were politics and humor. macro-F1 weighted it the same as `parked`'s 378.
+        """
+        self.assertIsNone(map_category("aggressive"))
+        self.assertIn("aggressive", EXCLUDED)
+
 
 class TestSplitting(unittest.TestCase):
     """Parents that were never categories keep their children."""
@@ -50,7 +59,18 @@ class TestSplitting(unittest.TestCase):
 
     def test_hobby_keeps_its_children(self):
         self.assertEqual(map_category("hobby/pets"), "hobby/pets")
-        self.assertEqual(map_category("hobby/games-online"), "hobby/games-online")
+        self.assertEqual(map_category("hobby/gardening"), "hobby/gardening")
+
+    def test_games_children_merge_despite_hobby_being_split(self):
+        """A split parent does not protect a child that asks an unanswerable question.
+
+        Whether a game is played online is a fact about delivery, not subject, and the
+        page rarely says. It cost `hobby/games-misc` 40.6% of itself to
+        `hobby/games-online` on held-out data -- the most expensive single distinction
+        left in the taxonomy.
+        """
+        self.assertEqual(map_category("hobby/games-online"), "hobby/games")
+        self.assertEqual(map_category("hobby/games-misc"), "hobby/games")
 
     def test_other_parents_still_collapse(self):
         """Splitting these would produce classes too small to learn."""
@@ -82,6 +102,24 @@ class TestMerging(unittest.TestCase):
         self.assertEqual(map_category("sex/education"), "education")
         self.assertNotEqual(map_category("sex/education"), "adult")
 
+    def test_delivery_mechanism_splits_collapse(self):
+        """A web-only station and a broadcast one produce the same homepage.
+
+        `webradio` lost 31.8% of itself to `radiotv` on held-out data. The split asks
+        how the signal reaches the listener, which the page does not say.
+        """
+        self.assertEqual(map_category("webradio"), "radiotv")
+        self.assertEqual(map_category("radiotv"), "radiotv")
+
+    def test_legality_splits_collapse(self):
+        """Warez is downloads the licence did not permit.
+
+        That is a fact about the files, not about the text, and a warez site does not
+        announce it. `warez` lost 26.9% of itself to `downloads`.
+        """
+        self.assertEqual(map_category("warez"), "downloads")
+        self.assertEqual(map_category("downloads"), "downloads")
+
 
 class TestTargetClasses(unittest.TestCase):
     """The resolved label set."""
@@ -100,6 +138,73 @@ class TestTargetClasses(unittest.TestCase):
         self.assertEqual(
             got, ["adult", "finance", "news", "recreation/travel", "shopping"]
         )
+
+
+class TestLeakGuard(unittest.TestCase):
+    """`confusions.refuse_if_seen` must not clear what it cannot verify.
+
+    The first version of this guard fell back to comparing the split directory's own
+    train and test lists when a checkpoint carried no manifest. Those are disjoint by
+    construction, so it passed a checkpoint that had trained on 78.9% of the split it was
+    about to be scored on -- reproducing, inside the leak detector, the exact bug the
+    leak detector exists to catch.
+    """
+
+    def setUp(self):
+        """Build a split directory and two checkpoint directories."""
+        import json
+        import tempfile
+        from pathlib import Path
+
+        self.tmp = Path(tempfile.mkdtemp())
+        self.data = self.tmp / "prepared"
+        self.data.mkdir()
+        for split, domains in (
+            ("train", ["a.com", "b.com"]),
+            ("test", ["c.com", "d.com"]),
+        ):
+            (self.data / f"{split}.jsonl").write_text(
+                "\n".join(
+                    json.dumps({"domain": d, "category": "news", "text": "x"})
+                    for d in domains
+                ),
+                encoding="utf-8",
+            )
+        self.bare = self.tmp / "bare"
+        self.bare.mkdir()
+        self.honest = self.tmp / "honest"
+        self.honest.mkdir()
+        (self.honest / "train_domains.json").write_text(
+            json.dumps(["c.com", "zzz.com"]), encoding="utf-8"
+        )
+
+    def tearDown(self):
+        """Remove the temporary tree."""
+        import shutil
+
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def test_no_manifest_refuses_rather_than_passing(self):
+        """Absence of evidence is not evidence of disjointness."""
+        from piedomains.training.confusions import refuse_if_seen
+
+        with self.assertRaises(SystemExit) as caught:
+            refuse_if_seen(self.bare, self.data)
+        self.assertIn("train_domains.json", str(caught.exception))
+
+    def test_no_manifest_can_be_overridden_explicitly(self):
+        """The override exists, and requires being asked for."""
+        from piedomains.training.confusions import refuse_if_seen
+
+        refuse_if_seen(self.bare, self.data, assume_disjoint=True)
+
+    def test_a_real_overlap_is_caught(self):
+        """`c.com` is in both the manifest and the test split."""
+        from piedomains.training.confusions import refuse_if_seen
+
+        with self.assertRaises(SystemExit) as caught:
+            refuse_if_seen(self.honest, self.data)
+        self.assertIn("c.com", str(caught.exception))
 
 
 if __name__ == "__main__":

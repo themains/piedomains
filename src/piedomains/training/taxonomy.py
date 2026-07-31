@@ -32,6 +32,31 @@ the mirror; the original run threw them away.
 **Merged, because they are one thing.** `porn`, `sex` and `models` compete for the same
 pages. One `adult` label with its own threshold is both more learnable and more useful,
 since the safety decision wants recall rather than a three-way split.
+
+**A second round of the same rule.** Measured on 4,673 held-out documents disjoint from
+the v0.12 training set, three surviving splits ask about *delivery mechanism or legality*
+rather than topic, and a page states none of them:
+
+===================================  ==============================  =========================
+split                                what it actually asks           cost
+===================================  ==============================  =========================
+`hobby/games-misc` / `-online`       how you play the game           games-misc loses 40.6%
+`radiotv` / `webradio`               how it is broadcast             webradio loses 31.8%
+`downloads` / `warez`                whether the download is legal   warez loses 26.9%
+===================================  ==============================  =========================
+
+A page about a game rarely says whether you play it in a browser; a station's homepage
+reads the same whether it also transmits over the air; and a warez site does not announce
+its illegality -- that is a licensing fact about the files, not a property of the text.
+Collapsing the three is worth **+0.021 accuracy and +0.023 macro-F1**, measured by
+relabelling the shipped model's own predictions, which is a floor rather than an estimate:
+it does not include the capacity the model currently spends failing to learn the
+distinction.
+
+`aggressive` is excluded outright on the evidence rather than the rule: 9 held-out
+documents, recall 0.111, and the pages that *do* get labelled `aggressive` are politics
+and humor. There is no support to learn it from and macro-F1 weights it the same as
+`parked`'s 378.
 """
 
 from __future__ import annotations
@@ -39,6 +64,7 @@ from __future__ import annotations
 __all__ = [
     "EXCLUDED",
     "MERGED",
+    "MERGED_PATHS",
     "SPLIT_PARENTS",
     "map_category",
     "target_classes",
@@ -46,7 +72,13 @@ __all__ = [
 
 #: Not visible in page text, so not learnable from it. `redirector` is here because a
 #: redirector page has no content at all -- it belongs in `outcomes.py`.
-EXCLUDED: frozenset[str] = frozenset({"adv", "tracker", "spyware", "redirector"})
+#:
+#: `aggressive` is here for a different reason: not that it is invisible, but that there
+#: is too little of it to learn. 9 held-out documents, recall 0.111, and the pages that do
+#: attract the label are politics and humor.
+EXCLUDED: frozenset[str] = frozenset(
+    {"adv", "tracker", "spyware", "redirector", "aggressive"}
+)
 
 #: Categories the original run dropped by name before any thresholding.
 DROPPED_BY_NAME: frozenset[str] = frozenset({"chat", "hacking", "webtv"})
@@ -77,6 +109,23 @@ MERGED: dict[str, str] = {
     "porn": "adult",
     "sex": "adult",
     "models": "adult",
+    # A web-only station and a broadcast one produce the same homepage. The split asks
+    # how the signal reaches you, which the page does not say.
+    "webradio": "radiotv",
+    # Warez is downloads the licence did not permit. That is a fact about the files, not
+    # about the text, and the page does not volunteer it.
+    "warez": "downloads",
+}
+
+#: Merges of full nested paths, for children under :data:`SPLIT_PARENTS` that would
+#: otherwise keep their own labels. Applied before the parent rules.
+#:
+#: Splitting games by whether they are played online asks about delivery, not subject --
+#: and it is the single most expensive distinction left in the taxonomy, taking 40.6% of
+#: `hobby/games-misc` with it.
+MERGED_PATHS: dict[str, str] = {
+    "hobby/games-misc": "hobby/games",
+    "hobby/games-online": "hobby/games",
 }
 
 
@@ -99,9 +148,17 @@ def map_category(raw: str) -> str | None:
         'realestate'
         >>> map_category("porn")
         'adult'
+        >>> map_category("hobby/games-online")
+        'hobby/games'
+        >>> map_category("webradio")
+        'radiotv'
         >>> map_category("spyware") is None
         True
+        >>> map_category("aggressive") is None
+        True
     """
+    if raw in MERGED_PATHS:
+        return MERGED_PATHS[raw]
     if raw in PROMOTED:
         return PROMOTED[raw]
 

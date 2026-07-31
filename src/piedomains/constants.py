@@ -12,9 +12,9 @@ Example:
     Accessing classification categories:
         >>> from piedomains.constants import classes, most_common_words
         >>> print(f"Available categories: {len(classes)}")
-        Available categories: 47
+        Available categories: 43
         >>> print(f"Example categories: {classes[:3]}")
-        Example categories: ['adult', 'aggressive', 'alcohol']
+        Example categories: ['adult', 'alcohol', 'automobile']
         >>> print(f"Common words to filter: {most_common_words[:3]}")
         Common words to filter: ['home', 'contact', 'us']
 """
@@ -36,7 +36,6 @@ Example:
 # the shipped set and is the last-resort fallback.
 classes: list[str] = [
     "adult",  # Adult - pornography, sexual content and glamour. Merged from porn/sex/models
-    "aggressive",  # Aggressive - hate speech and racism
     "alcohol",  # Alcohol - breweries, wineries, distilleries
     "automobile",  # Automobile - cars, bikes, boats, planes
     "dating",  # Dating - dating and personals
@@ -49,8 +48,8 @@ classes: list[str] = [
     "gamble",  # Gambling - casinos, betting, lottery
     "government",  # Government - official government sites
     "hobby/cooking",  # Hobby: cooking - split out from the 'hobby' grab-bag
-    "hobby/games-misc",  # Hobby: games-misc - split out from the 'hobby' grab-bag
-    "hobby/games-online",  # Hobby: games-online - split out from the 'hobby' grab-bag
+    "hobby/games",  # Hobby: games. Merged: splitting by whether a game is played
+    # online asks about delivery, not subject, and cost games-misc 40.6% of itself
     "hobby/gardening",  # Hobby: gardening - split out from the 'hobby' grab-bag
     "hobby/pets",  # Hobby: pets - split out from the 'hobby' grab-bag
     "homestyle",  # Homestyle - home and living
@@ -77,10 +76,8 @@ classes: list[str] = [
     "shopping",  # Shopping - ecommerce, retail, marketplaces
     "socialnet",  # Social networks - social media platforms
     "urlshortener",  # URL shortener - link shortening services
-    "warez",  # Warez - piracy and cracked software
     "weapons",  # Weapons - firearms and armaments
     "webmail",  # Webmail - browser-based email
-    "webradio",  # Web radio - internet radio streaming
     # A domain-parking placeholder rather than a site. Included because it is plainly
     # stated in the page text ("this domain is for sale"), unlike the hosting and
     # monetisation properties the taxonomy deliberately excludes -- and because leaving
