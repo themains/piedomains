@@ -118,7 +118,7 @@ class DomainClassifier:
             ]
 
         Supported Categories:
-            The 47 categories in :data:`piedomains.constants.classes`:
+            The 48 categories in :data:`piedomains.constants.classes`:
             adult, aggressive, alcohol, automobile, dating, downloads, drugs,
             education, finance, fortunetelling, forum, gamble, government,
             hobby/cooking, hobby/games-misc, hobby/games-online,

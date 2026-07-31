@@ -12,7 +12,7 @@ Example:
     Accessing classification categories:
         >>> from piedomains.constants import classes, most_common_words
         >>> print(f"Available categories: {len(classes)}")
-        Available categories: 47
+        Available categories: 48
         >>> print(f"Example categories: {classes[:3]}")
         Example categories: ['adult', 'aggressive', 'alcohol']
         >>> print(f"Common words to filter: {most_common_words[:3]}")
@@ -82,11 +82,17 @@ classes: list[str] = [
     "weapons",  # Weapons - firearms and armaments
     "webmail",  # Webmail - browser-based email
     "webradio",  # Web radio - internet radio streaming
+    # A domain-parking placeholder rather than a site. Included because it is plainly
+    # stated in the page text ("this domain is for sale"), unlike the hosting and
+    # monetisation properties the taxonomy deliberately excludes -- and because leaving
+    # it out was actively harmful: parked pages made up 42% of the `drugs` class, so the
+    # model learned a for-sale template *meant* drugs and returned it for zappos.com.
+    "parked",  # Domain parking placeholder, not a real site
 ]
 """
 List[str]: Complete list of website classification categories.
 
-This list contains 47 categories used for domain content classification.
+This list contains 48 categories used for domain content classification.
 Derived from Shallalist but not identical to it: classes describing how a site is
 hosted or monetised are removed, `recreation` and `hobby` are split, and the adult
 categories are merged. See training/taxonomy.py for the mapping.
@@ -177,6 +183,6 @@ def get_category_count() -> int:
     Example:
         >>> count = get_category_count()
         >>> print(f"Total categories available: {count}")
-        Total categories available: 47
+        Total categories available: 48
     """
     return len(classes)

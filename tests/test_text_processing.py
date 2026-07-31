@@ -266,3 +266,51 @@ class TestMinimalCleaning(unittest.TestCase):
         tokens = TextProcessor.process_html_to_text(page).split()
         self.assertEqual(tokens, sorted(tokens))
         self.assertEqual(len(tokens), len(set(tokens)))
+
+
+class TestParkedDetection(unittest.TestCase):
+    """Domain-parking placeholders are their own answer, not someone else's label.
+
+    7.9% of the training corpus was parking pages, concentrated hard: 42% of `drugs`,
+    23% of `webmail`, 18% of `downloads`, because expired domains in those niches get
+    parked. The model learned that a for-sale template *meant* drugs and returned it for
+    zappos.com, newlook.com and suicidepreventionlifeline.org on an independent test set.
+    """
+
+    def test_a_parking_template_is_recognised(self):
+        from piedomains.blocking import looks_parked
+
+        for page in (
+            "example.com is for sale please prove you're not a robot view price",
+            "buy this domain the domain raysmail.com may be for sale by its owner",
+            "when you buy a domain name at dan.com you're automatically covered",
+            "this domain is parked free of charge with namesilo.com",
+            "orderwith.com is available for sale inquiry received",
+        ):
+            with self.subTest(page=page[:40]):
+                self.assertTrue(looks_parked(page))
+
+    def test_a_real_shop_saying_for_sale_is_not_parked(self):
+        """Length is what separates a placeholder from a shop that sells things."""
+        from piedomains.blocking import looks_parked
+
+        # Long *and* containing the exact phrase, so this really exercises the length
+        # guard. An earlier version was 130 words and matched no phrase, so it passed
+        # without testing anything.
+        shop = (
+            "welcome to our store this guitar is for sale along with many others "
+            + "we stock guitars amps pedals cases strings and accessories " * 40
+        )
+        self.assertGreater(len(shop.split()), 250)
+        self.assertIn("is for sale", shop)
+        self.assertFalse(looks_parked(shop))
+
+    def test_ordinary_pages_are_not_parked(self):
+        from piedomains.blocking import looks_parked
+
+        for page in (
+            "breaking news today world politics economy sport weather",
+            "buy shoes online free shipping returns within 30 days",
+        ):
+            with self.subTest(page=page[:30]):
+                self.assertFalse(looks_parked(page))

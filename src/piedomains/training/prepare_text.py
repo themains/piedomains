@@ -38,6 +38,7 @@ from collections import Counter
 from collections.abc import Iterator
 from pathlib import Path
 
+from ..blocking import detect_block, looks_parked
 from .taxonomy import DROPPED_BY_NAME, map_category
 
 #: Surviving Shallalist mirror. The one the original notebooks used
@@ -245,6 +246,8 @@ def main(argv: list[str] | None = None) -> int:
     records: list[dict[str, str]] = []
     seen_text: Counter[str] = Counter()
     kept_per_class: Counter[str] = Counter()
+    blocked_per_class: Counter[str] = Counter()
+    parked_from: Counter[str] = Counter()
     scanned = 0
 
     if corpus.is_dir():
@@ -287,6 +290,23 @@ def main(argv: list[str] | None = None) -> int:
         # and doing it for a class that is already full is pure waste.
         if args.max_per_class and kept_per_class[category] >= args.max_per_class:
             continue
+        # Refuse anti-bot interstitials before they become training data. The corpus is
+        # a 2022 scrape and roughly 5% of it is challenge pages, but they are not spread
+        # evenly: 29.9% of `drugs` documents are challenge pages, because pharmacy sites
+        # are heavily bot-protected. The model therefore learned `drugs` as the label for
+        # "I cannot read this page", which is why zappos.com, newlook.com and
+        # suicidepreventionlifeline.org all came back as drugs at low confidence.
+        #
+        # This mattered less under the old cleaner, which deduplicated a challenge page
+        # down to a handful of generic tokens. With term frequency preserved, a short
+        # repetitive interstitial is a strong, consistent signal for whatever label the
+        # domain happened to carry.
+        raw = html if html is not None else path.read_text(errors="ignore")  # pyright: ignore[reportOptionalMemberAccess]
+        verdict = detect_block(raw, domain=domain)
+        if verdict.blocked:
+            blocked_per_class[category] += 1
+            continue
+
         text = (
             TextProcessor.process_html_to_text(html)
             if html is not None
@@ -294,6 +314,16 @@ def main(argv: list[str] | None = None) -> int:
         )
         if len(text.split()) < args.min_tokens:
             continue
+
+        # A parking placeholder is labelled `parked`, not whatever the domain used to
+        # sell. 7.9% of this corpus is parking pages and they concentrate hard: 42% of
+        # `drugs`, 23% of `webmail`, 18% of `downloads`, because expired domains in
+        # those niches get parked. Left alone, the model learns that a for-sale template
+        # *means* drugs -- which is exactly why zappos.com and newlook.com came back as
+        # drugs on an independent test set.
+        if looks_parked(text):
+            parked_from[category] += 1
+            category = "parked"
         kept_per_class[category] += 1
         records.append({"domain": domain, "category": category, "text": text})
         seen_text[text] += 1
@@ -333,6 +363,18 @@ def main(argv: list[str] | None = None) -> int:
     labels = sorted(keep)
     (out_dir / "labels.json").write_text(json.dumps(labels, indent=2), encoding="utf-8")
 
+    if blocked_per_class:
+        worst = ", ".join(f"{c} {n}" for c, n in blocked_per_class.most_common(5))
+        print(
+            f"refused {sum(blocked_per_class.values()):,} anti-bot interstitials "
+            f"(worst: {worst})"
+        )
+    if parked_from:
+        worst = ", ".join(f"{c} {n}" for c, n in parked_from.most_common(5))
+        print(
+            f"relabelled {sum(parked_from.values()):,} parking placeholders as `parked` "
+            f"(taken from: {worst})"
+        )
     print(f"documents kept: {n}")
     print(f"categories: {len(labels)}")
     if dropped:
