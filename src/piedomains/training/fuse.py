@@ -523,7 +523,27 @@ def main(argv: list[str] | None = None) -> int:
     stacker, stacker_cv_f1 = fit_stacker(fit_text, fit_image, fit_targets, labels)
     print(f"stacker: {stacker_cv_f1:.4f} macro-F1 out-of-fold on the fit split")
 
+    # Dump the probability matrices. They are 1.3 MB and computing them is the only
+    # expensive part of this script -- it needs the screenshots, which live in
+    # /kaggle/temp and are destroyed at session end. Throwing them away meant every
+    # question about how to combine the two models cost another hour of GPU. With them
+    # on disk, fitting any combiner is a local, instant, repeatable experiment.
     test_text, test_image, test_targets = results["test"]
+    if args.out:
+        import numpy as np
+
+        np.savez_compressed(
+            Path(args.out).with_name("probabilities.npz"),
+            fit_text=fit_text.numpy(),
+            fit_image=fit_image.numpy(),
+            fit_targets=fit_targets.numpy(),
+            test_text=test_text.numpy(),
+            test_image=test_image.numpy(),
+            test_targets=test_targets.numpy(),
+            labels=np.array(labels),
+        )
+        print(f"wrote {Path(args.out).with_name('probabilities.npz')}")
+
     report = {
         "text_only": score(test_text, test_targets, labels),
         "image_only": score(test_image, test_targets, labels),
