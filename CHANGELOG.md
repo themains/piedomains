@@ -77,6 +77,28 @@ the old deduplicating cleaner both collapsed to one. It is the default, and an e
 in this repo claiming it was worse was measured wrong: it compared trafilatura's raw words
 against the legacy cleaner's *cleaned* tokens.
 
+### The ensemble was built, measured, and not shipped
+
+Combining the two models was tried four ways, all scored on the same 1,725 paired domains
+with both checkpoints verified disjoint from that split:
+
+| combiner | out-of-fold CV | test macro-F1 | vs text |
+|---|---|---|---|
+| **text only** | — | **0.7067** | — |
+| image only | — | 0.3306 | −0.376 |
+| stacked, logistic | 0.6534 | 0.6749 | −0.032 |
+| stacked, gradient-boosted | 0.6363 | 0.6550 | −0.052 |
+| stacked, MLP | 0.6488 | 0.6632 | −0.044 |
+
+Every combiner is **worse** than text alone, and the nonlinear ones are worse than the
+linear one — 1,770 fitting examples across 47 classes is ~38 each, and the extra capacity
+buys overfitting. Weighted per-class fusion independently reached the same conclusion by
+driving the text weight to 1.0, which is the fitted way of saying "ignore the screenshot".
+
+So `classify()` stays text-only and the screenshot model stays opt-in. A 224px screenshot
+carries little that the page text does not, and at 0.331 macro-F1 it is too weak for a
+combiner to recover anything from.
+
 ### Added
 
 - `strip_punctuation` and `text_cleaning` config, both defaulting to the measured winner.
