@@ -108,9 +108,16 @@ def setup() -> Path:
         SystemExit: If the attached Dataset or a required script is missing.
     """
     if not Path(DATA).exists():
+        # Report what *is* mounted rather than only what is missing. Guessing a Kaggle
+        # mount path has cost two runs already; the listing settles it in one.
+        root = Path("/kaggle/input")
+        found = sorted(str(p) for p in root.glob("*")) if root.exists() else []
+        nested = sorted(str(p) for p in root.rglob("*"))[:20] if root.exists() else []
         raise SystemExit(
-            f"{DATA} not attached. Add the 'piedomains-text-minimal' Dataset to this "
-            "notebook; this kernel does not rebuild it from the 17GB corpus."
+            f"{DATA} not attached.\n"
+            f"/kaggle/input contains: {found}\n"
+            f"first entries: {nested}\n"
+            "Add the 'piedomains-text-minimal' Dataset to this notebook."
         )
 
     repo = TEMP / "piedomains"
