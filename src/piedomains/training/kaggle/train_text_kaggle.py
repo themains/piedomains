@@ -94,6 +94,11 @@ PASCAL_TORCH = "2.6.0"
 #: "Could not import module 'ModernBertForSequenceClassification'".
 PASCAL_TORCHVISION = "0.21.0"
 
+#: cu124, not cu121: the cu121 index stops at torch 2.5.1, which transformers
+#: rejects. Three constraints have to hold at once -- transformers needs >= 2.6,
+#: the P100 needs sm_60 kernels, and the wheel has to exist on the index.
+PASCAL_INDEX = "https://download.pytorch.org/whl/cu124"
+
 
 def run(cmd: list[str]) -> None:
     """Run a command, streaming output.
@@ -201,7 +206,7 @@ def ensure_usable_gpu() -> None:
             "--force-reinstall",
             "--no-cache-dir",
             "--index-url",
-            "https://download.pytorch.org/whl/cu121",
+            PASCAL_INDEX,
             f"torch=={PASCAL_TORCH}",
             f"torchvision=={PASCAL_TORCHVISION}",
         ]
