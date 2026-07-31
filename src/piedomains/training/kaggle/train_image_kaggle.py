@@ -104,8 +104,33 @@ BACKBONE = "google/vit-base-patch16-224-in21k"
 #: Published text model, pulled from the Hub for stage 4. Public, so no token is needed.
 TEXT_MODEL = "soodoku/piedomains-text"
 
-#: Attached Dataset holding the paired text val/test splits, for fitting fusion in-session.
-FUSION_SPLITS = "/kaggle/input/piedomains-fusion-splits"
+#: Name of the attached Dataset holding the current text splits. The image model must be
+#: aligned to *these*, not to an earlier version: re-preparing the text corpus reshuffled
+#: the assignments, and 73% of the new test domains landed in the old training set, so a
+#: model aligned to the old splits scored 0.706 on data it had trained on.
+SPLITS_DATASET = "piedomains-text-clean"
+
+
+def find_dataset(name: str) -> Path:
+    """Locate an attached Dataset wherever Kaggle mounted it.
+
+    Args:
+        name: The Dataset's name.
+
+    Returns:
+        Path: Its directory.
+
+    Raises:
+        SystemExit: If it is not attached, listing what is.
+    """
+    root = Path("/kaggle/input")
+    if root.exists():
+        for candidate in sorted(root.rglob(name)):
+            if candidate.is_dir():
+                print(f"found {name} at {candidate}")
+                return candidate
+    listing = sorted(str(p) for p in root.rglob("*"))[:25] if root.exists() else []
+    raise SystemExit(f"Dataset {name!r} not attached.\n/kaggle/input holds: {listing}")
 
 
 def run(cmd: list[str], **kwargs) -> None:
@@ -404,7 +429,7 @@ def stage_one_prepare() -> Path:
                     # domains fusion scores on are in the image model's training set --
                     # which is why the first fused number looked good and was not.
                     "--respect-splits",
-                    FUSION_SPLITS,
+                    str(find_dataset(SPLITS_DATASET)),
                 ]
             )
         except subprocess.CalledProcessError as exc:
@@ -504,11 +529,11 @@ def stage_four_fuse(data: Path, model: Path) -> None:
         data: Directory of resized screenshots.
         model: The trained image checkpoint.
     """
-    splits = Path(FUSION_SPLITS)
+    splits = find_dataset(SPLITS_DATASET)
     if not splits.exists():
         print(
             f"\nno {splits}; skipping fusion. Attach the "
-            "'piedomains-fusion-splits' Dataset to fuse in-session."
+            f"{SPLITS_DATASET!r} Dataset to fuse in-session."
         )
         return
 
