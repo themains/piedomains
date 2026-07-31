@@ -82,6 +82,13 @@ print("OK: a real kernel launched on", sm)
 
 PASCAL_TORCH = "2.5.1"
 
+#: Pinned with torch, not left behind. torchvision registers C++ operators against a
+#: specific torch build, so downgrading one alone gives
+#: "operator torchvision::nms does not exist" -- and transformers imports torchvision, so
+#: even a text-only model then fails with
+#: "Could not import module 'ModernBertForSequenceClassification'".
+PASCAL_TORCHVISION = "0.20.1"
+
 
 def run(cmd: list[str]) -> None:
     """Run a command, streaming output.
@@ -191,6 +198,7 @@ def ensure_usable_gpu() -> None:
             "--index-url",
             "https://download.pytorch.org/whl/cu121",
             f"torch=={PASCAL_TORCH}",
+            f"torchvision=={PASCAL_TORCHVISION}",
         ]
     )
     second = subprocess.run(  # noqa: S603
