@@ -5,6 +5,7 @@ Test text processing and HTML parsing functionality.
 import unittest
 
 from piedomains.piedomain import Piedomain
+from piedomains.text_processor import TextProcessor
 
 
 class TestTextProcessing(unittest.TestCase):
@@ -160,20 +161,220 @@ class TestDictionaryFilterDefault(unittest.TestCase):
             self.assertIn(token, result, f"{token!r} was dropped")
 
     def test_flag_still_restores_the_old_behaviour(self):
-        """v0.8.0's numbers have to stay reproducible."""
+        """v0.8.0's numbers have to stay reproducible.
+
+        Both flags are needed now: the dictionary filter is part of the legacy cleaner,
+        and minimal cleaning ignores it entirely. That is the point of minimal cleaning.
+        """
         from piedomains.config import get_config
         from piedomains.text_processor import TextProcessor
 
         config = get_config()
-        original = config.get("filter_non_english")
+        original = (config.get("filter_non_english"), config.get("text_cleaning"))
         try:
+            config.set("text_cleaning", "legacy")
             config.set("filter_non_english", True)
             result = TextProcessor.clean_and_normalize_text("spotify computer")
             self.assertIn("computer", result)
             self.assertNotIn("spotify", result)
         finally:
-            config.set("filter_non_english", original)
+            config.set("filter_non_english", original[0])
+            config.set("text_cleaning", original[1])
+
+    def test_minimal_cleaning_ignores_the_dictionary_filter(self):
+        """It discarded 39.8% of tokens on English pages; minimal must not honour it."""
+        from piedomains.config import get_config
+        from piedomains.text_processor import TextProcessor
+
+        config = get_config()
+        original = (config.get("filter_non_english"), config.get("text_cleaning"))
+        try:
+            config.set("text_cleaning", "minimal")
+            config.set("filter_non_english", True)
+            self.assertIn(
+                "spotify", TextProcessor.clean_and_normalize_text("spotify computer")
+            )
+        finally:
+            config.set("filter_non_english", original[0])
+            config.set("text_cleaning", original[1])
 
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestMinimalCleaning(unittest.TestCase):
+    """The representation the model actually receives.
+
+    Until v0.12.0 the cleaner deduplicated twice, sorted alphabetically and dropped every
+    non-ASCII character, so a contextual multilingual encoder was fed an alphabetised set
+    of ASCII words. Across 14 real cached pages that discarded 73% of all words. These
+    tests pin each defect so none can come back.
+    """
+
+    def setUp(self):
+        from piedomains.config import get_config
+
+        self.config = get_config()
+        self.original = self.config.get("text_cleaning")
+        self.config.set("text_cleaning", "minimal")
+
+    def tearDown(self):
+        self.config.set("text_cleaning", self.original)
+
+    def test_term_frequency_survives(self):
+        """One sportsbook advert must not weigh as much as the whole page.
+
+        This is the mechanism behind deadspin.com being classified `gamble` at 0.98:
+        with deduplication, 200 mentions of sport and 3 of casino were both worth 1.
+        """
+        from collections import Counter
+
+        page = (
+            "<html><body>" + "sports " * 200 + "casino bet odds " * 3 + "</body></html>"
+        )
+        counts = Counter(TextProcessor.process_html_to_text(page).split())
+        self.assertEqual(counts["sports"], 200)
+        self.assertEqual(counts["casino"], 3)
+
+    def test_word_order_survives(self):
+        """Sorting alphabetically nullifies the reason to use a contextual encoder."""
+        page = "<html><body>zebra apple monkey banana</body></html>"
+        tokens = TextProcessor.process_html_to_text(page).split()
+        self.assertEqual(tokens, ["zebra", "apple", "monkey", "banana"])
+        self.assertNotEqual(tokens, sorted(tokens))
+
+    def test_non_latin_scripts_survive(self):
+        """mmBERT is multilingual; an ASCII filter made that true in name only."""
+        for label, body in (
+            ("japanese", "ニュース 速報 経済"),
+            ("cyrillic", "новости спорт погода"),
+            ("arabic", "أخبار رياضة طقس"),
+        ):
+            with self.subTest(script=label):
+                out = TextProcessor.process_html_to_text(
+                    f"<html><body>{body}</body></html>"
+                )
+                self.assertTrue(out.strip(), f"{label} was stripped")
+
+    def test_legacy_is_still_reachable(self):
+        """v0.11.0 and earlier cannot be reproduced without it."""
+        self.config.set("text_cleaning", "legacy")
+        page = (
+            "<html><body>" + "sports " * 200 + "casino bet odds " * 3 + "</body></html>"
+        )
+        tokens = TextProcessor.process_html_to_text(page).split()
+        self.assertEqual(tokens, sorted(tokens))
+        self.assertEqual(len(tokens), len(set(tokens)))
+
+
+class TestParkedDetection(unittest.TestCase):
+    """Domain-parking placeholders are their own answer, not someone else's label.
+
+    7.9% of the training corpus was parking pages, concentrated hard: 42% of `drugs`,
+    23% of `webmail`, 18% of `downloads`, because expired domains in those niches get
+    parked. The model learned that a for-sale template *meant* drugs and returned it for
+    zappos.com, newlook.com and suicidepreventionlifeline.org on an independent test set.
+    """
+
+    def test_a_parking_template_is_recognised(self):
+        from piedomains.blocking import looks_parked
+
+        for page in (
+            "example.com is for sale please prove you're not a robot view price",
+            "buy this domain the domain raysmail.com may be for sale by its owner",
+            "when you buy a domain name at dan.com you're automatically covered",
+            "this domain is parked free of charge with namesilo.com",
+            "orderwith.com is available for sale inquiry received",
+        ):
+            with self.subTest(page=page[:40]):
+                self.assertTrue(looks_parked(page))
+
+    def test_a_real_shop_saying_for_sale_is_not_parked(self):
+        """Length is what separates a placeholder from a shop that sells things."""
+        from piedomains.blocking import looks_parked
+
+        # Long *and* containing the exact phrase, so this really exercises the length
+        # guard. An earlier version was 130 words and matched no phrase, so it passed
+        # without testing anything.
+        shop = (
+            "welcome to our store this guitar is for sale along with many others "
+            + "we stock guitars amps pedals cases strings and accessories " * 40
+        )
+        self.assertGreater(len(shop.split()), 250)
+        self.assertIn("is for sale", shop)
+        self.assertFalse(looks_parked(shop))
+
+    def test_ordinary_pages_are_not_parked(self):
+        from piedomains.blocking import looks_parked
+
+        for page in (
+            "breaking news today world politics economy sport weather",
+            "buy shoes online free shipping returns within 30 days",
+        ):
+            with self.subTest(page=page[:30]):
+                self.assertFalse(looks_parked(page))
+
+
+class TestPunctuationTokens(unittest.TestCase):
+    """Standalone punctuation is noise once term frequency is preserved.
+
+    Table-cell pipes and layout dashes survive extraction. Under the old deduplicating
+    cleaner each collapsed to one token; with frequency restored they became 4.8% of all
+    training tokens -- 38,784 hyphens, 29,872 pipes -- and 40% of the 99th-percentile
+    page, against a 256-token budget.
+    """
+
+    def test_punctuation_is_kept_by_default(self):
+        """Measured, against expectation.
+
+        Dropping standalone punctuation looked obviously right -- 4.8% of tokens, 40% of
+        the p99 page. Trained both ways on otherwise identical corpora it was worse:
+        Curlie 0.543 -> 0.523, held-out macro-F1 0.7267 -> 0.7134, and deadspin.com went
+        back to `gamble`. The default follows the measurement, not the intuition.
+        """
+        out = TextProcessor.process_html_to_text(
+            "<html><body>tell | | last update</body></html>"
+        )
+        self.assertIn("|", out)
+
+    def test_the_flag_drops_them(self):
+        """Kept reachable so the comparison can be reproduced."""
+        from piedomains.config import get_config
+
+        config = get_config()
+        original = config.get("strip_punctuation")
+        try:
+            config.set("strip_punctuation", True)
+            out = TextProcessor.process_html_to_text(
+                "<html><body>tell | | | | last update | | shop</body></html>"
+            )
+            self.assertEqual(out.split(), ["tell", "last", "update", "shop"])
+        finally:
+            config.set("strip_punctuation", original)
+
+    def test_punctuation_inside_a_word_survives(self):
+        """The old cleaner destroyed these along with everything else."""
+        from piedomains.config import get_config
+
+        config = get_config()
+        original = config.get("strip_punctuation")
+        try:
+            config.set("strip_punctuation", True)
+            out = TextProcessor.process_html_to_text(
+                "<html><body>wal-mart co.uk t-shirt - - news</body></html>"
+            )
+            for token in ("wal-mart", "co.uk", "t-shirt"):
+                self.assertIn(token, out.split())
+            self.assertNotIn("-", out.split())
+        finally:
+            config.set("strip_punctuation", original)
+
+    def test_frequency_is_still_preserved(self):
+        """The fix must not undo the thing it sits on top of."""
+        from collections import Counter
+
+        page = "<html><body>" + "sports " * 200 + "casino " * 3 + "</body></html>"
+        counts = Counter(TextProcessor.process_html_to_text(page).split())
+        self.assertEqual(counts["sports"], 200)
+        self.assertEqual(counts["casino"], 3)

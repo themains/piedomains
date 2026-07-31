@@ -235,6 +235,87 @@ def fit_weight(text_p: Any, image_p: Any, targets: Any, *, per_class: bool) -> A
     return torch.sigmoid(raw).detach()
 
 
+def fit_stacker(
+    fit_text: Any, fit_image: Any, fit_targets: Any, labels: list[str], folds: int = 5
+) -> tuple[Any, float]:
+    """Fit a meta-classifier on both models' probability vectors, chosen by CV.
+
+    **Why this and not the weighted average above.** A per-class weight can only say
+    "trust text 0.62, image 0.38 for `news`". It cannot say "when the image model calls
+    this `adult` at high confidence *and* the text model says `shopping`, go with adult" --
+    an interaction between the two vectors, which is exactly the kind of thing a screenshot
+    is useful for. Stacking the concatenated distributions can represent that.
+
+    Cross-validated because the fitting set is small (1,704 paired domains against 94
+    features), so a single split would neither use the data well nor estimate honestly.
+    The reported score is out-of-fold, and the returned model is refitted on everything.
+
+    Args:
+        fit_text: Calibrated text probabilities, ``(n, classes)``.
+        fit_image: Calibrated image probabilities, ``(n, classes)``.
+        fit_targets: Gold class indices.
+        labels: Ordered class names.
+        folds: Cross-validation folds.
+
+    Returns:
+        tuple[Any, float]: The refitted stacker and its out-of-fold macro-F1.
+    """
+    import numpy as np
+    from sklearn.linear_model import LogisticRegression
+    from sklearn.model_selection import StratifiedKFold
+
+    # Multinomial is the default and the `multi_class` argument was removed in
+    # scikit-learn 1.7, so passing it is now an error rather than a clarification.
+    features = np.hstack([fit_text.numpy(), fit_image.numpy()])
+    targets = fit_targets.numpy()
+
+    # Stratified so rare classes appear in every fold; several have under 20 examples.
+    splitter = StratifiedKFold(n_splits=folds, shuffle=True, random_state=42)
+    out_of_fold = np.zeros_like(targets)
+    for train_idx, test_idx in splitter.split(features, targets):
+        fold = LogisticRegression(max_iter=2000, C=1.0)
+        fold.fit(features[train_idx], targets[train_idx])
+        out_of_fold[test_idx] = fold.predict(features[test_idx])
+
+    truth = [labels[int(t)] for t in targets]
+    predicted = [labels[int(p)] for p in out_of_fold]
+    cv_f1 = macro_f1(truth, predicted)
+
+    stacker = LogisticRegression(max_iter=2000, C=1.0)
+    stacker.fit(features, targets)
+    return stacker, cv_f1
+
+
+def score_stacker(
+    stacker: Any, text_p: Any, image_p: Any, targets: Any, labels: list[str]
+) -> dict[str, Any]:
+    """Score the stacker on a held-out split.
+
+    Args:
+        stacker: The fitted meta-classifier.
+        text_p: Calibrated text probabilities.
+        image_p: Calibrated image probabilities.
+        targets: Gold class indices.
+        labels: Ordered class names.
+
+    Returns:
+        dict[str, Any]: Accuracy, macro-F1 and the per-class report.
+    """
+    import numpy as np
+
+    predicted = stacker.predict(np.hstack([text_p.numpy(), image_p.numpy()]))
+    truth_names = [labels[int(t)] for t in targets.numpy()]
+    pred_names = [labels[int(p)] for p in predicted]
+    accuracy = sum(t == p for t, p in zip(truth_names, pred_names, strict=True)) / max(
+        1, len(truth_names)
+    )
+    return {
+        "accuracy": accuracy,
+        "macro_f1": macro_f1(truth_names, pred_names),
+        "per_class": per_class_report(truth_names, pred_names),
+    }
+
+
 def score(probabilities: Any, targets: Any, labels: list[str]) -> dict[str, Any]:
     """Turn a probability matrix into accuracy and macro-F1.
 
@@ -259,7 +340,7 @@ def score(probabilities: Any, targets: Any, labels: list[str]) -> dict[str, Any]
     }
 
 
-def refuse_if_leaky(text_data: Path, image_data: Path) -> None:
+def refuse_if_leaky(text_data: Path, image_data: Path, image_model: Path) -> None:
     """Refuse to fuse when the image model trained on the domains fusion scores.
 
     **This is the bug that made the first fused number look like a clear win.**
@@ -276,11 +357,51 @@ def refuse_if_leaky(text_data: Path, image_data: Path) -> None:
     Args:
         text_data: A ``prepare_text.py`` output directory.
         image_data: A ``prepare_images.py`` output directory.
+        image_model: The image checkpoint, which records its own training domains.
 
     Raises:
         SystemExit: If any domain held out on the text side is in the image training
             split, naming the count and the remedy.
     """
+    # Ask the *model* what it trained on, not the split files. Those agree with each
+    # other whenever both were rebuilt with --respect-splits, which says nothing about a
+    # checkpoint fitted against an earlier version of the splits. That is exactly how a
+    # run scored image-only at 0.706 when the honest figure was 0.429: 73% of the test
+    # domains were in the model's training set, and every split file looked consistent.
+    manifest = image_model / "train_domains.json"
+    if manifest.exists():
+        trained_on = {
+            d.lower() for d in json.loads(manifest.read_text(encoding="utf-8"))
+        }
+        held_out = set()
+        for split in ("val", "test"):
+            path = text_data / f"{split}.jsonl"
+            if path.exists():
+                held_out |= {
+                    json.loads(line)["domain"].lower()
+                    for line in path.read_text(encoding="utf-8").splitlines()
+                    if line.strip()
+                }
+        leaked = held_out & trained_on
+        if leaked:
+            raise SystemExit(
+                f"{len(leaked):,} of the {len(held_out):,} domains this would fit and "
+                f"score on are in the image model's own training set "
+                f"(e.g. {', '.join(sorted(leaked)[:3])}).\n"
+                "That model was trained against a different version of the splits. "
+                "Retrain it with --respect-splits against the current text data."
+            )
+        print(
+            f"checked the image model's own manifest: none of {len(held_out):,} "
+            "held-out domains were trained on"
+        )
+    else:
+        print(
+            f"WARNING: {manifest} is absent, so this cannot verify what the image model "
+            "trained on. Split files agreeing is not sufficient -- see the docstring.",
+            file=sys.stderr,
+        )
+
     train_path = image_data / "train.jsonl"
     if not train_path.exists():
         print(
@@ -378,7 +499,7 @@ def main(argv: list[str] | None = None) -> int:
 
     text_data, image_data = Path(args.text_data), Path(args.image_data)
     available = {p.stem for p in (image_data / "images").glob("*.jpg")}
-    refuse_if_leaky(text_data, image_data)
+    refuse_if_leaky(text_data, image_data, image_dir)
 
     def paired(split: str) -> list[dict[str, Any]]:
         rows = read_jsonl(text_data / f"{split}.jsonl")
@@ -436,7 +557,33 @@ def main(argv: list[str] | None = None) -> int:
         f"({fit_per_class['macro_f1']:.4f} vs {fit_scalar['macro_f1']:.4f} macro-F1)"
     )
 
+    # A stacker over both probability vectors, cross-validated. It can represent
+    # interactions a per-class weight cannot -- "image says adult confidently while text
+    # says shopping" -- which is the shape of case a screenshot should win.
+    stacker, stacker_cv_f1 = fit_stacker(fit_text, fit_image, fit_targets, labels)
+    print(f"stacker: {stacker_cv_f1:.4f} macro-F1 out-of-fold on the fit split")
+
+    # Dump the probability matrices. They are 1.3 MB and computing them is the only
+    # expensive part of this script -- it needs the screenshots, which live in
+    # /kaggle/temp and are destroyed at session end. Throwing them away meant every
+    # question about how to combine the two models cost another hour of GPU. With them
+    # on disk, fitting any combiner is a local, instant, repeatable experiment.
     test_text, test_image, test_targets = results["test"]
+    if args.out:
+        import numpy as np
+
+        np.savez_compressed(
+            Path(args.out).with_name("probabilities.npz"),
+            fit_text=fit_text.numpy(),
+            fit_image=fit_image.numpy(),
+            fit_targets=fit_targets.numpy(),
+            test_text=test_text.numpy(),
+            test_image=test_image.numpy(),
+            test_targets=test_targets.numpy(),
+            labels=np.array(labels),
+        )
+        print(f"wrote {Path(args.out).with_name('probabilities.npz')}")
+
     report = {
         "text_only": score(test_text, test_targets, labels),
         "image_only": score(test_image, test_targets, labels),
@@ -446,13 +593,23 @@ def main(argv: list[str] | None = None) -> int:
         "fused_per_class": score(
             per_class * test_text + (1 - per_class) * test_image, test_targets, labels
         ),
+        "fused_stacked": score_stacker(
+            stacker, test_text, test_image, test_targets, labels
+        ),
+        "stacker_cv_macro_f1": stacker_cv_f1,
         "scalar_text_weight": float(scalar.item()),
         "paired_fit": len(fit_rows),
         "paired_test": len(test_rows),
     }
 
     print(f"\n{'model':20s} {'accuracy':>9s} {'macro-F1':>9s}")
-    for key in ("text_only", "image_only", "fused_scalar", "fused_per_class"):
+    for key in (
+        "text_only",
+        "image_only",
+        "fused_scalar",
+        "fused_per_class",
+        "fused_stacked",
+    ):
         r = report[key]
         print(f"{key:20s} {r['accuracy']:9.3f} {r['macro_f1']:9.3f}")
     print(
@@ -461,7 +618,9 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     best_fused = max(
-        report["fused_scalar"]["macro_f1"], report["fused_per_class"]["macro_f1"]
+        report["fused_scalar"]["macro_f1"],
+        report["fused_per_class"]["macro_f1"],
+        report["fused_stacked"]["macro_f1"],
     )
     text_f1 = report["text_only"]["macro_f1"]
     helps = best_fused > text_f1

@@ -5,23 +5,40 @@
 [![Downloads](https://pepy.tech/badge/piedomains)](https://pepy.tech/project/piedomains)
 [![Documentation](https://img.shields.io/badge/docs-github.io-blue)](https://themains.github.io/piedomains/)
 
-## What's New in v0.11.0
+## What's New in v0.12.0
 
-- **Screenshot classification works again, and it is opt-in.** `classify_by_images()` has
-  raised since 0.8.0; it now runs a fully fine-tuned, temperature-calibrated SigLIP2 model.
-- **On screenshots taken today it scores 0.317 accuracy / 0.212 macro-F1** — not the 0.429
-  it gets on the 2022 corpus it learned from. That four-year gap between training captures
-  and live pages is measured, on 183 self-captured screenshots of held-out domains.
-- **Fusion was measured and not adopted.** On 1,742 held-out paired domains: text
-  0.794/0.699, image 0.429/0.306, fused 0.798/0.700. +0.001 macro-F1 is noise, and the
-  fitted text weight is 0.973. So `classify()` returns the text answer by default.
-- **The training scripts ship with the package.** Every number above comes out of one of
-  them; `classify_domains --training-scripts` prints where they installed.
-- **Archived captures now face the same thin-content floor as live ones**, so a 114-byte
-  stub stops counting as a successful fetch.
+- **The model was reading an alphabetised set of words.** The cleaner deduplicated tokens
+  twice, sorted them alphabetically and stripped every non-Latin script — discarding 73% of
+  all words. Term frequency, word order and non-English text are all restored.
+- **`parked` is a category.** Domain-parking placeholders were 7.9% of the training corpus
+  and **42% of the `drugs` class**, so the model had learned that "this domain is for sale"
+  *means* drugs. It now scores **F1 0.992**, the best class in the model.
+- **Curlie agreement 0.529 → 0.543** on 155 popular domains with independent human labels,
+  and calibration ECE **0.149 → 0.010**. Blockable-category predictions on Tranco-top-100k
+  fall from 13% to 9%.
+- **Two plausible ideas that measurement rejected**: stripping standalone punctuation made
+  things worse (Curlie 0.543 → 0.523), and an earlier claim in this repo that trafilatura
+  was the weaker extractor turned out to be measured wrong.
 
-**Breaking:** `classify()` is text-only by default. Pass `use_screenshots=True` to fuse;
-the CLI's `--method` default moves from `combined` to `text`.
+- **The screenshot model was retrained** on splits aligned to the current text corpus:
+  0.339 accuracy / 0.284 macro-F1 on screenshots captured today, against the previous
+  model's 0.290 / 0.214 on the same 124 domains. Still far below text, still opt-in.
+- **And it now works on pages with no text**, which are the pages it is for. A page below
+  the token floor used to fail before its screenshot was taken, so `classify_by_images()`
+  returned nothing for `espn.com` — 11 words of text and a complete homepage.
+- **The ensemble was built and not shipped.** Four ways of combining the two models were
+  measured; all four were worse than text alone. The numbers are in the changelog.
+
+**Breaking:** the label set is 47 — `ringtones` out (it fell below the training floor once
+parking pages were relabelled out of it), `parked` in.
+
+## From v0.11.0
+
+- **Screenshot classification returned, opt-in.** `classify_by_images()` had raised since
+  0.8.0; it now runs a fine-tuned, temperature-calibrated SigLIP2 model. It scores well
+  below the text model either way — see above for the current figures.
+- **The training scripts ship with the package** as `piedomains.training`. Every number
+  here comes out of one of them; `classify_domains --training-scripts` prints where.
 
 ## From v0.10.0
 
@@ -154,9 +171,9 @@ PIEDOMAINS_LOG_FORMAT=json classify_domains --file domains.txt
 run = classifier.classify(["github.com"])
 run = classifier.classify_by_text(["news.google.com"])
 
-# Screenshots, opt-in. The image model is weak on current pages (0.317 accuracy)
-# and fusing it gains +0.001 macro-F1 -- inside noise. On cnn.com it turns a
-# correct `news` into `movies`.
+# Screenshots, opt-in. The image model is weak on current pages (0.339 accuracy)
+# and no way of combining it with the text model beat text alone -- all four
+# tried were worse. Use it when there is no text to classify.
 run = classifier.classify(["github.com"], use_screenshots=True)
 run = classifier.classify_by_images(["github.com"])
 

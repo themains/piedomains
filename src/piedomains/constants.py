@@ -72,7 +72,6 @@ classes: list[str] = [
     "recreation/travel",  # Recreation: travel - split out; 'recreation' alone was 98% travel or sports
     "recreation/wellness",  # Recreation: wellness - split out; 'recreation' alone was 98% travel or sports
     "religion",  # Religion - religious groups and spirituality
-    "ringtones",  # Ringtones - mobile ringtones and wallpapers
     "science",  # Science - astronomy, chemistry, research
     "searchengines",  # Search engines - search and directories
     "shopping",  # Shopping - ecommerce, retail, marketplaces
@@ -82,6 +81,12 @@ classes: list[str] = [
     "weapons",  # Weapons - firearms and armaments
     "webmail",  # Webmail - browser-based email
     "webradio",  # Web radio - internet radio streaming
+    # A domain-parking placeholder rather than a site. Included because it is plainly
+    # stated in the page text ("this domain is for sale"), unlike the hosting and
+    # monetisation properties the taxonomy deliberately excludes -- and because leaving
+    # it out was actively harmful: parked pages made up 42% of the `drugs` class, so the
+    # model learned a for-sale template *meant* drugs and returned it for zappos.com.
+    "parked",  # Domain parking placeholder, not a real site
 ]
 """
 List[str]: Complete list of website classification categories.

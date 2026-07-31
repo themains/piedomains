@@ -39,6 +39,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
+from ..checkpoints import eager_config
 from .metrics import expected_calibration_error
 from .train_text import TextDataset, pick_device, read_jsonl
 
@@ -200,7 +201,9 @@ def main(argv: list[str] | None = None) -> int:
         from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
         tokenizer = AutoTokenizer.from_pretrained(model_dir)
-        model = AutoModelForSequenceClassification.from_pretrained(model_dir).to(device)
+        model = AutoModelForSequenceClassification.from_pretrained(
+            model_dir, config=eager_config(str(model_dir))
+        ).to(device)
 
         def build_text_dataset(split: str) -> Any:
             return TextDataset(

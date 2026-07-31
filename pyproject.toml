@@ -61,11 +61,13 @@ dependencies = [
     # PEP 735 groups are not installed for ordinary users and classify_by_images() then
     # died with "AutoImageProcessor requires the Torchvision library".
     "torchvision>=0.20",
-    # Optional extractor, off by default (config `extractor`). It powers
-    # FineWeb/RefinedWeb and tops the WCXB benchmark on articles, but measured
-    # on our own homepages it is worse than the legacy cleaner (16/33 pages
-    # under the token floor against 14/33): it treats nav and tiles as
-    # boilerplate, and on a homepage that boilerplate is the site-level signal.
+    # The default extractor (config `extractor`). It powers FineWeb/RefinedWeb and
+    # tops the WCXB benchmark. An earlier note here claimed it was worse than the
+    # legacy cleaner on our homepages (16/33 pages under the token floor against
+    # 14/33); that comparison was invalid -- it measured trafilatura's raw words
+    # against legacy's cleaned tokens. Redone properly over 188 pages: 1/188 under
+    # the floor against 0/188, while cutting deadspin.com's gambling-ad tokens from
+    # 264 to 7.
     "trafilatura>=2.0",
 ]
 dynamic = ["version"]

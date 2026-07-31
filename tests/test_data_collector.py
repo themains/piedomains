@@ -326,5 +326,91 @@ class TestSeparatedWorkflow(unittest.TestCase):
             self.assertIn(field, inference_result)
 
 
+class TestScreenshotWithoutText(unittest.TestCase):
+    """A page can render fine and still yield almost no text.
+
+    Screenshot-only classification exists for callers with no text, so a fetch
+    that produced a screenshot and no usable text has to survive collection with
+    its screenshot intact. It previously failed outright, which made the image
+    path useless on exactly the pages it is for -- ``espn.com`` renders 11 words
+    and a complete homepage.
+    """
+
+    def setUp(self):
+        """Set up test with temporary directory."""
+        self.temp_dir = tempfile.mkdtemp()
+
+    def tearDown(self):
+        """Clean up temporary files."""
+        import shutil
+
+        if os.path.exists(self.temp_dir):
+            shutil.rmtree(self.temp_dir)
+
+    @patch("piedomains.data_collector.get_fetcher")
+    def test_thin_page_keeps_screenshot_and_names_the_reason(self, mock_get_fetcher):
+        """A thin page collects successfully, with a screenshot and no HTML."""
+        from piedomains.fetchers import FetchResult
+        from piedomains.outcomes import ErrorCode
+
+        shot = Path(self.temp_dir) / "images" / "espn.com.png"
+        shot.parent.mkdir(parents=True, exist_ok=True)
+        shot.write_bytes(b"not really a png")
+
+        mock_fetcher = MagicMock()
+        mock_get_fetcher.return_value = mock_fetcher
+        # What the fetcher now returns for a page below the token floor: the
+        # screenshot, no HTML or text, and the reason.
+        mock_fetcher.fetch_both.return_value = FetchResult(
+            url="https://espn.com",
+            success=True,
+            html="",
+            text="",
+            screenshot_path=str(shot),
+            error="page rendered only 11 words, below the 30-word floor",
+            error_code=ErrorCode.THIN_CONTENT.value,
+        )
+
+        row = DataCollector(cache_dir=self.temp_dir).collect(
+            ["espn.com"], save_metadata=False
+        )["domains"][0]
+
+        self.assertTrue(row["fetch_success"])
+        self.assertIsNotNone(row["image_path"])
+        # No HTML was written, so none is advertised -- otherwise the text path
+        # reports a missing file rather than thin content.
+        self.assertIsNone(row["text_path"])
+        self.assertFalse((Path(self.temp_dir) / "html" / "espn.com.html").exists())
+        self.assertEqual(row["error_code"], ErrorCode.THIN_CONTENT.value)
+
+    def test_text_path_explains_itself_rather_than_vanishing(self):
+        """A row with no text still appears in the results, with the reason."""
+        from piedomains.outcomes import ErrorCode
+        from piedomains.text import TextClassifier as Classifier
+
+        rows = Classifier(cache_dir=self.temp_dir).classify_from_data(
+            {
+                "domains": [
+                    {
+                        "domain": "espn.com",
+                        "url": "espn.com",
+                        "fetch_success": True,
+                        "text_path": None,
+                        "image_path": "images/espn.com.png",
+                        "error": "page rendered only 11 words, below the 30-word floor",
+                        "error_code": ErrorCode.THIN_CONTENT.value,
+                    }
+                ]
+            }
+        )
+
+        # Filtering these out would drop the domain silently; the caller asked
+        # about it and is owed an answer, even a negative one.
+        self.assertEqual(len(rows), 1)
+        self.assertIsNone(rows[0]["category"])
+        self.assertEqual(rows[0]["error_code"], ErrorCode.THIN_CONTENT.value)
+        self.assertIn("11 words", rows[0]["error"])
+
+
 if __name__ == "__main__":
     unittest.main()

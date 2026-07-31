@@ -37,6 +37,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
+from ..checkpoints import eager_config
 from .metrics import macro_f1, per_class_report
 
 #: Multilingual ModernBERT-architecture encoder.
@@ -58,7 +59,11 @@ class TrainConfig:
     """
 
     model_name: str = DEFAULT_MODEL
-    max_length: int = 128
+    #: 256, not 128. Under the old cleaner a page collapsed to a few hundred *unique*
+    #: alphabetised words, so 128 subword tokens rarely truncated anything. Real text
+    #: with order and frequency needs the room, and trafilatura's median page is 251
+    #: words -- which fits here with nothing dropped.
+    max_length: int = 256
     batch_size: int = 32
     grad_accum: int = 1
     epochs: int = 4
@@ -248,7 +253,9 @@ def load_best(out: Path, fallback: Any) -> Any:
         print("no checkpoint on disk; scoring the in-memory model")
         return fallback
     device = next(fallback.parameters()).device
-    best = AutoModelForSequenceClassification.from_pretrained(out).to(device)
+    best = AutoModelForSequenceClassification.from_pretrained(
+        out, config=eager_config(str(out))
+    ).to(device)
     best.eval()
     state = json.loads((out / "state.json").read_text(encoding="utf-8"))
     print(
@@ -342,11 +349,14 @@ def main(argv: list[str] | None = None) -> int:
         else config.model_name
     )
     tokenizer = AutoTokenizer.from_pretrained(source)
+    # The training forward pass is where Triton actually bites: ModernBERT compiles its
+    # encoder, and Kaggle's P100 is compute capability 6.0 against Triton's 7.0 floor.
+    model_config = eager_config(source)
+    model_config.num_labels = len(labels)
+    model_config.id2label = dict(enumerate(labels))
+    model_config.label2id = {name: i for i, name in enumerate(labels)}
     model = AutoModelForSequenceClassification.from_pretrained(
-        source,
-        num_labels=len(labels),
-        id2label=dict(enumerate(labels)),
-        label2id={name: i for i, name in enumerate(labels)},
+        source, config=model_config
     ).to(device)
 
     start_epoch, best_f1, stale = 0, 0.0, 0

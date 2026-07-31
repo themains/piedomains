@@ -15,6 +15,10 @@ from .piedomains_logging import get_logger
 
 logger = get_logger()
 
+#: Characters that, alone, make a token carry no meaning. Kept as a frozenset because
+#: this runs per token over the whole corpus.
+_PUNCTUATION = frozenset(string.punctuation + "|\u2013\u2014\u2022\u00b7\u2026")
+
 # Global variables for NLTK data - will be initialized when needed
 words = None
 stop_words = None
@@ -100,18 +104,41 @@ class TextProcessor:
 
     @staticmethod
     def clean_and_normalize_text(text: str) -> str:
-        """Clean and normalize text data for model input.
+        """Normalise page text for the model.
 
-        Removes numbers, punctuation, stopwords and common terms. Dictionary
-        filtering is available but off by default -- see the note below, and
-        ``filter_non_english`` in :mod:`piedomains.config`.
+        **What this used to do, and why it was wrong.** Until v0.12.0 this deduplicated
+        tokens twice, sorted them alphabetically, and dropped every non-ASCII character.
+        The model therefore received an alphabetised *set* of words -- the stored training
+        text is literally ``"accueil adresse alfonso aller anciens animation ans
+        archives..."``. Across 14 real cached pages that discarded **73% of all words**,
+        and `asahi.com` kept 2.7% of its own.
+
+        Three things were lost, and each matters more than it sounds:
+
+        * **Term frequency.** 200 mentions of "sports" and one sportsbook advert in the
+          footer weighed exactly the same. That is the mechanism behind `deadspin.com`
+          being classified `gamble` at 0.98 confidence, and 13% of predictions on
+          Tranco-top-100k domains landing in blockable categories.
+        * **Word order**, to an alphabetical sort -- which nullifies the entire reason to
+          use a contextual encoder.
+        * **Every non-Latin script**, which made a *multilingual* model multilingual in
+          name only.
+
+        None of it was unreasonable for the model this pipeline was built for: a
+        ``GlobalAveragePooling1D`` bag-of-embeddings is order-invariant by construction.
+        The preprocessing simply was not revisited when the model became mmBERT.
+
+        So this now extracts, collapses whitespace and lowercases. Nothing else. A
+        transformer wants sentences.
+
+        Set ``text_cleaning="legacy"`` in the config to restore the old behaviour, which
+        is required to reproduce v0.11.0 and earlier.
 
         Args:
             text: Raw text to clean
 
         Returns:
-            str: Cleaned, deduplicated tokens joined by spaces.
-
+            str: Normalised text, order and frequency intact.
 
         Raises:
             AttributeError: If the input is not of the expected type.
@@ -119,58 +146,65 @@ class TextProcessor:
         if not isinstance(text, str):
             raise AttributeError("Input must be a string")
 
-        # Initialize NLTK data if needed
+        from .config import get_config
+
+        if get_config().get("text_cleaning", "minimal") == "legacy":
+            return TextProcessor._clean_legacy(text)
+
+        # Collapse runs of whitespace so the tokenizer is not fed page layout, and
+        # lowercase because the model is uncased.
+        #
+        # Standalone punctuation is *kept* by default, which is not what I expected.
+        # Table pipes and layout dashes are 4.8% of tokens and 40% of the p99 page, so
+        # dropping them looked obviously right. Trained both ways on otherwise identical
+        # corpora, dropping them measured worse: Curlie agreement 0.543 -> 0.523,
+        # held-out macro-F1 0.7267 -> 0.7134, and deadspin.com went back to `gamble`.
+        # Structural punctuation evidently says something about what kind of page this is.
+        #
+        # `strip_punctuation=True` restores the other behaviour. Do not flip the default
+        # without retraining: the model is fitted to whichever form it was shown.
+        collapsed = re.sub(r"\s+", " ", text).strip().lower()
+        if not get_config().get("strip_punctuation", False):
+            return collapsed
+        return " ".join(
+            word
+            for word in collapsed.split()
+            if not all(c in _PUNCTUATION for c in word)
+        )
+
+    @staticmethod
+    def _clean_legacy(text: str) -> str:
+        """The pre-0.12.0 cleaner, kept so earlier numbers stay reproducible.
+
+        Deduplicates, sorts alphabetically and strips non-ASCII. See
+        :meth:`clean_and_normalize_text` for why none of that survives by default.
+
+        Args:
+            text: Raw text to clean
+
+        Returns:
+            str: Cleaned, deduplicated, alphabetically sorted tokens.
+        """
         _initialize_nltk()
 
-        # Remove numbers
         text = re.sub(r"\d+", "", text)
-
-        # Split into tokens and remove duplicates
         tokens = list(set(text.split()))
 
-        # Remove punctuation from each token
         table = str.maketrans("", "", string.punctuation)
         tokens = [w.translate(table) for w in tokens]
-
-        # Convert to lowercase and filter alphabetic only
         tokens = [w.lower() for w in tokens if w.isalpha()]
-
-        # Remove non-ASCII characters
         tokens = [w for w in tokens if w.isascii()]
 
-        # Optional dictionary filter, off by default.
-        #
-        # This was the single biggest destroyer of signal in the pipeline. NLTK's
-        # `words` corpus is a Webster's-era dictionary with no brand names and no
-        # inflected forms, so it drops exactly the most discriminative tokens --
-        # `spotify`, `quora`, `facebook`, `instagram`, plus ordinary web
-        # vocabulary like `download`, `email`, `employers`, `cookies`. Measured
-        # across 20 evaluation pages it discards 39.8% of all tokens and pushes
-        # 2 of them under the token floor, on *English* pages; `bbc.com` alone
-        # loses `america`, `american`, `accuses` and `acclaimed`.
-        #
-        # It also made a multilingual encoder pointless by construction, since
-        # anything not in an English dictionary was removed before the model saw
-        # it. Kept behind the flag so v0.8.0's numbers stay reproducible.
         from .config import get_config
 
         if words and get_config().get("filter_non_english", False):
             tokens = [w for w in tokens if w in words]
-
-        # Filter out stop words
         if stop_words:
             tokens = [w for w in tokens if w not in stop_words]
-
-        # Filter out short tokens
         tokens = [word for word in tokens if len(word) > 1]
-
-        # Remove most common generic words
         tokens = [w for w in tokens if w not in most_common_words]
 
-        # Remove duplicates again and sort for consistency
-        tokens = sorted(set(tokens))
-
-        return " ".join(tokens)
+        return " ".join(sorted(set(tokens)))
 
     @classmethod
     def process_html_to_text(cls, html_content: str) -> str:
@@ -190,14 +224,18 @@ class TextProcessor:
         """Extract main content using trafilatura.
 
         trafilatura powers FineWeb and RefinedWeb and tops the WCXB benchmark on
-        articles. It is **not** the default here, because measured on this
-        project's own pages it is worse: 16 of 33 fall under the token floor
-        against 14 of 33 for the legacy cleaner. It discards navigation and tile
-        text as boilerplate, which is correct for an article and wrong for a
-        homepage, where that chrome carries most of the site-level signal.
+        articles, and it is the default here — see ``config.py`` for the
+        measurement. An earlier note in this file said the opposite, that it was
+        worse at 16 of 33 pages under the token floor against the legacy
+        cleaner's 14. That comparison was invalid: it counted trafilatura's raw
+        words against the legacy path's *cleaned* tokens, and the legacy cleaner
+        deduplicated, so the two sides were not the same quantity.
 
-        Kept reachable because the corpus work in PR 5 classifies deep pages as
-        well as homepages, where the trade-off reverses.
+        What it does discard is navigation and tile chrome. That costs
+        site-level signal on a homepage and removes a great deal of noise: on
+        ``deadspin.com`` it cuts gambling tokens from 260 (7.1% of the page) to
+        7 (1.1%), which only started to matter once the cleaner stopped
+        collapsing repeated words to one.
 
         Args:
             html_content: Raw HTML content.
