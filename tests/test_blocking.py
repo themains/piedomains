@@ -11,7 +11,7 @@ discarded good classifications.
 
 import unittest
 
-from piedomains.blocking import detect_block, is_thin
+from piedomains.blocking import detect_block, is_thin, looks_parked, looks_unavailable
 
 # ~1470-byte DataDome interstitial, as served for etsy/monster/reuters.
 DATADOME = (
@@ -163,6 +163,54 @@ class TestRefusingToLabelThinPages(unittest.TestCase):
 
         self.assertEqual(row["category"], "news")
         self.assertIsNone(row["error"])
+
+
+class TestUnavailable(unittest.TestCase):
+    """A domain can serve bytes without being a website.
+
+    Distinct from parking, which is specifically *for sale*. These are the other ways:
+    a server autoindex, a registrar placeholder, a suspended account, a bare 404. 321 of
+    them sat in the training corpus wearing the label of whatever the domain used to be.
+    """
+
+    def test_server_artifacts(self):
+        for text in (
+            "index of / name last modified size description cgi-bin/ 2019-11-19 20:02",
+            "index of / name last modified size cgi-bin proudly served by litespeed",
+            "object not found! the requested url was not found on this server.",
+        ):
+            with self.subTest(text=text[:32]):
+                self.assertTrue(looks_unavailable(text))
+
+    def test_placeholders_including_non_english(self):
+        for text in (
+            "namebright.com - next generation domain registration el7z.com is coming soon",
+            "account suspended account for domain matbay.com.au has been suspended",
+            "this domain is registered at dynadot.com . website coming soon. pokerisland.net",
+            "nrl-clan.de diese webpraesenz befindet sich noch im aufbau. bitte versuchen",
+        ):
+            with self.subTest(text=text[:32]):
+                self.assertTrue(looks_unavailable(text))
+
+    def test_length_guard_protects_real_sites(self):
+        """Live sites say "coming soon" in passing, and the guard is the whole defence.
+
+        Sampled at a 100-word limit the rule swept in a riding school; a 319-word breeder
+        site announcing puppies, an 877-word games portal and a 592-word lottery shop all
+        say it too. Precision matters more than recall, because a false positive relabels
+        a real page out of its real class.
+        """
+        breeder = "our puppies are coming soon " + (
+            "kennel breeder show champion pedigree litter whelped sire dam " * 12
+        )
+        self.assertGreater(len(breeder.split()), 60)
+        self.assertFalse(looks_unavailable(breeder))
+
+    def test_parking_is_not_swallowed(self):
+        """A for-sale page is parked; that is the more specific answer."""
+        for_sale = "this domain is for sale contact the owner to inquire"
+        self.assertTrue(looks_parked(for_sale))
+        self.assertFalse(looks_unavailable(for_sale))
 
 
 if __name__ == "__main__":

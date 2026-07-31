@@ -12,7 +12,7 @@ Example:
     Accessing classification categories:
         >>> from piedomains.constants import classes, most_common_words
         >>> print(f"Available categories: {len(classes)}")
-        Available categories: 43
+        Available categories: 44
         >>> print(f"Example categories: {classes[:3]}")
         Example categories: ['adult', 'alcohol', 'automobile']
         >>> print(f"Common words to filter: {most_common_words[:3]}")
@@ -84,14 +84,20 @@ classes: list[str] = [
     # it out was actively harmful: parked pages made up 42% of the `drugs` class, so the
     # model learned a for-sale template *meant* drugs and returned it for zappos.com.
     "parked",  # Domain parking placeholder, not a real site
+    # The other way a domain serves bytes without being a site: a server autoindex, a
+    # registrar's "coming soon", a suspended account, a bare 404. 321 of these sat in the
+    # corpus wearing the label of whatever the domain used to be.
+    "unavailable",  # Domain resolves, but there is no site behind it
 ]
 """
 List[str]: Complete list of website classification categories.
 
-This list contains 47 categories used for domain content classification.
+This list contains 44 categories used for domain content classification.
 Derived from Shallalist but not identical to it: classes describing how a site is
-hosted or monetised are removed, `recreation` and `hobby` are split, and the adult
-categories are merged. See training/taxonomy.py for the mapping.
+hosted or monetised are removed, so are those asking about delivery mechanism or
+legality, `recreation` and `hobby` are split, and the adult categories are merged.
+`parked` and `unavailable` are added, because a domain with no site behind it is a
+fact the caller can act on and the page states it plainly. See training/taxonomy.py.
 
 The categories are used by both traditional ML models and LLM-based classification
 to provide consistent categorization across different classification methods.

@@ -38,7 +38,7 @@ from collections import Counter
 from collections.abc import Iterator
 from pathlib import Path
 
-from ..blocking import detect_block, looks_parked
+from ..blocking import detect_block, looks_parked, looks_unavailable
 from .taxonomy import DROPPED_BY_NAME, map_category
 
 #: Surviving Shallalist mirror. The one the original notebooks used
@@ -248,6 +248,7 @@ def main(argv: list[str] | None = None) -> int:
     kept_per_class: Counter[str] = Counter()
     blocked_per_class: Counter[str] = Counter()
     parked_from: Counter[str] = Counter()
+    unavailable_from: Counter[str] = Counter()
     scanned = 0
 
     if corpus.is_dir():
@@ -324,6 +325,12 @@ def main(argv: list[str] | None = None) -> int:
         if looks_parked(text):
             parked_from[category] += 1
             category = "parked"
+        # The other way a domain serves bytes without being a site: an autoindex, a
+        # registrar's "coming soon", a suspended account, a 404. Checked after parking
+        # because a for-sale page is the more specific answer, and some say both.
+        elif looks_unavailable(text):
+            unavailable_from[category] += 1
+            category = "unavailable"
         kept_per_class[category] += 1
         records.append({"domain": domain, "category": category, "text": text})
         seen_text[text] += 1
@@ -368,6 +375,12 @@ def main(argv: list[str] | None = None) -> int:
         print(
             f"refused {sum(blocked_per_class.values()):,} anti-bot interstitials "
             f"(worst: {worst})"
+        )
+    if unavailable_from:
+        worst = ", ".join(f"{c} {n}" for c, n in unavailable_from.most_common(5))
+        print(
+            f"relabelled {sum(unavailable_from.values()):,} no-site placeholders as "
+            f"`unavailable` (taken from: {worst})"
         )
     if parked_from:
         worst = ", ".join(f"{c} {n}" for c, n in parked_from.most_common(5))
