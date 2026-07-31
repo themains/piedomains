@@ -340,7 +340,7 @@ def score(probabilities: Any, targets: Any, labels: list[str]) -> dict[str, Any]
     }
 
 
-def refuse_if_leaky(text_data: Path, image_data: Path) -> None:
+def refuse_if_leaky(text_data: Path, image_data: Path, image_model: Path) -> None:
     """Refuse to fuse when the image model trained on the domains fusion scores.
 
     **This is the bug that made the first fused number look like a clear win.**
@@ -357,11 +357,51 @@ def refuse_if_leaky(text_data: Path, image_data: Path) -> None:
     Args:
         text_data: A ``prepare_text.py`` output directory.
         image_data: A ``prepare_images.py`` output directory.
+        image_model: The image checkpoint, which records its own training domains.
 
     Raises:
         SystemExit: If any domain held out on the text side is in the image training
             split, naming the count and the remedy.
     """
+    # Ask the *model* what it trained on, not the split files. Those agree with each
+    # other whenever both were rebuilt with --respect-splits, which says nothing about a
+    # checkpoint fitted against an earlier version of the splits. That is exactly how a
+    # run scored image-only at 0.706 when the honest figure was 0.429: 73% of the test
+    # domains were in the model's training set, and every split file looked consistent.
+    manifest = image_model / "train_domains.json"
+    if manifest.exists():
+        trained_on = {
+            d.lower() for d in json.loads(manifest.read_text(encoding="utf-8"))
+        }
+        held_out = set()
+        for split in ("val", "test"):
+            path = text_data / f"{split}.jsonl"
+            if path.exists():
+                held_out |= {
+                    json.loads(line)["domain"].lower()
+                    for line in path.read_text(encoding="utf-8").splitlines()
+                    if line.strip()
+                }
+        leaked = held_out & trained_on
+        if leaked:
+            raise SystemExit(
+                f"{len(leaked):,} of the {len(held_out):,} domains this would fit and "
+                f"score on are in the image model's own training set "
+                f"(e.g. {', '.join(sorted(leaked)[:3])}).\n"
+                "That model was trained against a different version of the splits. "
+                "Retrain it with --respect-splits against the current text data."
+            )
+        print(
+            f"checked the image model's own manifest: none of {len(held_out):,} "
+            "held-out domains were trained on"
+        )
+    else:
+        print(
+            f"WARNING: {manifest} is absent, so this cannot verify what the image model "
+            "trained on. Split files agreeing is not sufficient -- see the docstring.",
+            file=sys.stderr,
+        )
+
     train_path = image_data / "train.jsonl"
     if not train_path.exists():
         print(
@@ -459,7 +499,7 @@ def main(argv: list[str] | None = None) -> int:
 
     text_data, image_data = Path(args.text_data), Path(args.image_data)
     available = {p.stem for p in (image_data / "images").glob("*.jpg")}
-    refuse_if_leaky(text_data, image_data)
+    refuse_if_leaky(text_data, image_data, image_dir)
 
     def paired(split: str) -> list[dict[str, Any]]:
         rows = read_jsonl(text_data / f"{split}.jsonl")
