@@ -57,7 +57,7 @@ REPO = "https://github.com/themains/piedomains.git"
 #: Branch to clone. The image scripts live here until the branch is merged; cloning the
 #: default branch is what made the first run download 47.58 GB and then fail on a missing
 #: file.
-BRANCH = "image-model"
+BRANCH = "text-representation"
 
 #: Kaggle's persistent output volume, 20 GB, and the kernel's *output* -- everything here
 #: has to be enumerated file-by-file to retrieve any of it. Only the checkpoint lives
