@@ -80,14 +80,19 @@ torch.zeros(8, device="cuda").add_(1).sum().item()
 print("OK: a real kernel launched on", sm)
 """
 
-PASCAL_TORCH = "2.5.1"
+#: The version has to satisfy two constraints at once, which is a narrow window:
+#: transformers refuses torch < 2.6 outright ("we now require users to upgrade torch to
+#: at least v2.6"), while Kaggle's P100 is sm_60 and current builds start at sm_70. 2.6.0
+#: is the oldest release that clears the first. `ensure_usable_gpu` verifies the second at
+#: runtime rather than trusting this comment, so a wrong guess costs 30 seconds.
+PASCAL_TORCH = "2.6.0"
 
 #: Pinned with torch, not left behind. torchvision registers C++ operators against a
 #: specific torch build, so downgrading one alone gives
 #: "operator torchvision::nms does not exist" -- and transformers imports torchvision, so
 #: even a text-only model then fails with
 #: "Could not import module 'ModernBertForSequenceClassification'".
-PASCAL_TORCHVISION = "0.20.1"
+PASCAL_TORCHVISION = "0.21.0"
 
 
 def run(cmd: list[str]) -> None:

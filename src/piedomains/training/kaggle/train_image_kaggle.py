@@ -188,8 +188,8 @@ def setup() -> Path:
 
 #: Last torch whose cu121 wheels still ship Pascal (sm_60) kernels, for when Kaggle hands
 #: out a P100. Kaggle's own preinstalled build is cu128 and starts at sm_70.
-PASCAL_TORCH = "2.5.1"
-PASCAL_TORCHVISION = "0.20.1"
+PASCAL_TORCH = "2.6.0"
+PASCAL_TORCHVISION = "0.21.0"
 
 #: Probe run in a subprocess, because a GPU verdict cannot be revised inside a process
 #: that has already initialised CUDA. Exit 42 means "device present but this torch has no
