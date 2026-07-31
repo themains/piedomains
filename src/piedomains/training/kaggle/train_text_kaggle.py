@@ -47,7 +47,10 @@ TEMP = Path("/kaggle/temp")
 
 #: Name of the attached Dataset holding the prepared splits, so this kernel never touches
 #: the 17GB corpus. Built by `prepare_text.py` with the minimal cleaner.
-DATASET = "piedomains-text-minimal"
+#: The punctuation-fixed corpus. `piedomains-text-minimal` was prepared before standalone
+#: punctuation was dropped, so 4.8% of its tokens were pipes and hyphens; this one is at
+#: 0.00%.
+DATASET = "piedomains-text-clean"
 
 #: 256, not 128. Under the old cleaner a page collapsed to a few hundred unique
 #: alphabetised words, so 128 subword tokens rarely truncated anything. Real text with
