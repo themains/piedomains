@@ -325,20 +325,50 @@ class TestPunctuationTokens(unittest.TestCase):
     page, against a 256-token budget.
     """
 
-    def test_standalone_punctuation_is_dropped(self):
+    def test_punctuation_is_kept_by_default(self):
+        """Measured, against expectation.
+
+        Dropping standalone punctuation looked obviously right -- 4.8% of tokens, 40% of
+        the p99 page. Trained both ways on otherwise identical corpora it was worse:
+        Curlie 0.543 -> 0.523, held-out macro-F1 0.7267 -> 0.7134, and deadspin.com went
+        back to `gamble`. The default follows the measurement, not the intuition.
+        """
         out = TextProcessor.process_html_to_text(
-            "<html><body>tell | | | | last update | | shop</body></html>"
+            "<html><body>tell | | last update</body></html>"
         )
-        self.assertEqual(out.split(), ["tell", "last", "update", "shop"])
+        self.assertIn("|", out)
+
+    def test_the_flag_drops_them(self):
+        """Kept reachable so the comparison can be reproduced."""
+        from piedomains.config import get_config
+
+        config = get_config()
+        original = config.get("strip_punctuation")
+        try:
+            config.set("strip_punctuation", True)
+            out = TextProcessor.process_html_to_text(
+                "<html><body>tell | | | | last update | | shop</body></html>"
+            )
+            self.assertEqual(out.split(), ["tell", "last", "update", "shop"])
+        finally:
+            config.set("strip_punctuation", original)
 
     def test_punctuation_inside_a_word_survives(self):
         """The old cleaner destroyed these along with everything else."""
-        out = TextProcessor.process_html_to_text(
-            "<html><body>wal-mart co.uk t-shirt - - news</body></html>"
-        )
-        for token in ("wal-mart", "co.uk", "t-shirt"):
-            self.assertIn(token, out.split())
-        self.assertNotIn("-", out.split())
+        from piedomains.config import get_config
+
+        config = get_config()
+        original = config.get("strip_punctuation")
+        try:
+            config.set("strip_punctuation", True)
+            out = TextProcessor.process_html_to_text(
+                "<html><body>wal-mart co.uk t-shirt - - news</body></html>"
+            )
+            for token in ("wal-mart", "co.uk", "t-shirt"):
+                self.assertIn(token, out.split())
+            self.assertNotIn("-", out.split())
+        finally:
+            config.set("strip_punctuation", original)
 
     def test_frequency_is_still_preserved(self):
         """The fix must not undo the thing it sits on top of."""

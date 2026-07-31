@@ -151,19 +151,21 @@ class TextProcessor:
         if get_config().get("text_cleaning", "minimal") == "legacy":
             return TextProcessor._clean_legacy(text)
 
-        # Collapse runs of whitespace so the tokenizer is not fed page layout, lowercase
-        # because the model is uncased, and drop tokens that are *entirely* punctuation.
+        # Collapse runs of whitespace so the tokenizer is not fed page layout, and
+        # lowercase because the model is uncased.
         #
-        # That last step is not cosmetic. Table-cell pipes and layout dashes survive
-        # extraction, and once term frequency is preserved they are no longer harmless:
-        # 4.8% of all training tokens were pure punctuation -- 38,784 hyphens, 29,872
-        # pipes -- with the 99th-percentile page at 40%. Against a 256-token budget that
-        # is a large share of what the model reads. tell-leinburg.de arrived as
-        # "tell-leinburg | | | | | | | | last update19.05.2022 | | | | | ...".
+        # Standalone punctuation is *kept* by default, which is not what I expected.
+        # Table pipes and layout dashes are 4.8% of tokens and 40% of the p99 page, so
+        # dropping them looked obviously right. Trained both ways on otherwise identical
+        # corpora, dropping them measured worse: Curlie agreement 0.543 -> 0.523,
+        # held-out macro-F1 0.7267 -> 0.7134, and deadspin.com went back to `gamble`.
+        # Structural punctuation evidently says something about what kind of page this is.
         #
-        # Only standalone punctuation goes. `co.uk`, `wal-mart` and `t-shirt` keep their
-        # internal marks, which the old cleaner destroyed along with everything else.
+        # `strip_punctuation=True` restores the other behaviour. Do not flip the default
+        # without retraining: the model is fitted to whichever form it was shown.
         collapsed = re.sub(r"\s+", " ", text).strip().lower()
+        if not get_config().get("strip_punctuation", False):
+            return collapsed
         return " ".join(
             word
             for word in collapsed.split()

@@ -5,6 +5,101 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.12.0] - 2026-07-31
+
+The model was reading an alphabetised set of words.
+
+`TextProcessor.clean_and_normalize_text` deduplicated tokens twice, sorted them
+alphabetically and stripped every non-ASCII character. The stored training text was
+literally `"accueil adresse alfonso aller anciens animation ans archives..."`. Across 14
+real pages that discarded **73% of all words**; `asahi.com` kept 2.7% of its own.
+
+Three things were lost, and each mattered more than it sounds:
+
+- **Term frequency.** 200 mentions of sport and one sportsbook advert in the footer
+  weighed the same. That is the mechanism behind `deadspin.com` being classified `gamble`
+  at 0.98 confidence.
+- **Word order**, to an alphabetical sort — which nullifies the reason to use a contextual
+  encoder at all.
+- **Every non-Latin script**, making a multilingual model multilingual in name only.
+
+None of it was unreasonable for the model it was built for: a `GlobalAveragePooling1D`
+bag-of-embeddings is order-invariant by construction. It simply was not revisited when the
+model became mmBERT.
+
+### `parked` is a category now, and it is the best class in the model
+
+Restoring term frequency exposed something the old cleaner had been hiding: **7.9% of the
+training corpus is domain-parking placeholders**, and they concentrate hard.
+
+| class | was parking pages |
+|---|---|
+| **drugs** | **42%** |
+| webmail | 23% |
+| downloads | 18% |
+| adult | 17% |
+
+Expired pharmacy domains get parked, so the model had learned that a "this domain is for
+sale" template *means* drugs — the complete explanation for `zappos.com`, `newlook.com` and
+`suicidepreventionlifeline.org` all returning `drugs` at low confidence on an independent
+test set. Exact-text deduplication missed all of it, because the pages differ only by the
+domain name embedded in them.
+
+`parked` now scores **F1 0.992** on 378 held-out documents. Contamination is 0.0% in every
+class it was taken from. `ringtones` falls below the 100-document floor as a result — it
+was largely parked domains — so the label set is 47: the previous set minus `ringtones`,
+plus `parked`.
+
+### Measured
+
+| benchmark | v0.11 | v0.12 |
+|---|---|---|
+| **Curlie x Tranco agreement** (155 domains, independent human labels) | 0.529 | **0.543** |
+| hand-labelled eval, defensible alternates credited (49) | 0.735 | 0.714 |
+| calibration ECE | 0.149 | **0.010** |
+| blockable-category rate on Tranco-top-100k | 13% | **9%** |
+
+The differences on the small sets are inside noise (SE ≈ 0.04 and ≈ 0.065). The Curlie
+figure is the one to weigh: independent labels, larger sample, and it shares neither the
+taxonomy nor the selection bias of the training corpus.
+
+### Two things that looked obviously right and were not
+
+**Stripping standalone punctuation.** Table pipes and layout dashes are 4.8% of tokens and
+40% of the 99th-percentile page, so removing them seemed clearly correct. Trained both ways
+on otherwise identical corpora it was *worse*: Curlie 0.543 → 0.523, held-out macro-F1
+0.7267 → 0.7134, and `deadspin.com` went back to `gamble`. Structural punctuation evidently
+says something about what kind of page it is. Available as `strip_punctuation=True`.
+
+**trafilatura as the extractor.** It cuts `deadspin.com`'s gambling tokens from 260 (7.1%
+of the page) to 7 (1.1%), which matters far more now that frequency is preserved — under
+the old deduplicating cleaner both collapsed to one. It is the default, and an earlier note
+in this repo claiming it was worse was measured wrong: it compared trafilatura's raw words
+against the legacy cleaner's *cleaned* tokens.
+
+### Added
+
+- `strip_punctuation` and `text_cleaning` config, both defaulting to the measured winner.
+  `text_cleaning="legacy"` reproduces v0.11 exactly.
+- `piedomains.training.stack` — selects a late-fusion combiner across logistic,
+  gradient-boosted and MLP families by out-of-fold macro-F1 on stratified 5-fold CV.
+- `piedomains.training.train_joint` — a two-tower model over both representations.
+- Anti-bot interstitials are refused at corpus-preparation time rather than trained on.
+
+### Fixed
+
+- **Training metrics described weights nobody could load.** `evaluate_split` scored the
+  in-memory model, which after early stopping is the *last* epoch, while the artifact on
+  disk is the *best*. Both trainers now reload the saved checkpoint and log which epoch
+  they are scoring.
+- **A checkpoint could be scored on data it trained on.** Re-preparing the text corpus
+  reshuffled the split assignments, so 73% of the new test domains were in the old training
+  set. The guard compared *split files*, which agreed perfectly because both had been
+  rebuilt with `--respect-splits` — it could not see that the checkpoint predated them.
+  Checkpoints now record their own training domains and fusion interrogates that.
+- `fuse.py` chose between fusion forms by comparing macro-F1 on the **test** split, making
+  the reported number optimistically biased. It now chooses on the fit split.
+
 ## [0.11.0] - 2026-07-30
 
 Screenshot classification works again, and it is opt-in because the measurement says so.

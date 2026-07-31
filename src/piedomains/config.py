@@ -50,6 +50,12 @@ class Config:
         # truncated away regardless, and truncation keeps the *first* 256 tokens: nav,
         # header and cookie banners. trafilatura's median fits with nothing dropped.
         "extractor": "trafilatura",
+        # Drop tokens that are entirely punctuation. Off, because measurement said so:
+        # trained both ways on otherwise identical corpora, dropping them lowered Curlie
+        # agreement 0.543 -> 0.523 and held-out macro-F1 0.7267 -> 0.7134. Structural
+        # punctuation carries signal about page type. Flipping this requires a retrain --
+        # the model is fitted to whichever form it saw.
+        "strip_punctuation": False,
         # "minimal" | "legacy". Minimal extracts, collapses whitespace and lowercases,
         # and nothing else. Legacy is what shipped through v0.11.0: it deduplicated
         # tokens twice, sorted them alphabetically and stripped every non-ASCII
