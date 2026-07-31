@@ -15,6 +15,10 @@ from .piedomains_logging import get_logger
 
 logger = get_logger()
 
+#: Characters that, alone, make a token carry no meaning. Kept as a frozenset because
+#: this runs per token over the whole corpus.
+_PUNCTUATION = frozenset(string.punctuation + "|\u2013\u2014\u2022\u00b7\u2026")
+
 # Global variables for NLTK data - will be initialized when needed
 words = None
 stop_words = None
@@ -147,9 +151,24 @@ class TextProcessor:
         if get_config().get("text_cleaning", "minimal") == "legacy":
             return TextProcessor._clean_legacy(text)
 
-        # Collapse runs of whitespace so the tokenizer is not fed page layout, and
-        # lowercase because the model is uncased. That is the whole of it.
-        return re.sub(r"\s+", " ", text).strip().lower()
+        # Collapse runs of whitespace so the tokenizer is not fed page layout, lowercase
+        # because the model is uncased, and drop tokens that are *entirely* punctuation.
+        #
+        # That last step is not cosmetic. Table-cell pipes and layout dashes survive
+        # extraction, and once term frequency is preserved they are no longer harmless:
+        # 4.8% of all training tokens were pure punctuation -- 38,784 hyphens, 29,872
+        # pipes -- with the 99th-percentile page at 40%. Against a 256-token budget that
+        # is a large share of what the model reads. tell-leinburg.de arrived as
+        # "tell-leinburg | | | | | | | | last update19.05.2022 | | | | | ...".
+        #
+        # Only standalone punctuation goes. `co.uk`, `wal-mart` and `t-shirt` keep their
+        # internal marks, which the old cleaner destroyed along with everything else.
+        collapsed = re.sub(r"\s+", " ", text).strip().lower()
+        return " ".join(
+            word
+            for word in collapsed.split()
+            if not all(c in _PUNCTUATION for c in word)
+        )
 
     @staticmethod
     def _clean_legacy(text: str) -> str:

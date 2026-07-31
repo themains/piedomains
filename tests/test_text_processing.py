@@ -314,3 +314,37 @@ class TestParkedDetection(unittest.TestCase):
         ):
             with self.subTest(page=page[:30]):
                 self.assertFalse(looks_parked(page))
+
+
+class TestPunctuationTokens(unittest.TestCase):
+    """Standalone punctuation is noise once term frequency is preserved.
+
+    Table-cell pipes and layout dashes survive extraction. Under the old deduplicating
+    cleaner each collapsed to one token; with frequency restored they became 4.8% of all
+    training tokens -- 38,784 hyphens, 29,872 pipes -- and 40% of the 99th-percentile
+    page, against a 256-token budget.
+    """
+
+    def test_standalone_punctuation_is_dropped(self):
+        out = TextProcessor.process_html_to_text(
+            "<html><body>tell | | | | last update | | shop</body></html>"
+        )
+        self.assertEqual(out.split(), ["tell", "last", "update", "shop"])
+
+    def test_punctuation_inside_a_word_survives(self):
+        """The old cleaner destroyed these along with everything else."""
+        out = TextProcessor.process_html_to_text(
+            "<html><body>wal-mart co.uk t-shirt - - news</body></html>"
+        )
+        for token in ("wal-mart", "co.uk", "t-shirt"):
+            self.assertIn(token, out.split())
+        self.assertNotIn("-", out.split())
+
+    def test_frequency_is_still_preserved(self):
+        """The fix must not undo the thing it sits on top of."""
+        from collections import Counter
+
+        page = "<html><body>" + "sports " * 200 + "casino " * 3 + "</body></html>"
+        counts = Counter(TextProcessor.process_html_to_text(page).split())
+        self.assertEqual(counts["sports"], 200)
+        self.assertEqual(counts["casino"], 3)
