@@ -84,9 +84,9 @@ women's shoe listings. Both are genuine remaining errors and neither is claimed 
 
 **Stripping standalone punctuation.** Table pipes and layout dashes are 4.8% of tokens and
 40% of the 99th-percentile page, so removing them seemed clearly correct. Trained both ways
-on otherwise identical corpora it was *worse*: Curlie 0.543 → 0.523, held-out macro-F1
-0.7267 → 0.7134, and `deadspin.com` went back to `gamble`. Structural punctuation evidently
-says something about what kind of page it is. Available as `strip_punctuation=True`.
+on otherwise identical corpora it was *worse*: Curlie 0.543 → 0.523 and held-out macro-F1
+0.7267 → 0.7134. Structural punctuation evidently says something about what kind of page it
+is. Available as `strip_punctuation=True`.
 
 **trafilatura as the extractor.** It cuts `deadspin.com`'s gambling tokens from 260 (7.1%
 of the page) to 7 (1.1%), which matters far more now that frequency is preserved — under
