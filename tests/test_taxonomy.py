@@ -65,7 +65,7 @@ class TestSplitting(unittest.TestCase):
         """A split parent does not protect a child that asks an unanswerable question.
 
         Whether a game is played online is a fact about delivery, not subject, and the
-        page rarely says. It cost `hobby/games-misc` 40.6% of itself to
+        page rarely says. It cost `hobby/games-misc` 34.4% of itself to
         `hobby/games-online` on held-out data -- the most expensive single distinction
         left in the taxonomy.
         """
@@ -115,7 +115,7 @@ class TestMerging(unittest.TestCase):
         """Warez is downloads the licence did not permit.
 
         That is a fact about the files, not about the text, and a warez site does not
-        announce it. `warez` lost 26.9% of itself to `downloads`.
+        announce it. `warez` lost 30.8% of itself to `downloads`.
         """
         self.assertEqual(map_category("warez"), "downloads")
         self.assertEqual(map_category("downloads"), "downloads")

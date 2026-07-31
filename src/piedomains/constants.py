@@ -49,7 +49,7 @@ classes: list[str] = [
     "government",  # Government - official government sites
     "hobby/cooking",  # Hobby: cooking - split out from the 'hobby' grab-bag
     "hobby/games",  # Hobby: games. Merged: splitting by whether a game is played
-    # online asks about delivery, not subject, and cost games-misc 40.6% of itself
+    # online asks about delivery, not subject, and cost games-misc 34.4% of itself
     "hobby/gardening",  # Hobby: gardening - split out from the 'hobby' grab-bag
     "hobby/pets",  # Hobby: pets - split out from the 'hobby' grab-bag
     "homestyle",  # Homestyle - home and living

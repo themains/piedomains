@@ -40,15 +40,15 @@ rather than topic, and a page states none of them:
 ===================================  ==============================  =========================
 split                                what it actually asks           cost
 ===================================  ==============================  =========================
-`hobby/games-misc` / `-online`       how you play the game           games-misc loses 40.6%
+`hobby/games-misc` / `-online`       how you play the game           games-misc loses 34.4%
 `radiotv` / `webradio`               how it is broadcast             webradio loses 31.8%
-`downloads` / `warez`                whether the download is legal   warez loses 26.9%
+`downloads` / `warez`                whether the download is legal   warez loses 30.8%
 ===================================  ==============================  =========================
 
 A page about a game rarely says whether you play it in a browser; a station's homepage
 reads the same whether it also transmits over the air; and a warez site does not announce
 its illegality -- that is a licensing fact about the files, not a property of the text.
-Collapsing the three is worth **+0.021 accuracy and +0.023 macro-F1**, measured by
+Collapsing the three is worth **+0.023 accuracy and +0.023 macro-F1**, measured by
 relabelling the shipped model's own predictions, which is a floor rather than an estimate:
 it does not include the capacity the model currently spends failing to learn the
 distinction.
@@ -121,7 +121,7 @@ MERGED: dict[str, str] = {
 #: otherwise keep their own labels. Applied before the parent rules.
 #:
 #: Splitting games by whether they are played online asks about delivery, not subject --
-#: and it is the single most expensive distinction left in the taxonomy, taking 40.6% of
+#: and it is the single most expensive distinction left in the taxonomy, taking 34.4% of
 #: `hobby/games-misc` with it.
 MERGED_PATHS: dict[str, str] = {
     "hobby/games-misc": "hobby/games",

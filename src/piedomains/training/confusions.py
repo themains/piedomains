@@ -13,7 +13,7 @@ So this refuses to run on a split the checkpoint has seen, and it writes what it
 
 **What it reports.**
 
-*Confusions*, directed: `hobby/games-misc -> hobby/games-online` 39 documents, 40.6% of
+*Confusions*, directed: `hobby/games-misc -> hobby/games-online` 33 documents, 34.4% of
 the gold class. The percentage matters more than the count -- a class can lose most of
 itself to a neighbour while contributing few errors overall.
 
@@ -128,9 +128,14 @@ def refuse_if_seen(model: Path, data: Path, assume_disjoint: bool = False) -> No
 def predict(model: Path, rows: list[dict], batch: int = 64) -> list[str]:
     """Score every row with the checkpoint.
 
+    ``prepare_text`` writes the domain prefix into ``text`` before saving, so the stored
+    field is already model input. Prefixing again here would feed the model
+    ``"ugr ugr universidad de granada..."`` -- a small enough corruption to leave the
+    headline accuracy looking plausible, which is exactly what makes it worth naming.
+
     Args:
         model: Checkpoint directory.
-        rows: Prepared records carrying ``domain`` and ``text``.
+        rows: Prepared records carrying ``text`` that is already model-ready.
         batch: Rows per forward pass.
 
     Returns:
@@ -140,7 +145,6 @@ def predict(model: Path, rows: list[dict], batch: int = 64) -> list[str]:
     from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
     from ..checkpoints import eager_config
-    from ..text import TextClassifier
 
     labels = json.loads((model / "labels.json").read_text(encoding="utf-8"))
     if isinstance(labels, dict):
@@ -155,7 +159,7 @@ def predict(model: Path, rows: list[dict], batch: int = 64) -> list[str]:
     for i in range(0, len(rows), batch):
         chunk = rows[i : i + batch]
         encoded = tokenizer(
-            [TextClassifier._model_input(r["domain"], r["text"]) for r in chunk],
+            [r["text"] for r in chunk],
             truncation=True,
             max_length=256,
             padding=True,
