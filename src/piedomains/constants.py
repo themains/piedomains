@@ -12,7 +12,7 @@ Example:
     Accessing classification categories:
         >>> from piedomains.constants import classes, most_common_words
         >>> print(f"Available categories: {len(classes)}")
-        Available categories: 48
+        Available categories: 47
         >>> print(f"Example categories: {classes[:3]}")
         Example categories: ['adult', 'aggressive', 'alcohol']
         >>> print(f"Common words to filter: {most_common_words[:3]}")
@@ -72,7 +72,6 @@ classes: list[str] = [
     "recreation/travel",  # Recreation: travel - split out; 'recreation' alone was 98% travel or sports
     "recreation/wellness",  # Recreation: wellness - split out; 'recreation' alone was 98% travel or sports
     "religion",  # Religion - religious groups and spirituality
-    "ringtones",  # Ringtones - mobile ringtones and wallpapers
     "science",  # Science - astronomy, chemistry, research
     "searchengines",  # Search engines - search and directories
     "shopping",  # Shopping - ecommerce, retail, marketplaces
@@ -92,7 +91,7 @@ classes: list[str] = [
 """
 List[str]: Complete list of website classification categories.
 
-This list contains 48 categories used for domain content classification.
+This list contains 47 categories used for domain content classification.
 Derived from Shallalist but not identical to it: classes describing how a site is
 hosted or monetised are removed, `recreation` and `hobby` are split, and the adult
 categories are merged. See training/taxonomy.py for the mapping.
@@ -183,6 +182,6 @@ def get_category_count() -> int:
     Example:
         >>> count = get_category_count()
         >>> print(f"Total categories available: {count}")
-        Total categories available: 48
+        Total categories available: 47
     """
     return len(classes)

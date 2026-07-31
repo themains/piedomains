@@ -118,7 +118,7 @@ class DomainClassifier:
             ]
 
         Supported Categories:
-            The 48 categories in :data:`piedomains.constants.classes`:
+            The 47 categories in :data:`piedomains.constants.classes`:
             adult, aggressive, alcohol, automobile, dating, downloads, drugs,
             education, finance, fortunetelling, forum, gamble, government,
             hobby/cooking, hobby/games-misc, hobby/games-online,
@@ -126,7 +126,7 @@ class DomainClassifier:
             isp, jobsearch, library, military, movies, music, news, politics,
             radiotv, realestate, recreation/humor, recreation/restaurants,
             recreation/sports, recreation/travel, recreation/wellness,
-            religion, ringtones, science, searchengines, shopping, socialnet,
+            parked, religion, science, searchengines, shopping, socialnet,
             urlshortener, warez, weapons, webmail, webradio.
 
             Categories describing how a site is hosted or monetised

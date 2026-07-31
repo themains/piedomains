@@ -41,7 +41,7 @@ the CLI's `--method` default moves from `combined` to `text`.
 pages classify at 0.667 accuracy against 0.738 for English. Usable but not equal, and
 closing the gap needs multilingual training data rather than a multilingual encoder alone.
 
-**Breaking:** the label set is 48 classes, not 39, and some names changed
+**Breaking:** the label set is 47 classes, not 39, and some names changed
 (`porn`→`adult`, `recreation`→`recreation/sports`). See the
 [changelog](https://github.com/themains/piedomains/blob/main/CHANGELOG.md).
 
