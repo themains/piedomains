@@ -20,7 +20,7 @@ from typing import Any
 
 from .piedomains_logging import get_logger
 
-__all__ = ["read_labels", "read_sidecar", "read_temperature"]
+__all__ = ["eager_config", "read_labels", "read_sidecar", "read_temperature"]
 
 logger = get_logger()
 
@@ -106,3 +106,35 @@ def read_temperature(source: str) -> float:
         source,
     )
     return 1.0
+
+
+def eager_config(source: str) -> Any:
+    """Load a model config with graph compilation switched off.
+
+    ModernBERT compiles its encoder through TorchInductor, whose Triton backend requires
+    CUDA compute capability >= 7.0. On anything older -- Kaggle hands out P100s, which are
+    6.0 -- every forward pass dies with "Found Tesla P100-PCIE-16GB which is too old to be
+    supported by the triton GPU compiler". Eager mode costs a few percent and works
+    everywhere.
+
+    Two things that only trying it reveals, and that cost a training run each:
+
+    * ``from_pretrained(..., reference_compile=False)`` raises ``TypeError`` -- the kwarg
+      is forwarded to ``__init__``, so it has to be set on the config instead.
+    * A freshly loaded config does not carry the attribute at all, so a ``hasattr`` guard
+      never fires and the failure comes straight back. Set it unconditionally; configs
+      accept extra attributes and other architectures ignore this one.
+
+    Args:
+        source: Local directory or Hugging Face Hub repo id.
+
+    Returns:
+        Any: The config, with ``reference_compile`` disabled.
+    """
+    import torch  # pyright: ignore[reportMissingImports]
+    from transformers import AutoConfig  # pyright: ignore[reportMissingImports]
+
+    torch._dynamo.config.suppress_errors = True
+    config = AutoConfig.from_pretrained(source)
+    config.reference_compile = False
+    return config

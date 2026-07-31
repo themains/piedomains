@@ -8,7 +8,7 @@ from typing import Any
 
 from .base import Base
 from .blocking import is_thin
-from .checkpoints import read_labels, read_temperature
+from .checkpoints import eager_config, read_labels, read_temperature
 from .config import get_config
 from .constants import classes
 from .content_processor import ContentProcessor
@@ -112,7 +112,9 @@ class TextClassifier(Base):
 
             source = resolve_text_model(latest)
             self._tokenizer = AutoTokenizer.from_pretrained(source)
-            self._model = AutoModelForSequenceClassification.from_pretrained(source)
+            self._model = AutoModelForSequenceClassification.from_pretrained(
+                source, config=eager_config(source)
+            )
             self._model.eval()
             self._device = _pick_device()
             self._model.to(self._device)
