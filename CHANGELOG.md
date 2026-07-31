@@ -148,6 +148,15 @@ consistent.
 
 ### Fixed
 
+- **The screenshot-only path failed on pages with no text — the pages it is for.**
+  A page below the 30-token floor failed the whole fetch before the screenshot was ever
+  taken, so `classify_by_images()` returned nothing for `espn.com`, which renders 11 words
+  and a complete homepage. The floor exists so thin text is never cached — that stands —
+  but it now drops the *text*, not the page: the screenshot is captured first, HTML and
+  text are cleared so nothing thin is written, and the row survives carrying
+  `thin_content`. The text path was also silently filtering these rows out of its results
+  entirely; it now reports them with the fetcher's own reason instead of dropping a domain
+  the caller asked about.
 - **Training metrics described weights nobody could load.** `evaluate_split` scored the
   in-memory model, which after early stopping is the *last* epoch, while the artifact on
   disk is the *best*. Both trainers now reload the saved checkpoint and log which epoch

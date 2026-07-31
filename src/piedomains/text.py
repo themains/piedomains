@@ -302,7 +302,16 @@ class TextClassifier(Base):
             }
 
             if not domain or not text_path:
-                result["error"] = "Missing domain or text_path"
+                # Prefer the fetcher's own account of why there is no text. It
+                # knows the page rendered 11 words; all this layer can see is an
+                # absent path, and reporting that would name the symptom.
+                result["error"] = (
+                    domain_data.get("error") or "Missing domain or text_path"
+                )
+                result["error_code"] = (
+                    domain_data.get("error_code") or ErrorCode.MISSING_INPUT_PATH.value
+                )
+                result["stage"] = Stage.PROCESS.value
                 results.append(result)
                 continue
 
@@ -380,10 +389,12 @@ class TextClassifier(Base):
         # Extract domain data from collection metadata
         domains_data = collection_data.get("domains", [])
 
-        # Filter only successful data collection
-        valid_domains = [
-            d for d in domains_data if d.get("fetch_success") and d.get("text_path")
-        ]
+        # Filtered on fetch_success alone, matching the image path. Requiring
+        # text_path here drops the row instead of explaining it: a page that
+        # renders but yields almost no text succeeds with a screenshot and no
+        # HTML, and dropping it turns "the page had 11 words" into a domain that
+        # silently disappears from the results.
+        valid_domains = [d for d in domains_data if d.get("fetch_success")]
 
         if not valid_domains:
             logger.warning("No valid domains with text data found in collection")

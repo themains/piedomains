@@ -23,6 +23,9 @@
 - **The screenshot model was retrained** on splits aligned to the current text corpus:
   0.339 accuracy / 0.284 macro-F1 on screenshots captured today, against the previous
   model's 0.290 / 0.214 on the same 124 domains. Still far below text, still opt-in.
+- **And it now works on pages with no text**, which are the pages it is for. A page below
+  the token floor used to fail before its screenshot was taken, so `classify_by_images()`
+  returned nothing for `espn.com` — 11 words of text and a complete homepage.
 - **The ensemble was built and not shipped.** Four ways of combining the two models were
   measured; all four were worse than text alone. The numbers are in the changelog.
 
