@@ -45,9 +45,9 @@ WORK = Path("/kaggle/working")
 #: Ephemeral scratch, wiped at session end.
 TEMP = Path("/kaggle/temp")
 
-#: Attached Dataset holding the prepared splits, so this kernel never touches the 17GB
-#: corpus. Built by `prepare_text.py` with the minimal cleaner.
-DATA = "/kaggle/input/piedomains-text-minimal"
+#: Name of the attached Dataset holding the prepared splits, so this kernel never touches
+#: the 17GB corpus. Built by `prepare_text.py` with the minimal cleaner.
+DATASET = "piedomains-text-minimal"
 
 #: 256, not 128. Under the old cleaner a page collapsed to a few hundred unique
 #: alphabetised words, so 128 subword tokens rarely truncated anything. Real text with
@@ -102,23 +102,12 @@ def setup() -> Path:
     """Clone the branch, install dependencies, and make the package importable.
 
     Returns:
-        Path: The repository root.
+        Path: The directory holding the prepared splits.
 
     Raises:
-        SystemExit: If the attached Dataset or a required script is missing.
+        SystemExit: If a required script is missing.
     """
-    if not Path(DATA).exists():
-        # Report what *is* mounted rather than only what is missing. Guessing a Kaggle
-        # mount path has cost two runs already; the listing settles it in one.
-        root = Path("/kaggle/input")
-        found = sorted(str(p) for p in root.glob("*")) if root.exists() else []
-        nested = sorted(str(p) for p in root.rglob("*"))[:20] if root.exists() else []
-        raise SystemExit(
-            f"{DATA} not attached.\n"
-            f"/kaggle/input contains: {found}\n"
-            f"first entries: {nested}\n"
-            "Add the 'piedomains-text-minimal' Dataset to this notebook."
-        )
+    data = find_dataset()
 
     repo = TEMP / "piedomains"
     if not repo.exists():
@@ -137,7 +126,37 @@ def setup() -> Path:
     existing = os.environ.get("PYTHONPATH", "")
     os.environ["PYTHONPATH"] = f"{src}{os.pathsep}{existing}" if existing else str(src)
     print(f"PYTHONPATH={os.environ['PYTHONPATH']}")
-    return repo
+    return data
+
+
+def find_dataset() -> Path:
+    """Locate the attached Dataset wherever Kaggle chose to mount it.
+
+    Mount paths are not one convention. `piedomains-fusion-splits` appeared at
+    ``/kaggle/input/<name>`` while `piedomains-text-minimal` appeared at
+    ``/kaggle/input/datasets/<owner>/<name>`` -- which cost two runs before a listing was
+    printed instead of a guess. So search, and if nothing matches, say what *is* there.
+
+    Returns:
+        Path: Directory containing train/val/test.jsonl.
+
+    Raises:
+        SystemExit: If the Dataset is not attached, listing the actual mount.
+    """
+    root = Path("/kaggle/input")
+    if root.exists():
+        for candidate in sorted(root.rglob(DATASET)):
+            if (candidate / "train.jsonl").exists():
+                print(f"found the prepared splits at {candidate}")
+                return candidate
+
+    listing = sorted(str(p) for p in root.rglob("*"))[:25] if root.exists() else []
+    raise SystemExit(
+        f"Dataset {DATASET!r} is not attached.\n"
+        f"/kaggle/input holds: {listing}\n"
+        f"Add the {DATASET!r} Dataset to this notebook; this kernel does not rebuild "
+        "it from the 17GB corpus."
+    )
 
 
 def ensure_usable_gpu() -> None:
@@ -195,7 +214,7 @@ def main() -> int:
         print("This script expects a Kaggle notebook environment.", file=sys.stderr)
         return 1
 
-    setup()
+    data = setup()
     ensure_usable_gpu()
 
     out = WORK / "text-v5"
@@ -205,7 +224,7 @@ def main() -> int:
             "-m",
             "piedomains.training.train_text",
             "--data",
-            DATA,
+            str(data),
             "--out",
             str(out),
             "--epochs",
@@ -226,7 +245,7 @@ def main() -> int:
             "--model",
             str(out),
             "--data",
-            DATA,
+            str(data),
         ]
     )
 
