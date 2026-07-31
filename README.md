@@ -20,15 +20,20 @@
   things worse (Curlie 0.543 → 0.523), and an earlier claim in this repo that trafilatura
   was the weaker extractor turned out to be measured wrong.
 
+- **The screenshot model was retrained** on splits aligned to the current text corpus:
+  0.339 accuracy / 0.284 macro-F1 on screenshots captured today, against the previous
+  model's 0.290 / 0.214 on the same 124 domains. Still far below text, still opt-in.
+- **The ensemble was built and not shipped.** Four ways of combining the two models were
+  measured; all four were worse than text alone. The numbers are in the changelog.
+
 **Breaking:** the label set is 47 — `ringtones` out (it fell below the training floor once
 parking pages were relabelled out of it), `parked` in.
 
 ## From v0.11.0
 
 - **Screenshot classification returned, opt-in.** `classify_by_images()` had raised since
-  0.8.0; it now runs a fine-tuned, temperature-calibrated SigLIP2 model. On screenshots
-  taken today it scores 0.317 accuracy — not the 0.429 it gets on the 2022 corpus it
-  learned from, which is four years of visual drift, measured.
+  0.8.0; it now runs a fine-tuned, temperature-calibrated SigLIP2 model. It scores well
+  below the text model either way — see above for the current figures.
 - **The training scripts ship with the package** as `piedomains.training`. Every number
   here comes out of one of them; `classify_domains --training-scripts` prints where.
 
@@ -163,9 +168,9 @@ PIEDOMAINS_LOG_FORMAT=json classify_domains --file domains.txt
 run = classifier.classify(["github.com"])
 run = classifier.classify_by_text(["news.google.com"])
 
-# Screenshots, opt-in. The image model is weak on current pages (0.317 accuracy)
-# and fusing it gains +0.001 macro-F1 -- inside noise. On cnn.com it turns a
-# correct `news` into `movies`.
+# Screenshots, opt-in. The image model is weak on current pages (0.339 accuracy)
+# and no way of combining it with the text model beat text alone -- all four
+# tried were worse. Use it when there is no text to classify.
 run = classifier.classify(["github.com"], use_screenshots=True)
 run = classifier.classify_by_images(["github.com"])
 

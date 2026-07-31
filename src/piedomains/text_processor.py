@@ -224,14 +224,18 @@ class TextProcessor:
         """Extract main content using trafilatura.
 
         trafilatura powers FineWeb and RefinedWeb and tops the WCXB benchmark on
-        articles. It is **not** the default here, because measured on this
-        project's own pages it is worse: 16 of 33 fall under the token floor
-        against 14 of 33 for the legacy cleaner. It discards navigation and tile
-        text as boilerplate, which is correct for an article and wrong for a
-        homepage, where that chrome carries most of the site-level signal.
+        articles, and it is the default here — see ``config.py`` for the
+        measurement. An earlier note in this file said the opposite, that it was
+        worse at 16 of 33 pages under the token floor against the legacy
+        cleaner's 14. That comparison was invalid: it counted trafilatura's raw
+        words against the legacy path's *cleaned* tokens, and the legacy cleaner
+        deduplicated, so the two sides were not the same quantity.
 
-        Kept reachable because the corpus work in PR 5 classifies deep pages as
-        well as homepages, where the trade-off reverses.
+        What it does discard is navigation and tile chrome. That costs
+        site-level signal on a homepage and removes a great deal of noise: on
+        ``deadspin.com`` it cuts gambling tokens from 260 (7.1% of the page) to
+        7 (1.1%), which only started to matter once the cleaner stopped
+        collapsing repeated words to one.
 
         Args:
             html_content: Raw HTML content.

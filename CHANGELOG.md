@@ -63,6 +63,23 @@ The differences on the small sets are inside noise (SE ≈ 0.04 and ≈ 0.065). 
 figure is the one to weigh: independent labels, larger sample, and it shares neither the
 taxonomy nor the selection bias of the training corpus.
 
+On the five live pages that motivated this work, fetched today and each scored through the
+pipeline its own release actually shipped:
+
+| domain | v0.11 | v0.12 | |
+|---|---|---|---|
+| cnn.com | movies 0.32 | **news 0.63** | fixed |
+| formula1.com | gamble 0.65 | **automobile 0.38** | fixed |
+| newlook.com | drugs 0.36 | **shopping 0.32** | fixed |
+| zappos.com | drugs 0.48 | adult 0.22 | still wrong |
+| deadspin.com | gamble 0.99 | gamble 0.62 | still wrong |
+
+Three of five, not five of five. `deadspin.com` today is sports reporting with one
+metaphorical "gambled" in a headline, and it is still called `gamble` — less confidently,
+which is the calibration working, but the label is wrong. `zappos.com` moved off `drugs`,
+which was the parking-page artifact, onto `adult`, which is the model reading a page of
+women's shoe listings. Both are genuine remaining errors and neither is claimed as fixed.
+
 ### Two things that looked obviously right and were not
 
 **Stripping standalone punctuation.** Table pipes and layout dashes are 4.8% of tokens and
@@ -98,6 +115,27 @@ driving the text weight to 1.0, which is the fitted way of saying "ignore the sc
 So `classify()` stays text-only and the screenshot model stays opt-in. A 224px screenshot
 carries little that the page text does not, and at 0.331 macro-F1 it is too weak for a
 combiner to recover anything from.
+
+### The screenshot model was retrained anyway, and it is better
+
+It stays because callers with no text — bot walls, image-only landing pages, JS-heavy
+sites — are a real case, and for them a weak answer beats no answer. So it was retrained
+against splits aligned to the current text corpus. On screenshots captured today, scored
+on the 124 domains the new checkpoint provably never trained on:
+
+| | accuracy | macro-F1 |
+|---|---|---|
+| previous | 0.290 | 0.214 |
+| **retrained** | **0.339** | **0.284** |
+
+At n=124 the standard error on accuracy is about 0.042, so the accuracy gain is inside
+noise on its own; both metrics move the same way, which is the reason to prefer the new
+one rather than proof it is better. Held-out 2022 captures: 0.456 / 0.370.
+
+The checkpoint carries `train_domains.json` — the list of domains it was fitted on. Split
+files were not enough: a checkpoint outlives the splits it was trained against, and two
+runs in this cycle were invalidated by exactly that while every split file looked
+consistent.
 
 ### Added
 
