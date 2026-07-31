@@ -30,16 +30,17 @@ import sys
 import tempfile
 from pathlib import Path
 
-SCRIPT = Path(__file__).parent / "train_image_kaggle.py"
+DEFAULT_SCRIPT = Path(__file__).parent / "train_image_kaggle.py"
 BACKBONE_LINE = re.compile(r'^BACKBONE = "[^"]+"$', re.MULTILINE)
 
 
-def build_source(backbone: str | None) -> str:
+def build_source(backbone: str | None, script: Path) -> str:
     """Read the training script, optionally swapping the backbone.
 
     Args:
-        backbone: Hub id of the vision encoder to train, or ``None`` to keep the one in
-            the script.
+        backbone: Hub id of the encoder to train, or ``None`` to keep the one in the
+            script.
+        script: The training script to wrap.
 
     Returns:
         str: The script source to embed in the notebook.
@@ -48,11 +49,11 @@ def build_source(backbone: str | None) -> str:
         SystemExit: If the backbone assignment cannot be found. Pushing a challenger that
             silently kept the baseline's encoder would compare the baseline to itself.
     """
-    source = SCRIPT.read_text(encoding="utf-8")
+    source = script.read_text(encoding="utf-8")
     if backbone is None:
         return source
     if not BACKBONE_LINE.search(source):
-        raise SystemExit(f'no `BACKBONE = "..."` assignment found in {SCRIPT}')
+        raise SystemExit(f'no `BACKBONE = "..."` assignment found in {script}')
     return BACKBONE_LINE.sub(f'BACKBONE = "{backbone}"', source, count=1)
 
 
@@ -118,6 +119,11 @@ def build_parser() -> argparse.ArgumentParser:
         "without them fusion is skipped rather than fitted.",
     )
     parser.add_argument(
+        "--script",
+        default=str(DEFAULT_SCRIPT),
+        help="Training script to wrap (default: the image kernel)",
+    )
+    parser.add_argument(
         "--dry-run", action="store_true", help="Write the notebook but do not push"
     )
     return parser
@@ -137,7 +143,7 @@ def main(argv: list[str] | None = None) -> int:
     """
     args = build_parser().parse_args(argv)
     title = args.id.split("/")[-1]
-    source = build_source(args.backbone)
+    source = build_source(args.backbone, Path(args.script))
 
     match = re.search(r'^BACKBONE = "([^"]+)"$', source, re.MULTILINE)
     print(f"{title}: backbone {match.group(1) if match else 'unknown'}")

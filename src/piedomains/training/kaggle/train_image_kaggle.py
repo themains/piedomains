@@ -57,7 +57,7 @@ REPO = "https://github.com/themains/piedomains.git"
 #: Branch to clone. The image scripts live here until the branch is merged; cloning the
 #: default branch is what made the first run download 47.58 GB and then fail on a missing
 #: file.
-BRANCH = "image-model"
+BRANCH = "text-representation"
 
 #: Kaggle's persistent output volume, 20 GB, and the kernel's *output* -- everything here
 #: has to be enumerated file-by-file to retrieve any of it. Only the checkpoint lives
@@ -104,8 +104,33 @@ BACKBONE = "google/vit-base-patch16-224-in21k"
 #: Published text model, pulled from the Hub for stage 4. Public, so no token is needed.
 TEXT_MODEL = "soodoku/piedomains-text"
 
-#: Attached Dataset holding the paired text val/test splits, for fitting fusion in-session.
-FUSION_SPLITS = "/kaggle/input/piedomains-fusion-splits"
+#: Name of the attached Dataset holding the current text splits. The image model must be
+#: aligned to *these*, not to an earlier version: re-preparing the text corpus reshuffled
+#: the assignments, and 73% of the new test domains landed in the old training set, so a
+#: model aligned to the old splits scored 0.706 on data it had trained on.
+SPLITS_DATASET = "piedomains-text-clean"
+
+
+def find_dataset(name: str) -> Path:
+    """Locate an attached Dataset wherever Kaggle mounted it.
+
+    Args:
+        name: The Dataset's name.
+
+    Returns:
+        Path: Its directory.
+
+    Raises:
+        SystemExit: If it is not attached, listing what is.
+    """
+    root = Path("/kaggle/input")
+    if root.exists():
+        for candidate in sorted(root.rglob(name)):
+            if candidate.is_dir():
+                print(f"found {name} at {candidate}")
+                return candidate
+    listing = sorted(str(p) for p in root.rglob("*"))[:25] if root.exists() else []
+    raise SystemExit(f"Dataset {name!r} not attached.\n/kaggle/input holds: {listing}")
 
 
 def run(cmd: list[str], **kwargs) -> None:
@@ -188,8 +213,13 @@ def setup() -> Path:
 
 #: Last torch whose cu121 wheels still ship Pascal (sm_60) kernels, for when Kaggle hands
 #: out a P100. Kaggle's own preinstalled build is cu128 and starts at sm_70.
-PASCAL_TORCH = "2.5.1"
-PASCAL_TORCHVISION = "0.20.1"
+PASCAL_TORCH = "2.6.0"
+PASCAL_TORCHVISION = "0.21.0"
+
+#: cu124, not cu121: the cu121 index stops at torch 2.5.1, which transformers
+#: rejects. Three constraints have to hold at once -- transformers needs >= 2.6,
+#: the P100 needs sm_60 kernels, and the wheel has to exist on the index.
+PASCAL_INDEX = "https://download.pytorch.org/whl/cu124"
 
 #: Probe run in a subprocess, because a GPU verdict cannot be revised inside a process
 #: that has already initialised CUDA. Exit 42 means "device present but this torch has no
@@ -257,7 +287,7 @@ def ensure_usable_gpu() -> None:
             "--force-reinstall",
             "--no-cache-dir",
             "--index-url",
-            "https://download.pytorch.org/whl/cu121",
+            PASCAL_INDEX,
             f"torch=={PASCAL_TORCH}",
             f"torchvision=={PASCAL_TORCHVISION}",
         ]
@@ -399,7 +429,7 @@ def stage_one_prepare() -> Path:
                     # domains fusion scores on are in the image model's training set --
                     # which is why the first fused number looked good and was not.
                     "--respect-splits",
-                    FUSION_SPLITS,
+                    str(find_dataset(SPLITS_DATASET)),
                 ]
             )
         except subprocess.CalledProcessError as exc:
@@ -499,11 +529,11 @@ def stage_four_fuse(data: Path, model: Path) -> None:
         data: Directory of resized screenshots.
         model: The trained image checkpoint.
     """
-    splits = Path(FUSION_SPLITS)
+    splits = find_dataset(SPLITS_DATASET)
     if not splits.exists():
         print(
             f"\nno {splits}; skipping fusion. Attach the "
-            "'piedomains-fusion-splits' Dataset to fuse in-session."
+            f"{SPLITS_DATASET!r} Dataset to fuse in-session."
         )
         return
 

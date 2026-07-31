@@ -212,6 +212,7 @@ def save_checkpoint(
     labels: list[str],
     config: TrainConfig,
     state: dict,
+    train_domains: list[str] | None = None,
 ) -> None:
     """Write weights, preprocessor, labels and run state.
 
@@ -222,6 +223,8 @@ def save_checkpoint(
         labels: Ordered class names.
         config: The run configuration.
         state: Epoch/score bookkeeping for resuming.
+        train_domains: Domains this model trained on, written so a later fusion run can
+            verify it never saw what it is being scored against.
     """
     out.mkdir(parents=True, exist_ok=True)
     model.save_pretrained(out, safe_serialization=True)
@@ -231,6 +234,17 @@ def save_checkpoint(
         json.dumps(asdict(config), indent=2), encoding="utf-8"
     )
     (out / "state.json").write_text(json.dumps(state, indent=2), encoding="utf-8")
+
+    # Record what this model actually trained on. Checking the *split files* is not
+    # enough: a checkpoint outlives the splits it was fitted against, and when the text
+    # corpus was re-prepared, 73% of the new test domains turned out to be in the old
+    # training set. The split files agreed with each other perfectly -- both had been
+    # rebuilt with --respect-splits -- while the model had seen three quarters of the
+    # data it was about to be scored on. Only the model can answer what the model saw.
+    if train_domains is not None:
+        (out / "train_domains.json").write_text(
+            json.dumps(sorted(train_domains)), encoding="utf-8"
+        )
 
 
 def load_best(out: Path, fallback: Any) -> Any:
@@ -439,6 +453,7 @@ def main(argv: list[str] | None = None) -> int:
                 labels,
                 config,
                 {"epoch": epoch + 1, "best_f1": best_f1, "last_val_f1": val_f1},
+                train_domains=[r["domain"] for r in splits["train"]],
             )
             print(f"  checkpoint saved to {out} (new best)")
         else:

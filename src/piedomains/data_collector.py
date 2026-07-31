@@ -202,7 +202,16 @@ class DataCollector:
                 return {
                     "url": domain,
                     "domain": domain_name,
-                    "text_path": str(html_file.relative_to(self.cache_dir)),
+                    # Same rule as the screenshot below: advertise the HTML only
+                    # if it was written. A page that renders but yields almost no
+                    # text succeeds with a screenshot and no HTML, and pointing
+                    # at the file anyway would report the text failure as a
+                    # missing path rather than as thin content.
+                    "text_path": (
+                        str(html_file.relative_to(self.cache_dir))
+                        if result.html
+                        else None
+                    ),
                     # Only advertise a screenshot the fetcher actually captured.
                     # `screenshot_path` is empty when the capture failed, and
                     # reporting the intended path regardless makes downstream
@@ -221,7 +230,12 @@ class DataCollector:
                     "date_time_collected": collection_time.isoformat() + "Z",
                     "fetch_success": True,
                     "cached": False,
-                    "error": None,
+                    # A fetch can succeed for one modality and not the other, so
+                    # carry the reason through rather than reporting None. It is
+                    # what tells a caller their text row failed because the page
+                    # rendered 11 words, not because a file went missing.
+                    "error": result.error or None,
+                    "error_code": result.error_code or None,
                     "title": result.title or None,
                     "meta_description": result.meta_description or None,
                 }
@@ -414,7 +428,11 @@ class DataCollector:
                             {
                                 "url": result.url,
                                 "domain": domain_name,
-                                "text_path": str(html_file.relative_to(self.cache_dir)),
+                                # Advertise each modality only if it was written;
+                                # see the single-domain path for why.
+                                "text_path": str(html_file.relative_to(self.cache_dir))
+                                if result.html
+                                else None,
                                 "image_path": str(
                                     Path(result.screenshot_path).relative_to(
                                         self.cache_dir
@@ -428,7 +446,8 @@ class DataCollector:
                                 + "Z",
                                 "fetch_success": True,
                                 "cached": False,
-                                "error": None,
+                                "error": result.error or None,
+                                "error_code": result.error_code or None,
                                 "title": result.title or None,
                                 "meta_description": result.meta_description or None,
                             }

@@ -52,7 +52,7 @@ imgur.com,imagehosting
 flickr.com,imagehosting
 stackoverflow.com,forum
 quora.com,forum
-espn.com,recreation
+espn.com,recreation/sports
 nih.gov,government
 #
 # Non-English domains. v0.8.0 shipped a multilingual encoder behind an

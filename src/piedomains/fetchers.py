@@ -395,10 +395,44 @@ class PlaywrightFetcher(BaseFetcher):
                 await page.wait_for_timeout(500)
         return ""
 
+    async def _capture_screenshot(self, page: Page, screenshot_path: str | None) -> str:
+        """Write a screenshot of the loaded page, if one was asked for.
+
+        Separate from text extraction because the two succeed independently: a
+        page can render perfectly and yield almost no text, and that page is
+        still the whole input to the screenshot-only classifier.
+
+        Args:
+            page: The loaded Playwright page.
+            screenshot_path: Where to write the PNG, or ``None`` to skip.
+
+        Returns:
+            str: The path written, or ``""`` if none was.
+        """
+        if not screenshot_path:
+            return ""
+        Path(screenshot_path).parent.mkdir(parents=True, exist_ok=True)
+        await page.screenshot(
+            path=screenshot_path,
+            full_page=False,  # Just viewport for consistency
+            type="png",
+        )
+        logger.info(f"Screenshot saved to {screenshot_path}")
+        return screenshot_path
+
     async def _extract_from_page(
         self, page: Page, url: str, screenshot_path: str | None = None
     ) -> FetchResult:
-        """Extract all content from a loaded page."""
+        """Extract all content from a loaded page.
+
+        Args:
+            page: The loaded Playwright page.
+            url: URL being fetched, for logging.
+            screenshot_path: Where to write the screenshot, if wanted.
+
+        Returns:
+            FetchResult: The extracted content.
+        """
         result = FetchResult(url=url, success=False)
 
         try:
@@ -465,19 +499,42 @@ class PlaywrightFetcher(BaseFetcher):
             )
 
             # A page whose entire rendered body is a handful of words did not
-            # load; caching it makes that failure permanent, which is how
-            # spotify.com came to sit in the cache with 8 usable tokens against
-            # 292 on a live refetch. Fail here so nothing is written.
+            # load as text; caching that makes the failure permanent, which is
+            # how spotify.com came to sit in the cache with 8 usable tokens
+            # against 292 on a live refetch.
+            #
+            # It is still a page, though, and it renders. Screenshot-only
+            # classification exists precisely for callers with no text -- bot
+            # walls, image-only landing pages, JS-heavy sites -- so failing the
+            # whole fetch here made the image path useless on exactly the pages
+            # it is for. `espn.com` renders 11 words and a complete homepage.
+            #
+            # So capture the screenshot first, then drop the text and HTML
+            # rather than the result. The collector writes HTML only when
+            # `result.html` is non-empty, so nothing thin is cached either way,
+            # and the text classifier applies this same floor again before
+            # scoring.
             floor = self.config.get("min_tokens", 30)
-            if is_thin(result.text, min_tokens=floor):
-                result.success = False
+            thin = is_thin(result.text, min_tokens=floor)
+            if thin:
+                words = len(result.text.split())
+                result.screenshot_path = await self._capture_screenshot(
+                    page, screenshot_path
+                )
                 result.error = (
-                    f"page rendered only {len(result.text.split())} words, "
-                    f"below the {floor}-word floor"
+                    f"page rendered only {words} words, below the {floor}-word floor"
                 )
                 result.error_code = ErrorCode.THIN_CONTENT.value
+                result.success = bool(result.screenshot_path)
+                result.html = ""
+                result.text = ""
                 logger.warning(
-                    f"{url}: {result.error}",
+                    f"{url}: {result.error}"
+                    + (
+                        "; keeping the screenshot for image classification"
+                        if result.success
+                        else ""
+                    ),
                     extra={
                         "domain": self._parse_domain_name(url),
                         "stage": "fetch",
@@ -502,17 +559,9 @@ class PlaywrightFetcher(BaseFetcher):
                     og_content = await og_desc.get_attribute("content")
                     result.meta_description = og_content or ""
 
-            # Take screenshot if path provided
-            if screenshot_path:
-                # Ensure directory exists
-                Path(screenshot_path).parent.mkdir(parents=True, exist_ok=True)
-                await page.screenshot(
-                    path=screenshot_path,
-                    full_page=False,  # Just viewport for consistency
-                    type="png",
-                )
-                result.screenshot_path = screenshot_path
-                logger.info(f"Screenshot saved to {screenshot_path}")
+            result.screenshot_path = await self._capture_screenshot(
+                page, screenshot_path
+            )
 
             result.success = True
             logger.info(
@@ -977,6 +1026,11 @@ class ArchiveFetcher(BaseFetcher):
         # is often a stub. sapphirecasino.com came back as a "success" from a 114-byte
         # capture with 4 characters of text, which is a blank screenshot and a blank
         # document presented as data.
+        #
+        # Unlike the live path, this one still fails outright rather than keeping the
+        # screenshot. The asymmetry is the point: a live page with no text usually
+        # renders fine and is real input for the image model, whereas a 114-byte capture
+        # has nothing to render -- the screenshot would be as empty as the text.
         floor = self.config.get("min_tokens", 30)
         if is_thin(result.text, min_tokens=floor):
             result.success = False

@@ -123,7 +123,8 @@ def fuse_probabilities(
         return dict(present)
 
     # The screenshot model covers 42 of the 47 classes -- `aggressive`, `homestyle`,
-    # `library`, `military` and `ringtones` had too few screenshots to train on. Reading
+    # `library`, `military` and `parked` are absent from it -- too few screenshots, and
+    # `parked` postdates that model entirely. Reading
     # `image[name]` for those raised KeyError, so every fused call crashed.
     #
     # Zero is the honest value: a model never trained on a class does not vote for it.
