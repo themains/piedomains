@@ -289,6 +289,35 @@ def fit_stacker(
     return stacker, cv_f1
 
 
+def mcnemar(baseline: Any, challenger: Any, targets: Any) -> tuple[float, int, int]:
+    """Paired test of whether a challenger's predictions differ from a baseline's.
+
+    Accuracy on the same domains is a *paired* measurement, so the question is not
+    whether two rates differ but whether the challenger fixes more than it breaks. Only
+    the disagreements carry information; McNemar's exact form is a binomial test on them.
+
+    Args:
+        baseline: Predicted class indices from the baseline model.
+        challenger: Predicted class indices from the challenger.
+        targets: Gold class indices.
+
+    Returns:
+        tuple[float, int, int]: Two-sided p-value, how many the challenger fixed, and how
+        many it broke.
+    """
+    import numpy as np
+    from scipy.stats import binomtest
+
+    truth = np.asarray(targets)
+    base_ok = np.asarray(baseline) == truth
+    chal_ok = np.asarray(challenger) == truth
+    fixed = int((~base_ok & chal_ok).sum())
+    broken = int((base_ok & ~chal_ok).sum())
+    if fixed + broken == 0:
+        return 1.0, 0, 0
+    return float(binomtest(fixed, fixed + broken, 0.5).pvalue), fixed, broken
+
+
 def score_stacker(
     stacker: Any, text_p: Any, image_p: Any, targets: Any, labels: list[str]
 ) -> dict[str, Any]:
@@ -488,6 +517,12 @@ def main(argv: list[str] | None = None) -> int:
         )
         print(f"wrote {Path(args.out).with_name('probabilities.npz')}")
 
+    import numpy as np
+
+    stacker_predictions = stacker.predict(
+        np.hstack([test_text.numpy(), test_image.numpy()])
+    )
+
     report = {
         "text_only": score(test_text, test_targets, labels),
         "image_only": score(test_image, test_targets, labels),
@@ -521,21 +556,49 @@ def main(argv: list[str] | None = None) -> int:
         f"({1 - scalar.item():.3f} to the image model)"
     )
 
-    best_fused = max(
-        report["fused_scalar"]["macro_f1"],
-        report["fused_per_class"]["macro_f1"],
-        report["fused_stacked"]["macro_f1"],
+    best_key = max(
+        ("fused_scalar", "fused_per_class", "fused_stacked"),
+        key=lambda k: report[k]["macro_f1"],
     )
+    best_fused = report[best_key]["macro_f1"]
     text_f1 = report["text_only"]["macro_f1"]
-    helps = best_fused > text_f1
+
+    # `best_fused > text_f1` alone is not a result. It fired once on a 0.0002 macro-F1
+    # difference produced by a fusion whose fitted text weight was 0.987 -- the image
+    # model carried 1.3% of the decision and changed no predictions at all. Ranking three
+    # variants and reporting the winner also takes the maximum of three noisy numbers, so
+    # the bar has to be a paired test rather than a comparison of point estimates.
+    predictions = {
+        "fused_scalar": (scalar * test_text + (1 - scalar) * test_image).argmax(1),
+        "fused_per_class": (
+            per_class * test_text + (1 - per_class) * test_image
+        ).argmax(1),
+        "fused_stacked": stacker_predictions,
+    }
+    p_value, fixed, broken = mcnemar(
+        test_text.argmax(1), predictions[best_key], test_targets
+    )
+    report["best_variant"] = best_key
+    report["mcnemar_p"] = p_value
+    report["fixed"] = fixed
+    report["broken"] = broken
+
+    # Both conditions, because they fail independently: stacking here gained 0.6pp of
+    # accuracy while *losing* 1.1pp of macro-F1, which is a trade, not an improvement.
+    helps = p_value < 0.05 and best_fused > text_f1
     report["fusion_helps"] = helps
 
     print()
+    print(
+        f"best variant {best_key}: fixes {fixed}, breaks {broken} "
+        f"of {len(test_targets):,} (McNemar p={p_value:.3f})"
+    )
     if helps:
         print(f"Fusion beats text alone: {text_f1:.3f} -> {best_fused:.3f} macro-F1.")
     else:
         print(
-            f"Fusion does NOT beat text alone ({best_fused:.3f} vs {text_f1:.3f}).\n"
+            f"Fusion does NOT beat text alone ({best_fused:.3f} vs {text_f1:.3f}, "
+            f"p={p_value:.3f}).\n"
             "Ship image classification opt-in and put this number in the README."
         )
 

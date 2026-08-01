@@ -97,6 +97,16 @@ is what ships.
 - Backbone choice was measured, not assumed: SigLIP 2 beat ViT-base-in21k on
   this corpus **0.531/0.397 vs 0.335/0.140**.
 
+**Fusion does not help, and this is now settled.** On 1,604 paired domains the
+fitted text weight is 0.986 — the image model carries 1.4% of the decision and
+the best variant by macro-F1 changes *zero* predictions (McNemar p=1.000).
+Stacking buys 0.6pp of accuracy while losing 1.1pp of macro-F1, p=0.25. So
+`classify(use_screenshots=True)` falls back to text and screenshot
+classification stays opt-in; `fusion.json` is deliberately **not** published.
+
+Re-check it locally with `data/fusion-corpus` (8,825 held-out screenshots, 86 MB,
+exported by the image kernel) — it no longer needs a Kaggle session.
+
 **Known defect — `drugs` absorbs retail.** Only 28% of the 672 `drugs` training
 documents mention any drug or pharmacy term (vs 4% of `shopping`); the rest are
 expired pharmacy domains recycled into SEO spam, plus parked and dead pages the
