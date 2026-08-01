@@ -21,6 +21,26 @@ from .piedomains_logging import get_logger
 logger = get_logger(__name__)
 
 
+def _one_category(result: dict) -> list[dict[str, float | str]]:
+    """Wrap an LLM's single answer in the shared `categories` shape.
+
+    The ML classifiers report every label above a probability threshold. An LLM is asked
+    for one category and returns one, so this is always a single entry -- but the field
+    has to exist and have the same shape, or a caller iterating `row["categories"]` works
+    on some backends and raises on others.
+
+    Args:
+        result: A result row with `category` and `confidence` already set.
+
+    Returns:
+        list[dict[str, float | str]]: One entry, or empty when nothing was predicted.
+    """
+    category = result.get("category")
+    if not category:
+        return []
+    return [{"category": category, "probability": result.get("confidence") or 0.0}]
+
+
 class LLMClassifier:
     """LLM-based domain classifier using multiple AI providers.
 
@@ -452,6 +472,10 @@ class LLMClassifier:
                 "model_used": f"{mode}/llm_{self.config.provider}_{self.config.model}",
                 "category": None,
                 "confidence": None,
+                # Present so every classifier returns the same shape. An LLM answers with
+                # one category, so this carries at most that one -- but a caller reading
+                # `row["categories"]` must not KeyError depending on which backend ran.
+                "categories": [],
                 "raw_predictions": None,
                 "reason": None,
                 "error": None,
@@ -495,6 +519,7 @@ class LLMClassifier:
                                 result["category"] = row.get("category")
                                 result["confidence"] = row.get("confidence", 0.0)
                                 result["reason"] = row.get("reasoning")
+                                result["categories"] = _one_category(result)
                         except FileNotFoundError:
                             result["error"] = f"HTML file not found: {text_path}"
 
@@ -516,6 +541,7 @@ class LLMClassifier:
                             result["category"] = row.get("category")
                             result["confidence"] = row.get("confidence", 0.0)
                             result["reason"] = row.get("reasoning")
+                            result["categories"] = _one_category(result)
 
                 elif mode == "multimodal":
                     if not text_path or not image_path:
@@ -559,6 +585,7 @@ class LLMClassifier:
                                 result["category"] = row.get("category")
                                 result["confidence"] = row.get("confidence", 0.0)
                                 result["reason"] = row.get("reasoning")
+                                result["categories"] = _one_category(result)
                         except FileNotFoundError as e:
                             result["error"] = f"File not found: {e}"
                 else:

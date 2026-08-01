@@ -203,9 +203,10 @@ def ensure_usable_gpu() -> None:
 def build_images(splits: Path) -> Path:
     """Stream the screenshot corpus and resize it, aligned to the text splits.
 
-    ``--respect-splits`` is not optional here. Without it the image model's training set
-    overlaps the domains fusion scores, which read 0.768 image-only where the honest figure
-    was 0.429.
+    Splits come from :func:`piedomains.training.splits.split_of`, so the screenshots and
+    the text corpus cannot disagree about where a domain belongs. That used to be a flag
+    you had to remember, and forgetting it put the image model's training set inside the
+    domains fusion scored -- reported as 0.768 against an honest 0.429.
 
     Args:
         splits: Directory of prepared text splits.
@@ -303,8 +304,6 @@ def build_images(splits: Path) -> Path:
                     "--append",
                     "--index",
                     str(labels_dir / "screenshot-index.tab"),
-                    "--respect-splits",
-                    str(splits),
                 ]
             )
         except subprocess.CalledProcessError as exc:

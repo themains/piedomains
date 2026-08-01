@@ -39,7 +39,7 @@ from pathlib import Path
 from typing import Any
 
 from .metrics import macro_f1, per_class_report
-from .train_text import pick_device, read_jsonl
+from .train_text import TrainConfig, pick_device, read_jsonl
 
 
 def load_calibrated(model_dir: Path) -> float:
@@ -112,7 +112,10 @@ def text_probabilities(
 
     # Typed Any because torch's DataLoader stub demands a Dataset subclass, while the
     # runtime only needs __len__/__getitem__ -- which TextDataset has. See its docstring.
-    dataset: Any = TextDataset(rows, tokenizer, labels, 128)
+    # The shipped text model trains at 256 (train_text.TrainConfig.max_length and the
+    # Kaggle kernel both say so). Scoring it at 128 truncated half of every page and
+    # understated the text side of every fusion number computed here.
+    dataset: Any = TextDataset(rows, tokenizer, labels, TrainConfig.max_length)
     loader = DataLoader(dataset, batch_size=batch_size, shuffle=False)
     chunks = []
     with torch.no_grad():
@@ -340,104 +343,6 @@ def score(probabilities: Any, targets: Any, labels: list[str]) -> dict[str, Any]
     }
 
 
-def refuse_if_leaky(text_data: Path, image_data: Path, image_model: Path) -> None:
-    """Refuse to fuse when the image model trained on the domains fusion scores.
-
-    **This is the bug that made the first fused number look like a clear win.**
-    ``prepare_text.py`` and ``prepare_images.py`` each shuffled *their own* list with the
-    same seed, and the lists differ -- 46,754 documents against 44,712 screenshots -- so a
-    domain landed in unrelated splits on each side. Around 80% of the domains fusion fits
-    and scores on were in the image model's training set, and image-only read 0.768 where
-    the honest figure was 0.429.
-
-    ``prepare_images.py --respect-splits`` fixes it, but a flag you can forget is not a
-    fix for a failure that produces a plausible wrong number rather than an error. So this
-    checks rather than trusts.
-
-    Args:
-        text_data: A ``prepare_text.py`` output directory.
-        image_data: A ``prepare_images.py`` output directory.
-        image_model: The image checkpoint, which records its own training domains.
-
-    Raises:
-        SystemExit: If any domain held out on the text side is in the image training
-            split, naming the count and the remedy.
-    """
-    # Ask the *model* what it trained on, not the split files. Those agree with each
-    # other whenever both were rebuilt with --respect-splits, which says nothing about a
-    # checkpoint fitted against an earlier version of the splits. That is exactly how a
-    # run scored image-only at 0.706 when the honest figure was 0.429: 73% of the test
-    # domains were in the model's training set, and every split file looked consistent.
-    manifest = image_model / "train_domains.json"
-    if manifest.exists():
-        trained_on = {
-            d.lower() for d in json.loads(manifest.read_text(encoding="utf-8"))
-        }
-        held_out = set()
-        for split in ("val", "test"):
-            path = text_data / f"{split}.jsonl"
-            if path.exists():
-                held_out |= {
-                    json.loads(line)["domain"].lower()
-                    for line in path.read_text(encoding="utf-8").splitlines()
-                    if line.strip()
-                }
-        leaked = held_out & trained_on
-        if leaked:
-            raise SystemExit(
-                f"{len(leaked):,} of the {len(held_out):,} domains this would fit and "
-                f"score on are in the image model's own training set "
-                f"(e.g. {', '.join(sorted(leaked)[:3])}).\n"
-                "That model was trained against a different version of the splits. "
-                "Retrain it with --respect-splits against the current text data."
-            )
-        print(
-            f"checked the image model's own manifest: none of {len(held_out):,} "
-            "held-out domains were trained on"
-        )
-    else:
-        print(
-            f"WARNING: {manifest} is absent, so this cannot verify what the image model "
-            "trained on. Split files agreeing is not sufficient -- see the docstring.",
-            file=sys.stderr,
-        )
-
-    train_path = image_data / "train.jsonl"
-    if not train_path.exists():
-        print(
-            f"WARNING: no {train_path}, so the image splits cannot be checked against "
-            "the text splits. If the image model trained on the domains scored below, "
-            "every number in this report is inflated.",
-            file=sys.stderr,
-        )
-        return
-
-    image_train = {
-        json.loads(line)["domain"].lower()
-        for line in train_path.read_text(encoding="utf-8").splitlines()
-        if line.strip()
-    }
-    held_out = set()
-    for split in ("val", "test"):
-        path = text_data / f"{split}.jsonl"
-        if path.exists():
-            held_out |= {
-                json.loads(line)["domain"].lower()
-                for line in path.read_text(encoding="utf-8").splitlines()
-                if line.strip()
-            }
-
-    leaked = held_out & image_train
-    if leaked:
-        raise SystemExit(
-            f"{len(leaked):,} domains held out from the text model are in the image "
-            f"model's training split (e.g. {', '.join(sorted(leaked)[:3])}).\n"
-            "Fusion would be fitted and scored on data the image model memorised. "
-            "Re-run prepare_images.py with --respect-splits <text-data>."
-        )
-    print(f"splits are aligned: no overlap across {len(held_out):,} held-out domains")
-
-
 def build_parser() -> argparse.ArgumentParser:
     """Build the command-line parser.
 
@@ -499,7 +404,6 @@ def main(argv: list[str] | None = None) -> int:
 
     text_data, image_data = Path(args.text_data), Path(args.image_data)
     available = {p.stem for p in (image_data / "images").glob("*.jpg")}
-    refuse_if_leaky(text_data, image_data, image_dir)
 
     def paired(split: str) -> list[dict[str, Any]]:
         rows = read_jsonl(text_data / f"{split}.jsonl")

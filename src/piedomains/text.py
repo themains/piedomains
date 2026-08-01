@@ -348,7 +348,7 @@ class TextClassifier(Base):
             from datetime import datetime
 
             # Create results directory if needed
-            os.makedirs(os.path.dirname(output_file), exist_ok=True)
+            os.makedirs(os.path.dirname(output_file) or ".", exist_ok=True)
 
             # Add metadata
             output_data = {

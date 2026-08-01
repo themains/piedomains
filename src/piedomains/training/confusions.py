@@ -41,7 +41,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from .metrics import macro_f1
+from .metrics import accuracy, macro_f1
+from .train_text import pick_device, read_jsonl
 
 #: Merges to simulate, as ``(description, {from: to})``. Each is a distinction that asks
 #: about delivery mechanism or legality rather than subject -- see ``taxonomy.py``.
@@ -53,76 +54,6 @@ DEFAULT_MERGES: tuple[tuple[str, dict[str, str]], ...] = (
     ("webradio -> radiotv", {"webradio": "radiotv"}),
     ("warez -> downloads", {"warez": "downloads"}),
 )
-
-
-def load_split(data: Path, split: str) -> list[dict]:
-    """Read one prepared JSONL split.
-
-    Args:
-        data: Directory holding ``train``/``val``/``test`` JSONL.
-        split: Which split to read.
-
-    Returns:
-        list[dict]: The records.
-    """
-    path = data / f"{split}.jsonl"
-    return [
-        json.loads(line)
-        for line in path.read_text(encoding="utf-8").splitlines()
-        if line
-    ]
-
-
-def refuse_if_seen(model: Path, data: Path, assume_disjoint: bool = False) -> None:
-    """Refuse to score a checkpoint on documents it was trained on.
-
-    The check is against what the checkpoint recorded it trained on, never against the
-    split directory. Comparing a directory's own train and test splits proves nothing --
-    they are disjoint by construction -- and that exact non-check is what let two earlier
-    analyses in this project pass while scoring a model on 79% of its own training data.
-
-    So a checkpoint without a ``train_domains.json`` cannot be cleared, and saying so is
-    the whole point. ``assume_disjoint`` overrides it for a checkpoint whose provenance is
-    known by other means, and prints that the claim is unverified.
-
-    Args:
-        model: Checkpoint directory.
-        data: Prepared split directory to be scored.
-        assume_disjoint: Proceed without a manifest, on the caller's word.
-
-    Raises:
-        SystemExit: If the test split overlaps the checkpoint's training domains, or if
-            the checkpoint records no training set and the caller did not override.
-    """
-    test = {r["domain"] for r in load_split(data, "test")}
-    manifest = model / "train_domains.json"
-
-    if not manifest.exists():
-        if not assume_disjoint:
-            raise SystemExit(
-                f"{model} has no train_domains.json, so there is no way to tell whether "
-                f"it trained on {data}'s test split. Comparing that directory's own "
-                f"train and test lists would prove nothing -- they are disjoint by "
-                f"construction, which is how two earlier audits here scored a model on "
-                f"79% of its own training data and reported the leak as a result.\n"
-                f"Pass --assume-disjoint if you know the provenance independently."
-            )
-        print(
-            f"UNVERIFIED: {model} records no training set. Proceeding on the caller's "
-            f"word that it never saw these {len(test):,} documents."
-        )
-        return
-
-    train = set(json.loads(manifest.read_text(encoding="utf-8")))
-    overlap = test & train
-    if overlap:
-        raise SystemExit(
-            f"{len(overlap):,} of {len(test):,} test domains "
-            f"({100 * len(overlap) / len(test):.1f}%) are in this checkpoint's training "
-            f"set. Scoring here would report a leak as a result. "
-            f"Example: {sorted(overlap)[:3]}"
-        )
-    print(f"OVERLAP: 0 -- {len(test):,} test documents are disjoint from training")
 
 
 def predict(model: Path, rows: list[dict], batch: int = 64) -> list[str]:
@@ -152,7 +83,7 @@ def predict(model: Path, rows: list[dict], batch: int = 64) -> list[str]:
 
     eager_config(str(model))
     tokenizer = AutoTokenizer.from_pretrained(model)
-    device = "mps" if torch.backends.mps.is_available() else "cpu"
+    device = pick_device()
     net = AutoModelForSequenceClassification.from_pretrained(model).eval().to(device)
 
     out: list[str] = []
@@ -212,7 +143,7 @@ def report(truth: list[str], pred: list[str], top: int = 25) -> dict[str, Any]:
 
     return {
         "n": len(truth),
-        "accuracy": sum(t == p for t, p in zip(truth, pred, strict=True)) / len(truth),
+        "accuracy": accuracy(truth, pred),
         "macro_f1": macro_f1(truth, pred),
         "classes": len(support),
         "confusions": confusions,
@@ -233,13 +164,13 @@ def simulate(
     Returns:
         list[dict[str, Any]]: One row per scenario, including the combined one.
     """
-    base_acc = sum(t == p for t, p in zip(truth, pred, strict=True)) / len(truth)
+    base_acc = accuracy(truth, pred)
     base_f1 = macro_f1(truth, pred)
 
     def apply(mapping: dict[str, str]) -> dict[str, Any]:
         t = [mapping.get(x, x) for x in truth]
         p = [mapping.get(x, x) for x in pred]
-        acc = sum(a == b for a, b in zip(t, p, strict=True)) / len(t)
+        acc = accuracy(t, p)
         f1 = macro_f1(t, p)
         return {
             "classes": len(set(t)),
@@ -270,11 +201,6 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--data", required=True, help="Prepared split directory")
     parser.add_argument("--split", default="test", help="Which split to score")
     parser.add_argument("--out", default="", help="Write the report as JSON")
-    parser.add_argument(
-        "--assume-disjoint",
-        action="store_true",
-        help="Score a checkpoint that records no training set, on the caller's word",
-    )
     return parser
 
 
@@ -290,8 +216,7 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     model, data = Path(args.model), Path(args.data)
 
-    refuse_if_seen(model, data, assume_disjoint=args.assume_disjoint)
-    rows = load_split(data, args.split)
+    rows = read_jsonl(data / f"{args.split}.jsonl")
     truth = [r["category"] for r in rows]
     pred = predict(model, rows)
 

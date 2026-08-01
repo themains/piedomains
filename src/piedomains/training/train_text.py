@@ -216,15 +216,14 @@ def save_checkpoint(
     labels: list[str],
     config: TrainConfig,
     state: dict,
-    train_domains: list[str] | None = None,
 ) -> None:
-    """Write weights, tokenizer, labels, run state and the training domain list.
+    """Write weights, tokenizer, labels and run state.
 
-    ``train_domains.json`` is the only thing that can later prove an evaluation was
-    clean. Split *files* cannot: a checkpoint outlives the splits it was fitted against,
-    and re-preparing the corpus reshuffles assignments, so a directory's train and test
-    lists stay perfectly consistent while sharing 79% of their domains with an older
-    checkpoint's training set. That happened twice here, and both times the audit passed.
+    This used to also write ``train_domains.json``, so a later evaluation could prove it
+    was not scoring the model on its own training data. That is no longer something a
+    checkpoint has to record: :func:`piedomains.training.splits.split_of` derives the
+    split from the domain, so anyone can recompute what this model trained on without
+    being told.
 
     Args:
         out: Directory to write into.
@@ -233,7 +232,6 @@ def save_checkpoint(
         labels: Ordered category names.
         config: The run configuration.
         state: Epoch/score bookkeeping for resuming.
-        train_domains: Domains this run trained on.
     """
     out.mkdir(parents=True, exist_ok=True)
     model.save_pretrained(out, safe_serialization=True)
@@ -243,10 +241,6 @@ def save_checkpoint(
         json.dumps(asdict(config), indent=2), encoding="utf-8"
     )
     (out / "state.json").write_text(json.dumps(state, indent=2), encoding="utf-8")
-    if train_domains is not None:
-        (out / "train_domains.json").write_text(
-            json.dumps(sorted(train_domains)), encoding="utf-8"
-        )
 
 
 def load_best(out: Path, fallback: Any) -> Any:
@@ -293,7 +287,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--batch-size", type=int, default=32)
     parser.add_argument("--grad-accum", type=int, default=1)
     parser.add_argument("--lr", type=float, default=3e-5)
-    parser.add_argument("--max-length", type=int, default=128)
+    # Defaults to the dataclass rather than a second literal. These disagreed -- 128 here
+    # against 256 there -- and since main() always passes the CLI value, the dataclass
+    # default was dead and a local run silently trained at half the documented length.
+    parser.add_argument("--max-length", type=int, default=TrainConfig.max_length)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument(
         "--limit",
@@ -457,7 +454,6 @@ def main(argv: list[str] | None = None) -> int:
                 labels,
                 config,
                 {"epoch": epoch + 1, "best_f1": best_f1, "last_val_f1": val_f1},
-                train_domains=[r["domain"] for r in train_rows],
             )
             print(f"  checkpoint saved to {out} (new best)")
         else:

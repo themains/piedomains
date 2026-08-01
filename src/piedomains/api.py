@@ -14,6 +14,8 @@ import uuid
 from datetime import UTC, datetime
 
 # LLM imports happen lazily when needed
+from .config import get_config
+from .labels import top_labels
 from .outcomes import ErrorCode, Stage, annotate, build_report, classify_exception
 from .piedomains_logging import bind_context, get_logger
 
@@ -734,6 +736,12 @@ class DomainClassifier:
             merged["category"] = best
             merged["confidence"] = blended[best]
             merged["raw_predictions"] = blended
+            # Recompute from the fused distribution. `merged = dict(row)` carried the
+            # text-only list, so `categories` and `raw_predictions` described different
+            # distributions -- the exact disagreement text.py documents as impossible.
+            merged["categories"] = top_labels(
+                blended, get_config().get("multilabel_threshold", 0.10)
+            )
             merged["model_used"] = "combined/text_image"
             merged["modalities"] = [
                 m for m, p in (("text", text_probs), ("image", image_probs)) if p

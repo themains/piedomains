@@ -26,6 +26,7 @@ from typing import Any
 from .checkpoints import read_labels, read_temperature
 from .constants import classes
 from .content_processor import ContentProcessor
+from .images import resize_for_model
 from .labels import project, top_labels
 from .piedomains_logging import get_logger
 
@@ -154,7 +155,13 @@ class ImageClassifier:
             logger.warning(f"Could not read screenshot {path}: {e}")
             return None
 
-        encoded = self._processor(images=img, return_tensors="pt").to(self._device)
+        # Resize here rather than leaving it to the processor, so this path and corpus
+        # preparation apply the identical transform. They had drifted -- training
+        # centre-cropped to a square while serving squashed -- which is the same
+        # train/serve mismatch that made the previous image model call Khan Academy porn.
+        encoded = self._processor(images=resize_for_model(img), return_tensors="pt").to(
+            self._device
+        )
         with torch.no_grad():
             logits = self._model(**encoded).logits[0]
         probabilities = torch.softmax(logits / self._temperature, dim=-1)

@@ -27,12 +27,13 @@ from __future__ import annotations
 import argparse
 import io
 import json
-import random
 import tarfile
 from collections import Counter, defaultdict
 from collections.abc import Iterator
 from pathlib import Path
 
+from ..images import resize_for_model
+from .splits import SPLITS, split_of
 from .taxonomy import map_category
 
 #: Screenshots whose shorter side is below this are placeholders or errors, not pages.
@@ -169,66 +170,11 @@ def resize(raw: bytes, size: int) -> bytes | None:
     if min(img.size) < MIN_SIDE:
         return None
 
-    img = img.convert("RGB")
-    width, height = img.size
-    edge = min(width, height)
-    left = (width - edge) // 2
-    img = img.crop((left, 0, left + edge, edge))  # top square, horizontally centred
-    img = img.resize((size, size), Image.Resampling.LANCZOS)
+    img = resize_for_model(img, size)
 
     buffer = io.BytesIO()
     img.save(buffer, format="JPEG", quality=85, optimize=True)
     return buffer.getvalue()
-
-
-def align_splits(
-    kept: list[tuple[str, str]], text_data: Path
-) -> dict[str, list[tuple[str, str]]]:
-    """Assign screenshots to the split their domain already has on the text side.
-
-    **The bug this fixes.** Both preparers shuffled their own list with the same seed, but
-    the lists differ -- 46,754 text documents against 44,712 screenshots -- so the same
-    domain landed in unrelated splits. Roughly 80% of the domains held out from the text
-    model were therefore in the image model's *training* set, and fusion, which fits and
-    scores on exactly those paired domains, was reading the image model's memory. It
-    showed: image-only scored 0.473 on its own held-out split and 0.768 on the paired
-    domains.
-
-    Aligning to the text splits rather than re-splitting both keeps the trained text model
-    valid -- its held-out data stays held out. A domain absent from the text splits cannot
-    reach fusion, so it goes to train.
-
-    Args:
-        kept: ``(domain, category)`` pairs that have a usable screenshot.
-        text_data: A ``prepare_text.py`` output directory to take assignments from.
-
-    Returns:
-        dict[str, list[tuple[str, str]]]: Split name to rows.
-
-    Raises:
-        SystemExit: If no split files are found, since silently falling back to the
-            unaligned split is what made the numbers wrong in the first place.
-    """
-    assignment: dict[str, str] = {}
-    for split in ("train", "val", "test"):
-        path = text_data / f"{split}.jsonl"
-        if not path.exists():
-            continue
-        with open(path, encoding="utf-8") as handle:
-            for line in handle:
-                if line.strip():
-                    assignment[json.loads(line)["domain"].lower()] = split
-    if not assignment:
-        raise SystemExit(f"no train/val/test.jsonl under {text_data}")
-
-    splits: dict[str, list[tuple[str, str]]] = {"train": [], "val": [], "test": []}
-    for domain, label in kept:
-        splits[assignment.get(domain.lower(), "train")].append((domain, label))
-    print(
-        f"  aligned to {text_data}: "
-        + ", ".join(f"{k} {len(v):,}" for k, v in splits.items())
-    )
-    return splits
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -268,16 +214,6 @@ def build_parser() -> argparse.ArgumentParser:
         type=int,
         default=0,
         help="Cap images per class to balance the long tail; 0 keeps everything",
-    )
-    parser.add_argument("--seed", type=int, default=42, help="Split seed")
-    parser.add_argument(
-        "--respect-splits",
-        default="",
-        help="A prepare_text.py output directory. Assign each screenshot to the split "
-        "its domain already has there, so a domain held out from the text model is "
-        "never in the image model's training set. Required for an honest fusion "
-        "measurement -- without it the two splits are independent and ~80%% of the "
-        "domains fusion scores on were trained on by the image model.",
     )
     parser.add_argument("--limit", type=int, default=0, help="Stop after N images")
     parser.add_argument(
@@ -366,18 +302,13 @@ def main(argv: list[str] | None = None) -> int:
     dropped = sorted(set(per_class) - keep_classes)
     kept = [(d, c) for d, c in kept if c in keep_classes]
 
-    # Reproducible split; not a security context.
-    rng = random.Random(args.seed)  # noqa: S311
-    rng.shuffle(kept)
-    n = len(kept)
-    splits = {
-        "train": kept[: int(0.8 * n)],
-        "val": kept[int(0.8 * n) : int(0.9 * n)],
-        "test": kept[int(0.9 * n) :],
-    }
-
-    if args.respect_splits:
-        splits = align_splits(kept, Path(args.respect_splits))
+    # The same pure function the text preparer uses, so the two cannot disagree about
+    # where a domain belongs. This replaces --respect-splits, which made correctness a
+    # flag you had to remember: forget it and ~80% of the domains fusion scored on were
+    # in the image model's training set, reported as 0.768 against an honest 0.429.
+    splits: dict[str, list[tuple[str, str]]] = {name: [] for name in SPLITS}
+    for domain, label in kept:
+        splits[split_of(domain)].append((domain, label))
     for name, rows in splits.items():
         with open(out / f"{name}.jsonl", "w", encoding="utf-8") as handle:
             for domain, label in rows:
@@ -400,7 +331,7 @@ def main(argv: list[str] | None = None) -> int:
     print(f"\nscanned {scanned:,} screenshots")
     print(f"  no usable label : {unlabelled:,}")
     print(f"  undecodable     : {unusable:,}")
-    print(f"  kept            : {n:,} across {len(classes)} classes")
+    print(f"  kept            : {len(kept):,} across {len(classes)} classes")
     if dropped:
         print(f"  dropped for <{args.min_docs}: {', '.join(dropped)}")
     for name, rows in splits.items():

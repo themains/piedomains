@@ -38,6 +38,8 @@ import sys
 from collections import Counter, defaultdict
 from pathlib import Path
 
+from .splits import is_held_out
+
 #: Our 44 classes to Curlie's 14. Only mappings a Curlie editor would plausibly agree
 #: with; everything else is left out and reported as unmappable rather than scored.
 #:
@@ -102,15 +104,6 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--cache-dir", default="cache/curlie")
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--out", default="", help="Write the report as JSON")
-    parser.add_argument(
-        "--exclude",
-        action="append",
-        default=[],
-        help=(
-            "Training-domain manifest to exclude from the sample, repeatable. "
-            "Accepts a prepared JSONL split or a checkpoint's train_domains.json"
-        ),
-    )
     return parser
 
 
@@ -143,37 +136,8 @@ def collapse_legacy(label: str) -> str:
     return names[0] if names else label
 
 
-def load_excluded(paths: list[str]) -> set[str]:
-    """Read domains that must not appear in the sample.
-
-    Curlie is only independent evidence for a model that never trained on it. Two
-    checkpoints being compared have different training sets, so the sample has to exclude
-    the union -- otherwise the comparison silently favours whichever model saw more of it.
-
-    Args:
-        paths: Prepared JSONL splits, or checkpoint ``train_domains.json`` files.
-
-    Returns:
-        set[str]: Every domain to withhold.
-    """
-    excluded: set[str] = set()
-    for path in paths:
-        text = Path(path).read_text(encoding="utf-8")
-        if path.endswith(".jsonl"):
-            excluded |= {
-                json.loads(line)["domain"] for line in text.splitlines() if line
-            }
-        else:
-            excluded |= set(json.loads(text))
-    return excluded
-
-
 def sample(
-    paired: list[list],
-    limit: int,
-    max_rank: int,
-    seed: int,
-    excluded: set[str] | None = None,
+    paired: list[list], limit: int, max_rank: int, seed: int
 ) -> list[tuple[str, str, int]]:
     """Take a class-balanced sample of popular domains.
 
@@ -186,17 +150,16 @@ def sample(
         limit: Total domains to return.
         max_rank: Only consider domains at least this popular.
         seed: Sampling seed.
-        excluded: Domains to withhold, typically the union of the training sets of every
-            checkpoint that will be scored.
 
     Returns:
         list[tuple[str, str, int]]: The sampled triples.
     """
     rng = random.Random(seed)  # noqa: S311 -- sampling, not security
-    withheld = excluded or set()
     by_class: dict[str, list[tuple[str, str, int]]] = defaultdict(list)
     for domain, label, rank in paired:
-        if rank <= max_rank and domain not in withheld:
+        # Independence is a property of the domain now, not a flag a caller has to
+        # remember to pass. A training domain cannot enter the sample.
+        if rank <= max_rank and is_held_out(domain):
             by_class[label].append((domain, label, rank))
 
     per_class = max(1, limit // max(1, len(by_class)))
@@ -222,10 +185,7 @@ def main(argv: list[str] | None = None) -> int:
     from ..api import DomainClassifier
 
     paired = json.loads(Path(args.paired).read_text(encoding="utf-8"))
-    excluded = load_excluded(args.exclude)
-    if excluded:
-        print(f"excluding {len(excluded):,} training domains from the sample")
-    chosen = sample(paired, args.limit, args.max_rank, args.seed, excluded)
+    chosen = sample(paired, args.limit, args.max_rank, args.seed)
     print(f"scoring {len(chosen)} domains (Tranco <= {args.max_rank:,})")
     print("class balance:", dict(Counter(c for _, c, _ in chosen)))
 
