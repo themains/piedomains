@@ -96,10 +96,17 @@ MAX_PER_CLASS = 3000
 
 #: Pretrained vision encoder. ImageNet-21k pretraining optimises for object recognition,
 #: and a webpage screenshot has almost no object content -- its signal is text density,
-#: layout grid and colour. CLIP-family encoders transfer better to non-object domains,
-#: so `google/siglip2-base-patch16-224` is the challenger against the ViT baseline.
-#: Unmeasured on this data, which is why both are run rather than one being argued for.
-BACKBONE = "google/vit-base-patch16-224-in21k"
+#: layout grid and colour. CLIP-family encoders transfer better to non-object domains.
+#:
+#: That was the hypothesis; it was then measured on identical data, GPU and step count.
+#: SigLIP2 scored **0.531 accuracy / 0.397 macro-F1** against ViT's **0.335 / 0.140** --
+#: ViT started at ln(42) = 3.74, which is chance, and barely moved. This constant stayed
+#: on the losing baseline long after the comparison was settled, so a rerun would have
+#: quietly trained the worse encoder.
+#:
+#: SigLIP2 also decides the preprocessing: it pretrained with a non-aspect-preserving
+#: resize, which is why `images.resize_for_model` squashes rather than crops.
+BACKBONE = "google/siglip2-base-patch16-224"
 
 #: Published text model, pulled from the Hub for stage 4. Public, so no token is needed.
 TEXT_MODEL = "soodoku/piedomains-text"
