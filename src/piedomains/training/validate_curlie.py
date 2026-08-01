@@ -102,11 +102,71 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--cache-dir", default="cache/curlie")
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--out", default="", help="Write the report as JSON")
+    parser.add_argument(
+        "--exclude",
+        action="append",
+        default=[],
+        help=(
+            "Training-domain manifest to exclude from the sample, repeatable. "
+            "Accepts a prepared JSONL split or a checkpoint's train_domains.json"
+        ),
+    )
     return parser
 
 
+def collapse_legacy(label: str) -> str:
+    """Map a label from an older checkpoint onto the current label space.
+
+    A 47-class checkpoint still emits `hobby/games-misc`, `webradio` and `warez`, none of
+    which are keys in :data:`TO_CURLIE` any more. Without this they would score as
+    *unmappable* rather than as `hobby/games`, `radiotv` and `downloads` -- which would
+    quietly penalise the older model for a taxonomy change rather than measure it, and the
+    whole point of running this is to compare the two fairly.
+
+    Args:
+        label: A predicted label, possibly from a superseded label space.
+
+    Returns:
+        str: The equivalent label in the current space, unchanged if already current.
+    """
+    from .taxonomy import MERGED, MERGED_PATHS
+
+    if label in MERGED_PATHS:
+        return MERGED_PATHS[label]
+    return MERGED.get(label, label)
+
+
+def load_excluded(paths: list[str]) -> set[str]:
+    """Read domains that must not appear in the sample.
+
+    Curlie is only independent evidence for a model that never trained on it. Two
+    checkpoints being compared have different training sets, so the sample has to exclude
+    the union -- otherwise the comparison silently favours whichever model saw more of it.
+
+    Args:
+        paths: Prepared JSONL splits, or checkpoint ``train_domains.json`` files.
+
+    Returns:
+        set[str]: Every domain to withhold.
+    """
+    excluded: set[str] = set()
+    for path in paths:
+        text = Path(path).read_text(encoding="utf-8")
+        if path.endswith(".jsonl"):
+            excluded |= {
+                json.loads(line)["domain"] for line in text.splitlines() if line
+            }
+        else:
+            excluded |= set(json.loads(text))
+    return excluded
+
+
 def sample(
-    paired: list[list], limit: int, max_rank: int, seed: int
+    paired: list[list],
+    limit: int,
+    max_rank: int,
+    seed: int,
+    excluded: set[str] | None = None,
 ) -> list[tuple[str, str, int]]:
     """Take a class-balanced sample of popular domains.
 
@@ -119,14 +179,17 @@ def sample(
         limit: Total domains to return.
         max_rank: Only consider domains at least this popular.
         seed: Sampling seed.
+        excluded: Domains to withhold, typically the union of the training sets of every
+            checkpoint that will be scored.
 
     Returns:
         list[tuple[str, str, int]]: The sampled triples.
     """
     rng = random.Random(seed)  # noqa: S311 -- sampling, not security
+    withheld = excluded or set()
     by_class: dict[str, list[tuple[str, str, int]]] = defaultdict(list)
     for domain, label, rank in paired:
-        if rank <= max_rank:
+        if rank <= max_rank and domain not in withheld:
             by_class[label].append((domain, label, rank))
 
     per_class = max(1, limit // max(1, len(by_class)))
@@ -152,7 +215,10 @@ def main(argv: list[str] | None = None) -> int:
     from ..api import DomainClassifier
 
     paired = json.loads(Path(args.paired).read_text(encoding="utf-8"))
-    chosen = sample(paired, args.limit, args.max_rank, args.seed)
+    excluded = load_excluded(args.exclude)
+    if excluded:
+        print(f"excluding {len(excluded):,} training domains from the sample")
+    chosen = sample(paired, args.limit, args.max_rank, args.seed, excluded)
     print(f"scoring {len(chosen)} domains (Tranco <= {args.max_rank:,})")
     print("class balance:", dict(Counter(c for _, c, _ in chosen)))
 
@@ -169,7 +235,10 @@ def main(argv: list[str] | None = None) -> int:
                 "domain": result["domain"],
                 "curlie": gold.get(result["domain"]),
                 "predicted": predicted,
-                "mapped": TO_CURLIE.get(predicted) if predicted else None,
+                "collapsed": collapse_legacy(predicted) if predicted else None,
+                "mapped": TO_CURLIE.get(collapse_legacy(predicted))
+                if predicted
+                else None,
                 "confidence": result.get("confidence"),
                 "status": result.get("status"),
                 "error_code": result.get("error_code"),
