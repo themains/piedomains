@@ -9,7 +9,7 @@ a true answer whenever two axes overlap, so these pin the behaviour that stops i
 
 import unittest
 
-from piedomains.labels import top_labels
+from piedomains.labels import project, top_labels
 
 
 class TestTopLabels(unittest.TestCase):
@@ -74,6 +74,88 @@ class TestConfiguredThreshold(unittest.TestCase):
         from piedomains.config import get_config
 
         self.assertEqual(get_config().get("multilabel_threshold"), 0.10)
+
+
+class TestProjection(unittest.TestCase):
+    """Mapping a checkpoint's labels onto the space the package documents.
+
+    A checkpoint outlives its taxonomy. The shipped model emits 47 prefixed labels while
+    `constants.classes` documents 44 flat ones, so without this the package describes a
+    vocabulary its own model cannot speak.
+    """
+
+    def test_merged_classes_are_grouped_not_renamed(self):
+        """The whole point: two sources, one label, both indices kept.
+
+        Renaming dict keys instead would silently keep whichever source came last and
+        throw the other's probability away -- a wrong model that looks like a working one.
+        """
+        names, groups = project(["news", "webradio", "radiotv"])
+        self.assertEqual(names, ["news", "radiotv"])
+        self.assertEqual(groups, [[0], [1, 2]])
+
+    def test_all_three_merges(self):
+        for sources, expected in (
+            (["hobby/games-misc", "hobby/games-online"], "games"),
+            (["radiotv", "webradio"], "radiotv"),
+            (["downloads", "warez"], "downloads"),
+        ):
+            with self.subTest(expected=expected):
+                names, groups = project(sources)
+                self.assertEqual(names, [expected])
+                self.assertEqual(groups, [[0, 1]])
+
+    def test_split_parents_flatten(self):
+        """`hobby/` and `recreation/` are filing structure, not part of the answer."""
+        names, _ = project(
+            ["hobby/cooking", "recreation/sports", "recreation/travel", "hobby/pets"]
+        )
+        self.assertEqual(names, ["cooking", "sports", "travel", "pets"])
+
+    def test_excluded_classes_are_dropped(self):
+        """`aggressive` has no target: 9 training documents and recall 0.111."""
+        names, groups = project(["news", "aggressive", "shopping"])
+        self.assertEqual(names, ["news", "shopping"])
+        self.assertEqual(groups, [[0], [2]])
+
+    def test_current_labels_are_untouched(self):
+        """Projecting an already-current label set must be the identity."""
+        current = ["news", "shopping", "cooking", "sports", "parked"]
+        names, groups = project(current)
+        self.assertEqual(names, current)
+        self.assertEqual(groups, [[i] for i in range(len(current))])
+
+    def test_the_shipped_checkpoint_projects_into_the_documented_space(self):
+        """Nothing invented, and only `unavailable` is beyond this checkpoint's reach."""
+        import json
+        from pathlib import Path
+
+        from piedomains.constants import classes
+
+        manifest = Path("models/text-v5/labels.json")
+        if not manifest.exists():
+            self.skipTest("shipped checkpoint not present locally")
+        names, groups = project(json.loads(manifest.read_text()))
+        self.assertEqual(sorted(set(names) - set(classes)), [])
+        self.assertEqual(sorted(set(classes) - set(names)), ["unavailable"])
+        self.assertEqual(
+            sum(len(g) for g in groups), 46
+        )  # 47 sources less `aggressive`
+
+    def test_probability_mass_is_conserved_under_grouping(self):
+        """Summing the groups must not lose or duplicate mass."""
+        labels = ["news", "webradio", "radiotv", "aggressive"]
+        probs = [0.5, 0.2, 0.2, 0.1]
+        _, groups = project(labels)
+        summed = [sum(probs[i] for i in g) for g in groups]
+        self.assertEqual(len(summed), 2)
+        self.assertAlmostEqual(summed[0], 0.5)
+        self.assertAlmostEqual(summed[1], 0.4)  # webradio + radiotv, not one of them
+        # `aggressive` contributes nothing; the caller renormalises the rest back to 1.
+        self.assertAlmostEqual(sum(summed), 0.9)
+
+    def test_empty_input(self):
+        self.assertEqual(project([]), ([], []))
 
 
 if __name__ == "__main__":

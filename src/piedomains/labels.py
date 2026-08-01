@@ -59,3 +59,77 @@ def top_labels(
     ranked = sorted(scores.items(), key=lambda kv: kv[1], reverse=True)
     kept = [(name, p) for name, p in ranked if p >= threshold] or ranked[:1]
     return [{"category": name, "probability": p} for name, p in kept]
+
+
+def project(labels: list[str]) -> tuple[list[str], list[list[int]]]:
+    """Map a checkpoint's labels onto the label space the package documents.
+
+    A checkpoint outlives the taxonomy it was trained under. The shipped model emits 47
+    labels -- `hobby/cooking`, `hobby/games-online`, `webradio`, `warez`, `aggressive` --
+    while :data:`piedomains.constants.classes` documents 44 flat ones. Projecting at load
+    time means callers get the documented names whatever checkpoint is in use, instead of
+    the package describing a vocabulary its own model cannot speak.
+
+    It also applies the three merges without a retrain. Each collapses a distinction the
+    page does not state -- whether a game is played online, whether a station also
+    broadcasts, whether a download was licensed -- worth +0.023 accuracy and +0.023
+    macro-F1 measured by relabelling the model's own predictions.
+
+    **Merged classes are returned as groups, not renamed keys.** Building a dict by
+    renaming would keep whichever source came last and silently discard the other's
+    probability mass, which looks exactly like a working model. The caller sums the group.
+
+    `aggressive` is dropped: excluded from the taxonomy on 9 training documents and recall
+    0.111, and the pages it does claim are politics and humor. Over 4,673 held-out
+    documents it carries mean mass 0.004 and is the argmax 4 times -- but reaches 0.966 on
+    one, so it is negligible on average and not in the tail. The caller renormalises.
+
+    Args:
+        labels: The checkpoint's own labels, in output order.
+
+    Returns:
+        tuple[list[str], list[list[int]]]: The projected labels, and per projected label
+        the source indices whose probabilities sum into it. Dropped source labels appear
+        in no group.
+
+    Example:
+        >>> project(["news", "webradio", "radiotv"])
+        (['news', 'radiotv'], [[0], [1, 2]])
+        >>> project(["hobby/cooking", "aggressive"])
+        (['cooking'], [[0]])
+    """
+    from .training.taxonomy import EXCLUDED, MERGED, MERGED_PATHS, SPLIT_PARENTS
+
+    def target(label: str) -> str | None:
+        """Resolve one checkpoint label to its current name.
+
+        Args:
+            label: A label as the checkpoint emits it.
+
+        Returns:
+            str | None: The current name, or None when the class is excluded.
+        """
+        if label in MERGED_PATHS:
+            return MERGED_PATHS[label]
+        if label in MERGED:
+            return MERGED[label]
+        parent = label.split("/", 1)[0]
+        if parent in EXCLUDED:
+            return None
+        # A split parent is filing structure, not part of the answer: `recreation/sports`
+        # is reported as `sports`. The children are unique across the label space.
+        if "/" in label and parent in SPLIT_PARENTS:
+            return label.split("/", 1)[1]
+        return label
+
+    order: list[str] = []
+    groups: dict[str, list[int]] = {}
+    for index, label in enumerate(labels):
+        name = target(label)
+        if name is None:
+            continue
+        if name not in groups:
+            order.append(name)
+            groups[name] = []
+        groups[name].append(index)
+    return order, [groups[name] for name in order]

@@ -12,7 +12,7 @@ from .checkpoints import eager_config, read_labels, read_temperature
 from .config import get_config
 from .constants import classes
 from .content_processor import ContentProcessor
-from .labels import top_labels
+from .labels import project, top_labels
 from .outcomes import ErrorCode, Stage
 from .piedomains_logging import get_logger
 
@@ -438,8 +438,15 @@ class TextClassifier(Base):
                 logits = self._model(**encoded).logits[0]
             probabilities = torch.softmax(logits / self._temperature, dim=-1)
 
+            # Project the checkpoint's own labels onto the documented space. Merged
+            # classes sum -- renaming dict keys instead would keep whichever source came
+            # last and silently discard the other's mass. Excluded classes are dropped and
+            # the remainder renormalised, so this is still a distribution.
+            names, groups = project(self._labels)
+            summed = [sum(float(probabilities[i]) for i in group) for group in groups]
+            total = sum(summed) or 1.0
             scores = {
-                name: float(probabilities[i]) for i, name in enumerate(self._labels)
+                name: value / total for name, value in zip(names, summed, strict=True)
             }
             best = max(scores, key=lambda k: scores[k])
             logger.debug(f"Text prediction: {best} ({scores[best]:.3f})")

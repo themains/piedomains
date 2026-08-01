@@ -26,7 +26,7 @@ from typing import Any
 from .checkpoints import read_labels, read_temperature
 from .constants import classes
 from .content_processor import ContentProcessor
-from .labels import top_labels
+from .labels import project, top_labels
 from .piedomains_logging import get_logger
 
 logger = get_logger()
@@ -158,7 +158,12 @@ class ImageClassifier:
         with torch.no_grad():
             logits = self._model(**encoded).logits[0]
         probabilities = torch.softmax(logits / self._temperature, dim=-1)
-        return {name: float(probabilities[i]) for i, name in enumerate(self._labels)}
+        # Same projection as the text path, so both modalities report the documented
+        # names. Merged classes sum; excluded ones drop and the rest renormalise.
+        names, groups = project(self._labels)
+        summed = [sum(float(probabilities[i]) for i in group) for group in groups]
+        total = sum(summed) or 1.0
+        return {name: value / total for name, value in zip(names, summed, strict=True)}
 
     def _classify_one(self, domain: str, image_path: str | Path | None) -> dict:
         """Build one result row for a domain.

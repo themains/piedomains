@@ -123,17 +123,24 @@ def collapse_legacy(label: str) -> str:
     quietly penalise the older model for a taxonomy change rather than measure it, and the
     whole point of running this is to compare the two fairly.
 
+    Delegates to :func:`piedomains.labels.project`, which the serving path also uses. A
+    second hand-rolled copy is precisely how this function came to disagree with the
+    taxonomy once already: it handled the merges but not the split-parent flattening, so
+    `cooking`, `sports`, `travel`, `pets` and five more silently became unmappable and
+    dropped out of the benchmark while it went on printing a number.
+
     Args:
         label: A predicted label, possibly from a superseded label space.
 
     Returns:
         str: The equivalent label in the current space, unchanged if already current.
+        Excluded classes map to themselves, so they are reported as unmappable rather
+        than vanishing.
     """
-    from .taxonomy import MERGED, MERGED_PATHS
+    from ..labels import project
 
-    if label in MERGED_PATHS:
-        return MERGED_PATHS[label]
-    return MERGED.get(label, label)
+    names, _ = project([label])
+    return names[0] if names else label
 
 
 def load_excluded(paths: list[str]) -> set[str]:
