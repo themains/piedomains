@@ -33,10 +33,14 @@ from pathlib import Path
 DEFAULT_SCRIPT = Path(__file__).parent / "train_image_kaggle.py"
 BACKBONE_LINE = re.compile(r'^BACKBONE = "[^"]+"$', re.MULTILINE)
 DATASET_LINE = re.compile(r'^DATASET = "[^"]+"$', re.MULTILINE)
+IMAGE_MODEL_LINE = re.compile(r"^IMAGE_MODEL: str \| None = .*$", re.MULTILINE)
 
 
 def build_source(
-    backbone: str | None, script: Path, datasets: list[str] | None = None
+    backbone: str | None,
+    script: Path,
+    datasets: list[str] | None = None,
+    image_model: str | None = None,
 ) -> str:
     """Read the training script, swapping in the backbone and dataset being pushed.
 
@@ -54,6 +58,8 @@ def build_source(
         backbone: Hub id of the encoder to train, or ``None`` to keep the script's.
         script: The training script to wrap.
         datasets: Datasets being attached, ``owner/name``. The first one names the corpus.
+        image_model: Hub repo of a trained checkpoint to fuse instead of training, or
+            ``None`` to train.
 
     Returns:
         str: The script source to embed in the notebook.
@@ -76,6 +82,14 @@ def build_source(
         name = datasets[0].split("/")[-1]
         source = DATASET_LINE.sub(f'DATASET = "{name}"', source, count=1)
         print(f'  DATASET = "{name}"  (from --dataset {datasets[0]})')
+
+    if image_model is not None:
+        if not IMAGE_MODEL_LINE.search(source):
+            raise SystemExit(f"no `IMAGE_MODEL` assignment found in {script}")
+        source = IMAGE_MODEL_LINE.sub(
+            f'IMAGE_MODEL: str | None = "{image_model}"', source, count=1
+        )
+        print(f'  IMAGE_MODEL = "{image_model}"  (skipping training)')
 
     return source
 
@@ -147,6 +161,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="Training script to wrap (default: the image kernel)",
     )
     parser.add_argument(
+        "--image-model",
+        default=None,
+        help="Hub repo of a trained checkpoint to fuse instead of training. Use this to "
+        "refit fusion without paying for a second GPU run.",
+    )
+    parser.add_argument(
         "--dry-run", action="store_true", help="Write the notebook but do not push"
     )
     return parser
@@ -166,7 +186,9 @@ def main(argv: list[str] | None = None) -> int:
     """
     args = build_parser().parse_args(argv)
     title = args.id.split("/")[-1]
-    source = build_source(args.backbone, Path(args.script), args.dataset)
+    source = build_source(
+        args.backbone, Path(args.script), args.dataset, args.image_model
+    )
 
     match = re.search(r'^BACKBONE = "([^"]+)"$', source, re.MULTILINE)
     print(f"{title}: backbone {match.group(1) if match else 'unknown'}")

@@ -43,6 +43,7 @@ epoch rather than the lot.
 
 from __future__ import annotations
 
+import json
 import os
 import subprocess
 import sys
@@ -110,6 +111,14 @@ BACKBONE = "google/siglip2-base-patch16-224"
 
 #: Published text model, pulled from the Hub for stage 4. Public, so no token is needed.
 TEXT_MODEL = "soodoku/piedomains-text"
+
+#: Set this to a Hub repo to skip training and calibration and fuse an already-trained
+#: checkpoint instead. Fusion cannot be done locally -- the resized screenshots live in
+#: TEMP and die with the session -- so a fusion that fails for an avoidable reason
+#: otherwise costs a second full GPU run. The first one did: it pulled TEXT_MODEL from the
+#: Hub while a new text model was still uploading, compared the new flat class names
+#: against the old prefixed ones, and refused.
+IMAGE_MODEL: str | None = None  # e.g. "soodoku/piedomains-image"
 
 #: Name of the attached Dataset holding the current text splits. The image model must be
 #: aligned to *these*, not to an earlier version: re-preparing the text corpus reshuffled
@@ -567,6 +576,48 @@ def stage_four_fuse(data: Path, model: Path) -> None:
         print(f"fuse.py exited {exc.returncode} -- see fusion_report.json for why")
 
 
+def export_fusion_corpus(data: Path) -> None:
+    """Archive the held-out screenshots so fusion can be refitted locally.
+
+    Stage 4 exists on Kaggle only because the images die with the session, which makes
+    every fusion experiment cost a fresh corpus build. The val and test splits are ~20% of
+    the images and are the only ones fusion needs, so they fit in the output volume.
+
+    Written as **one tar.gz rather than loose files** deliberately: putting tens of
+    thousands of files in WORK is what previously exhausted the output-listing rate limit
+    and left a finished run's model unreachable.
+
+    Args:
+        data: Directory of resized screenshots and split files.
+    """
+    import tarfile
+
+    archive = WORK / "fusion-corpus.tar.gz"
+    kept = 0
+    with tarfile.open(archive, "w:gz") as tar:
+        for name in ("val.jsonl", "test.jsonl", "labels.json"):
+            member = data / name
+            if member.exists():
+                tar.add(member, arcname=name)
+        wanted: set[str] = set()
+        for split in ("val", "test"):
+            path = data / f"{split}.jsonl"
+            if not path.exists():
+                continue
+            with open(path, encoding="utf-8") as handle:
+                for line in handle:
+                    if line.strip():
+                        wanted.add(json.loads(line)["domain"])
+        for domain in sorted(wanted):
+            shot = data / "images" / f"{domain}.jpg"
+            if shot.exists():
+                tar.add(shot, arcname=f"images/{domain}.jpg")
+                kept += 1
+    size = archive.stat().st_size / 1e6
+    print(f"\nwrote {archive} -- {kept:,} held-out screenshots, {size:.0f} MB")
+    print("  fusion can be refitted locally from this; no session needed")
+
+
 def main() -> int:
     """Run the whole pipeline.
 
@@ -581,18 +632,22 @@ def main() -> int:
     # Before stage 1, not after: an unusable GPU discovered later costs the whole session.
     ensure_usable_gpu()
     data = Path(PREPARED_DATASET) if PREPARED_DATASET else stage_one_prepare()
-    model = stage_two_train(data)
-    stage_three_calibrate(data, model)
+    if IMAGE_MODEL:
+        from huggingface_hub import snapshot_download
+
+        print(f"\nusing the published checkpoint {IMAGE_MODEL}; not training")
+        model = Path(snapshot_download(repo_id=IMAGE_MODEL))
+    else:
+        model = stage_two_train(data)
+        stage_three_calibrate(data, model)
+    export_fusion_corpus(data)
     stage_four_fuse(data, model)
 
     print("\nDownload these from the notebook output:")
     print(f"  {model}/  — weights, labels.json, calibration.json, test_metrics.json")
-    print("\nThen locally:")
-    print(
-        "  uv run python training/fuse.py --text models/text-v4 --image models/image-v1"
-    )
-    print("  Fusion must beat text-only (0.725 accuracy / 0.705 macro-F1)")
-    print("  or image classification ships opt-in.")
+    print("  fusion-corpus.tar.gz — the held-out screenshots, to refit fusion locally")
+    print("\nFusion must beat text alone (0.818 accuracy / 0.758 macro-F1)")
+    print("or screenshot classification stays opt-in.")
     return 0
 
 
