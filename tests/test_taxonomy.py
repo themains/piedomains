@@ -207,5 +207,30 @@ class TestLeakGuard(unittest.TestCase):
         self.assertIn("c.com", str(caught.exception))
 
 
+class TestBenchmarkMapStaysInSync(unittest.TestCase):
+    """The Curlie map must not key on labels the model cannot emit.
+
+    This is a silent failure, which is why it is worth a test: a stale key does not
+    raise, it just never fires, and the benchmark quietly scores fewer domains while
+    still reporting a number. Merging `hobby/games-misc` and `hobby/games-online` into
+    `hobby/games` orphaned two keys at exactly the moment the map was about to be used to
+    judge the retrain.
+    """
+
+    def test_no_key_is_absent_from_the_label_set(self):
+        from piedomains.constants import classes
+        from piedomains.training.validate_curlie import TO_CURLIE
+
+        orphans = sorted(set(TO_CURLIE) - set(classes))
+        self.assertEqual(orphans, [], f"map keys no model can emit: {orphans}")
+
+    def test_domains_with_no_site_have_no_curlie_topic(self):
+        """`parked` and `unavailable` are unmappable on purpose, not by omission."""
+        from piedomains.training.validate_curlie import TO_CURLIE
+
+        self.assertNotIn("parked", TO_CURLIE)
+        self.assertNotIn("unavailable", TO_CURLIE)
+
+
 if __name__ == "__main__":
     unittest.main()

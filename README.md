@@ -58,7 +58,7 @@ parking pages were relabelled out of it), `parked` in.
 pages classify at 0.667 accuracy against 0.738 for English. Usable but not equal, and
 closing the gap needs multilingual training data rather than a multilingual encoder alone.
 
-**Breaking:** the label set is 47 classes, not 39, and some names changed
+**Breaking:** the label set is 44 classes, not 39, and some names changed
 (`porn`→`adult`, `recreation`→`recreation/sports`). See the
 [changelog](https://github.com/themains/piedomains/blob/main/CHANGELOG.md).
 
@@ -253,9 +253,11 @@ export GOOGLE_API_KEY="..."
 
 ## Categories
 
-47 categories: news, finance, shopping, education, government, adult, gambling,
-social networks, search engines and others. Derived from Shallalist, with classes that
-describe hosting rather than content removed and the grab-bag categories split — see
+44 categories: news, finance, shopping, education, government, adult, gambling,
+social networks, search engines and others, plus `parked` and `unavailable` for domains
+with no site behind them. Derived from Shallalist, with classes that describe hosting
+rather than content removed, those asking about delivery mechanism or legality
+collapsed, and the grab-bag categories split — see
 [`piedomains.training.taxonomy`](https://github.com/themains/piedomains/blob/main/piedomains.training.taxonomy).
 
 ## Security & Docker

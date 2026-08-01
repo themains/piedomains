@@ -118,20 +118,31 @@ class DomainClassifier:
             ]
 
         Supported Categories:
-            The 47 categories in :data:`piedomains.constants.classes`:
-            adult, aggressive, alcohol, automobile, dating, downloads, drugs,
-            education, finance, fortunetelling, forum, gamble, government,
-            hobby/cooking, hobby/games-misc, hobby/games-online,
-            hobby/gardening, hobby/pets, homestyle, hospitals, imagehosting,
-            isp, jobsearch, library, military, movies, music, news, politics,
-            radiotv, realestate, recreation/humor, recreation/restaurants,
-            recreation/sports, recreation/travel, recreation/wellness,
-            parked, religion, science, searchengines, shopping, socialnet,
-            urlshortener, warez, weapons, webmail, webradio.
+            The 44 categories in :data:`piedomains.constants.classes`:
+            adult, alcohol, automobile, dating, downloads, drugs, education,
+            finance, fortunetelling, forum, gamble, government, hobby/cooking,
+            hobby/games, hobby/gardening, hobby/pets, homestyle, hospitals,
+            imagehosting, isp, jobsearch, library, military, movies, music,
+            news, politics, radiotv, realestate, recreation/humor,
+            recreation/restaurants, recreation/sports, recreation/travel,
+            recreation/wellness, religion, science, searchengines, shopping,
+            socialnet, urlshortener, weapons, webmail, parked, unavailable.
+
+            Two kinds of absence, for two different reasons.
 
             Categories describing how a site is hosted or monetised
-            (adv, tracker, spyware, redirector) are deliberately absent:
-            a page does not state them. See training/taxonomy.py.
+            (adv, tracker, spyware, redirector) are absent because a page does
+            not state them. So are those asking about delivery mechanism or
+            legality rather than subject: games split by whether they are played
+            online, radio split by whether it is broadcast, downloads split by
+            whether the licence permitted them.
+
+            `parked` and `unavailable` are present for the mirror-image reason.
+            A domain that resolves to a for-sale page or a server autoindex has
+            no site to classify, and saying so is both plainly readable from the
+            text and the answer a caller can act on.
+
+            See training/taxonomy.py.
     """
 
     def __init__(self, cache_dir: str | None = None):

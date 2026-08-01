@@ -38,18 +38,18 @@ import sys
 from collections import Counter, defaultdict
 from pathlib import Path
 
-#: Our 47 classes to Curlie's 14. Only mappings a Curlie editor would plausibly agree
+#: Our 44 classes to Curlie's 14. Only mappings a Curlie editor would plausibly agree
 #: with; everything else is left out and reported as unmappable rather than scored.
 #:
 #: The awkward ones, stated rather than hidden: Curlie has no Adult branch in this release,
-#: so `adult`, `dating`, `drugs`, `weapons`, `gamble`, `warez` and `aggressive` have no
-#: target and are excluded. `searchengines`, `webmail`, `socialnet`, `isp`, `hosting` and
+#: so `adult`, `dating`, `drugs`, `weapons` and `gamble` have no target and are excluded.
+#: `parked` and `unavailable` are excluded too, and for a better reason -- a domain with no
+#: site behind it has no Curlie topic to be right or wrong about. `searchengines`, `webmail`, `socialnet`, `isp`, `hosting` and
 #: friends go to `Computers` because that is where the directory puts them -- a site-type
 #: judgement, not a topic one.
 TO_CURLIE: dict[str, str] = {
     "news": "News",
     "radiotv": "News",
-    "webradio": "Arts",
     "movies": "Arts",
     "music": "Arts",
     "shopping": "Shopping",
@@ -76,8 +76,7 @@ TO_CURLIE: dict[str, str] = {
     "hobby/gardening": "Home",
     "hobby/pets": "Home",
     "homestyle": "Home",
-    "hobby/games-misc": "Games",
-    "hobby/games-online": "Games",
+    "hobby/games": "Games",
     "searchengines": "Computers",
     "webmail": "Computers",
     "socialnet": "Computers",
@@ -85,7 +84,6 @@ TO_CURLIE: dict[str, str] = {
     "imagehosting": "Computers",
     "downloads": "Computers",
     "urlshortener": "Computers",
-    "ringtones": "Computers",
 }
 
 
