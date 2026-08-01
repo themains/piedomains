@@ -38,8 +38,6 @@ import sys
 from collections import Counter, defaultdict
 from pathlib import Path
 
-from .splits import is_held_out
-
 #: Our 44 classes to Curlie's 14. Only mappings a Curlie editor would plausibly agree
 #: with; everything else is left out and reported as unmappable rather than scored.
 #:
@@ -104,6 +102,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--cache-dir", default="cache/curlie")
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--out", default="", help="Write the report as JSON")
+    parser.add_argument(
+        "--corpus",
+        default="",
+        help="prepare_text.py output directory. Domains in its train split are withheld "
+        "so the benchmark stays independent of the model being scored.",
+    )
     return parser
 
 
@@ -136,8 +140,48 @@ def collapse_legacy(label: str) -> str:
     return names[0] if names else label
 
 
+def training_domains(corpus: Path | None) -> set[str]:
+    """Read the domains the model was trained on.
+
+    A Curlie domain is unsafe to score on only if it is in the *training split of our
+    corpus*. Being in the training split is now a pure function of the domain
+    (:func:`piedomains.training.splits.split_of`), but corpus *membership* is not -- most
+    popular domains are simply absent from a 2022 Shallalist scrape.
+
+    Filtering on the hash alone would therefore discard every Curlie domain that happens
+    to hash to ``train`` whether or not the model ever saw it: measured, 5,917 of 8,082
+    domains excluded to protect against 536 real ones, shrinking the benchmark 4.6x for
+    nothing.
+
+    Args:
+        corpus: A ``prepare_text.py`` output directory, or None to skip the check.
+
+    Returns:
+        set[str]: Lowercased training domains, empty when no corpus was given.
+
+    Raises:
+        SystemExit: If a corpus directory was given but holds no train split.
+    """
+    if corpus is None:
+        return set()
+    path = corpus / "train.jsonl"
+    if not path.exists():
+        raise SystemExit(
+            f"{path} not found -- pass the prepare_text.py output directory"
+        )
+    return {
+        json.loads(line)["domain"].lower()
+        for line in path.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    }
+
+
 def sample(
-    paired: list[list], limit: int, max_rank: int, seed: int
+    paired: list[list],
+    limit: int,
+    max_rank: int,
+    seed: int,
+    trained_on: set[str] | None = None,
 ) -> list[tuple[str, str, int]]:
     """Take a class-balanced sample of popular domains.
 
@@ -150,16 +194,16 @@ def sample(
         limit: Total domains to return.
         max_rank: Only consider domains at least this popular.
         seed: Sampling seed.
+        trained_on: Domains in the training split, which must not enter the sample.
 
     Returns:
         list[tuple[str, str, int]]: The sampled triples.
     """
     rng = random.Random(seed)  # noqa: S311 -- sampling, not security
     by_class: dict[str, list[tuple[str, str, int]]] = defaultdict(list)
+    withheld = trained_on or set()
     for domain, label, rank in paired:
-        # Independence is a property of the domain now, not a flag a caller has to
-        # remember to pass. A training domain cannot enter the sample.
-        if rank <= max_rank and is_held_out(domain):
+        if rank <= max_rank and domain.lower() not in withheld:
             by_class[label].append((domain, label, rank))
 
     per_class = max(1, limit // max(1, len(by_class)))
@@ -185,7 +229,16 @@ def main(argv: list[str] | None = None) -> int:
     from ..api import DomainClassifier
 
     paired = json.loads(Path(args.paired).read_text(encoding="utf-8"))
-    chosen = sample(paired, args.limit, args.max_rank, args.seed)
+    trained_on = training_domains(Path(args.corpus) if args.corpus else None)
+    if trained_on:
+        print(f"withholding {len(trained_on):,} training domains")
+    else:
+        print(
+            "WARNING: no --corpus given, so nothing is withheld. If the model being "
+            "scored trained on any of these domains, this number is inflated.",
+            file=sys.stderr,
+        )
+    chosen = sample(paired, args.limit, args.max_rank, args.seed, trained_on)
     print(f"scoring {len(chosen)} domains (Tranco <= {args.max_rank:,})")
     print("class balance:", dict(Counter(c for _, c, _ in chosen)))
 
