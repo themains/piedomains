@@ -10,6 +10,7 @@ Welcome to piedomains's documentation!
    :maxdepth: 2
    :caption: Contents:
 
+   taxonomy
    modules
 
 .. include:: ../README.md
