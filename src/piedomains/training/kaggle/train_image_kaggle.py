@@ -89,7 +89,7 @@ EPOCHS = 5
 BATCH_SIZE = 32
 
 #: Cap per class. The corpus is 78% four classes (adult 55,184, shopping 48,384,
-#: recreation/travel 46,353, recreation/sports 43,070 of 248,003), so this both balances
+#: travel 46,353, sports 43,070 of 248,003), so this both balances
 #: it and brings the run inside the 12-hour session cap: 51,138 images rather than
 #: 248,003, which is comparable to the 46,754 documents the text model trains on.
 MAX_PER_CLASS = 3000

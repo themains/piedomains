@@ -310,7 +310,7 @@ def looks_unavailable(text: str) -> bool:
     other way a domain can serve bytes without being a website: an Apache autoindex, a
     registrar's "coming soon", a suspended account, a 404. There is nothing to classify
     on such a page, and 321 of them sat in the training corpus wearing the label of
-    whatever the domain used to be -- 30 in `hobby/games-online`, 24 in `hobby/pets`,
+    whatever the domain used to be -- 30 in `games-online`, 24 in `pets`,
     22 in `forum`.
 
     Args:

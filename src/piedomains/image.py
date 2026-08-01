@@ -26,6 +26,7 @@ from typing import Any
 from .checkpoints import read_labels, read_temperature
 from .constants import classes
 from .content_processor import ContentProcessor
+from .labels import top_labels
 from .piedomains_logging import get_logger
 
 logger = get_logger()
@@ -169,6 +170,7 @@ class ImageClassifier:
         Returns:
             dict: A result row, carrying an ``error`` when no screenshot was usable.
         """
+        from .config import get_config
         from .outcomes import ErrorCode, Stage
 
         result: dict[str, Any] = {
@@ -181,6 +183,7 @@ class ImageClassifier:
             "model_used": f"image/{self._backbone_name()}",
             "category": None,
             "confidence": None,
+            "categories": [],
             "raw_predictions": None,
             "error": None,
         }
@@ -200,6 +203,11 @@ class ImageClassifier:
         best = max(scores, key=lambda k: scores[k])
         result["category"] = best
         result["confidence"] = scores[best]
+        # Same treatment as the text path: the label set is not mutually exclusive,
+        # so the argmax alone discards a true answer on ambiguous sites.
+        result["categories"] = top_labels(
+            scores, get_config().get("multilabel_threshold", 0.10)
+        )
         result["raw_predictions"] = scores
         return result
 

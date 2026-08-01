@@ -54,12 +54,12 @@ class TestSplitting(unittest.TestCase):
 
     def test_recreation_keeps_its_children(self):
         """98% of `recreation` was travel or sports; the label meant nothing."""
-        self.assertEqual(map_category("recreation/sports"), "recreation/sports")
-        self.assertEqual(map_category("recreation/travel"), "recreation/travel")
+        self.assertEqual(map_category("sports"), "sports")
+        self.assertEqual(map_category("travel"), "travel")
 
     def test_hobby_keeps_its_children(self):
-        self.assertEqual(map_category("hobby/pets"), "hobby/pets")
-        self.assertEqual(map_category("hobby/gardening"), "hobby/gardening")
+        self.assertEqual(map_category("pets"), "pets")
+        self.assertEqual(map_category("gardening"), "gardening")
 
     def test_games_children_merge_despite_hobby_being_split(self):
         """A split parent does not protect a child that asks an unanswerable question.
@@ -68,9 +68,13 @@ class TestSplitting(unittest.TestCase):
         page rarely says. It cost `hobby/games-misc` 34.4% of itself to
         `hobby/games-online` on held-out data -- the most expensive single distinction
         left in the taxonomy.
+
+        Note the asymmetry, which a bulk rename got wrong once already: the *inputs* keep
+        their `hobby/` prefix because they are raw Shallalist category names, fixed by the
+        upstream data. Only the label we emit is flat.
         """
-        self.assertEqual(map_category("hobby/games-online"), "hobby/games")
-        self.assertEqual(map_category("hobby/games-misc"), "hobby/games")
+        self.assertEqual(map_category("hobby/games-online"), "games")
+        self.assertEqual(map_category("hobby/games-misc"), "games")
 
     def test_other_parents_still_collapse(self):
         """Splitting these would produce classes too small to learn."""
@@ -125,19 +129,18 @@ class TestTargetClasses(unittest.TestCase):
     """The resolved label set."""
 
     def test_deduplicates_and_sorts(self):
-        got = target_classes(["porn", "sex", "models", "recreation/sports"])
-        self.assertEqual(got, ["adult", "recreation/sports"])
+        got = target_classes(["porn", "sex", "models", "sports"])
+        self.assertEqual(got, ["adult", "sports"])
 
     def test_excluded_classes_leave_no_trace(self):
         self.assertEqual(target_classes(["adv", "tracker", "spyware"]), [])
 
     def test_a_realistic_slice(self):
+        """Raw Shallalist names in, flat sorted labels out."""
         got = target_classes(
             ["news", "shopping", "adv", "porn", "finance/banking", "recreation/travel"]
         )
-        self.assertEqual(
-            got, ["adult", "finance", "news", "recreation/travel", "shopping"]
-        )
+        self.assertEqual(got, ["adult", "finance", "news", "shopping", "travel"])
 
 
 class TestLeakGuard(unittest.TestCase):
@@ -212,8 +215,8 @@ class TestBenchmarkMapStaysInSync(unittest.TestCase):
 
     This is a silent failure, which is why it is worth a test: a stale key does not
     raise, it just never fires, and the benchmark quietly scores fewer domains while
-    still reporting a number. Merging `hobby/games-misc` and `hobby/games-online` into
-    `hobby/games` orphaned two keys at exactly the moment the map was about to be used to
+    still reporting a number. Merging `games-misc` and `games-online` into
+    `games` orphaned two keys at exactly the moment the map was about to be used to
     judge the retrain.
     """
 

@@ -59,7 +59,7 @@ pages classify at 0.667 accuracy against 0.738 for English. Usable but not equal
 closing the gap needs multilingual training data rather than a multilingual encoder alone.
 
 **Breaking:** the label set is 44 classes, not 39, and some names changed
-(`porn`→`adult`, `recreation`→`recreation/sports`). See the
+(`porn`→`adult`, `recreation`→`sports`). See the
 [changelog](https://github.com/themains/piedomains/blob/main/CHANGELOG.md).
 
 ## Installation

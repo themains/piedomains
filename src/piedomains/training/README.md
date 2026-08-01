@@ -109,7 +109,7 @@ directories, and is what the script reads. Fetched lists are cached under
 Reproduces the original run's filtering, which is why the model has 39 classes
 and not the 73 in `shallalist_cats.txt`: `chat`, `hacking` and `webtv` are
 dropped by name, then any category with fewer than 100 documents, then any
-document under 6 tokens. Shallalist nests (`recreation/sports`,
+document under 6 tokens. Shallalist nests (`sports`,
 `finance/banking`); those collapse to their parent, which is exactly how 74 raw
 categories become 39 — the seven parents with no directory of their own
 (`automobile`, `education`, `finance`, `hobby`, `recreation`, `science`, `sex`)

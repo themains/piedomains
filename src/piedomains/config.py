@@ -33,6 +33,15 @@ class Config:
         "network_quiet_ms": 3000,
         # Minimum usable tokens before a label is meaningful.
         "min_tokens": 30,
+        # Probability floor for the `categories` list. The label set is not mutually
+        # exclusive -- `shopping` says what a site does and `automobile` says what it is
+        # about, and a car dealership is both -- so the argmax alone throws away a true
+        # answer on genuinely ambiguous sites. Emitting every label above this floor
+        # raises the chance of covering the right one from 79.7% to 86.6% on held-out
+        # data, at 1.35 labels per domain: 65% still get exactly one.
+        #
+        # 0.05 would reach 90.1% but at 1.86 labels each, which is mostly noise.
+        "multilabel_threshold": 0.10,
         # "trafilatura" | "legacy". Measured across 188 cached homepages, both through
         # the minimal cleaner:
         #
@@ -198,6 +207,7 @@ class Config:
             "PIEDOMAINS_PARALLEL_WORKERS": ("parallel_workers", int),
             "PIEDOMAINS_USER_AGENT": ("user_agent", str),
             "PIEDOMAINS_EXTRACTOR": ("extractor", str),
+            "PIEDOMAINS_MULTILABEL_THRESHOLD": ("multilabel_threshold", float),
             "PIEDOMAINS_FILTER_NON_ENGLISH": (
                 "filter_non_english",
                 lambda x: x.lower() in ("true", "1", "yes"),

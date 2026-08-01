@@ -20,8 +20,29 @@ the training set and sit behind a third of the evaluation errors: `amazon→adv`
 conclusion from the other direction — it runs these off domain age, reputation and DNS
 behaviour, and never off content.
 
-`redirector` is excluded for the adjacent reason: such a page has no content by
-construction, so it is a fetch outcome rather than a topic.
+**`redirector` is excluded for a different reason, and it is worth being precise about
+which.** It is not a bad category -- it is a category whose *labels* have gone stale, and
+those need opposite remedies.
+
+Shallalist defines it as "sites that actively help to bypass url filters by accepting urls
+via webform", and the domains bear that out: `hotspotshield.com`, `hidemyass.com`,
+`anonymizer.com`, `4everproxy.com`. Curlie files 13 of the 14 Tranco-ranked ones under
+`Computers`. A proxy site has a form, instructions and plenty of text, so it passes the
+visibility rule comfortably. An earlier note in this file claimed it had "no content by
+construction" -- that reads the name as an HTTP 301 and is simply wrong.
+
+What disqualifies it is measured. Sampling 400 of them out of the corpus tarball: 46% are
+under the token floor, 19% are parked, 7% are bot-walled, and 27% are usable -- of which
+**six of twelve sampled were not proxy sites at all**, but a Chinese glassware
+manufacturer, Japanese adult manga, an empty WordPress install and an article about
+internet exchange points. Cheap TLDs get recycled, and by the 2022 scrape a large share of
+these domains belonged to someone else entirely. Training on it would teach the model that
+custom printed glassware means proxy.
+
+`anonvpn` fails an even earlier test: it is not a list of websites. Of its 7,001 entries,
+94% are bare IP addresses and 4% are residential reverse-DNS names -- Tor exit nodes and
+open-proxy endpoints. **Exactly one has a fetched page.** This is a domain classifier, and
+there is no homepage to read at `67.164.45.55`.
 
 **Split, because collapsing destroyed the labels.** `recreation` is 98%
 travel-or-sports (278,346 domains of 283,587; then martialarts 2,132, restaurants 1,423,
@@ -40,7 +61,7 @@ rather than topic, and a page states none of them:
 ===================================  ==============================  =========================
 split                                what it actually asks           cost
 ===================================  ==============================  =========================
-`hobby/games-misc` / `-online`       how you play the game           games-misc loses 34.4%
+`games-misc` / `games-online`        how you play the game           games-misc loses 34.4%
 `radiotv` / `webradio`               how it is broadcast             webradio loses 31.8%
 `downloads` / `warez`                whether the download is legal   warez loses 30.8%
 ===================================  ==============================  =========================
@@ -122,10 +143,11 @@ MERGED: dict[str, str] = {
 #:
 #: Splitting games by whether they are played online asks about delivery, not subject --
 #: and it is the single most expensive distinction left in the taxonomy, taking 34.4% of
-#: `hobby/games-misc` with it.
+#: `hobby/games-misc` with it. The result is `games`: the `hobby/` prefix is Shallalist's
+#: filing structure, not part of the answer.
 MERGED_PATHS: dict[str, str] = {
-    "hobby/games-misc": "hobby/games",
-    "hobby/games-online": "hobby/games",
+    "hobby/games-misc": "games",
+    "hobby/games-online": "games",
 }
 
 
@@ -141,7 +163,7 @@ def map_category(raw: str) -> str | None:
 
     Example:
         >>> map_category("recreation/sports")
-        'recreation/sports'
+        'sports'
         >>> map_category("finance/banking")
         'finance'
         >>> map_category("finance/realestate")
@@ -149,7 +171,7 @@ def map_category(raw: str) -> str | None:
         >>> map_category("porn")
         'adult'
         >>> map_category("hobby/games-online")
-        'hobby/games'
+        'games'
         >>> map_category("webradio")
         'radiotv'
         >>> map_category("spyware") is None
@@ -168,7 +190,11 @@ def map_category(raw: str) -> str | None:
     if parent in MERGED:
         return MERGED[parent]
     if parent in SPLIT_PARENTS:
-        return raw
+        # The child alone. `hobby` and `recreation` are Shallalist's filing structure, not
+        # part of the answer: a page is about cooking or about sports, and prefixing that
+        # with the drawer it was found in tells a caller nothing. The children are unique
+        # across the whole label space, so nothing is lost by dropping the parent.
+        return raw.split("/", 1)[1]
     return parent
 
 
@@ -183,7 +209,7 @@ def target_classes(raw_categories: list[str]) -> list[str]:
 
     Example:
         >>> target_classes(["porn", "sex", "spyware", "recreation/sports"])
-        ['adult', 'recreation/sports']
+        ['adult', 'sports']
     """
     mapped = {map_category(c) for c in raw_categories}
     return sorted(c for c in mapped if c is not None)

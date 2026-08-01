@@ -5,6 +5,76 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### A domain can now carry more than one label
+
+The categories were never mutually exclusive and could not be made so while they were one
+flat list. Four different questions share the vocabulary, and sorting the 44 classes by
+which one they answer shows the error rate tracking the axis rather than the class:
+
+| axis | classes | held-out docs | error |
+|---|---|---|---|
+| status — `parked`, `unavailable` | 2 | 378 | **1%** |
+| topic — `automobile`, `sports`, `religion` … | 24 | 2,680 | 15% |
+| risk — `adult`, `gamble`, `drugs` … | 5 | 429 | 21% |
+| form — `shopping`, `news`, `forum` … | 13 | 1,177 | **31%** |
+
+`shopping` says what a site *does*; `automobile` says what it is *about*. A car dealership
+is honestly both, so the argmax had to throw one away — and about a quarter of all errors
+came from exactly that. `cnn.com` is the clean case: `news` 0.63 and `radiotv` 0.28, and
+the `news`↔`radiotv` pair cost 20 errors on its own.
+
+Every result row now carries `categories`, a list of every label above
+`multilabel_threshold` (default 0.10), highest first. `category` is unchanged — still the
+argmax — so nothing breaks.
+
+| | chance the right label is reported | labels per domain |
+|---|---|---|
+| argmax alone | 79.7% | 1.00 |
+| **p ≥ 0.10** | **86.6%** | **1.35** |
+| p ≥ 0.05 | 90.1% | 1.86 |
+
+65% of domains still get exactly one label. No retraining was involved: the model already
+computed the distribution and the argmax discarded it.
+
+**That is a recall number and must be read as one.** Reporting more labels trivially raises
+the chance of covering the gold one, and the evaluation gold is single-label — so it cannot
+say whether a second label is *correct*, only whether the right one is present. When a
+domain labelled `automobile` also gets `shopping`, this data cannot tell a car dealership
+from noise. Settling that needs a gold set annotated with every applicable label, which
+does not exist yet.
+
+This is the same conclusion IAB and Cloudflare reached: IAB ships arrays of categories,
+Cloudflare multi-labels with a cap of two. A faceted redesign — separate heads per axis —
+was designed in `docs/taxonomy.md` and declined in favour of this, which buys most of the
+benefit without changing the label space or the return shape.
+
+### Changed
+
+- **Category names are flat.** `hobby/cooking` → `cooking`, `recreation/sports` → `sports`,
+  and seven more. `hobby/` and `recreation/` were Shallalist's filing structure, not part of
+  the answer, and the children are unique across the label space so nothing is lost. Still
+  44 classes. Raw Shallalist inputs keep their prefixes; only the emitted label is flat.
+
+### Fixed
+
+- `constants.get_category_count`'s doctest claimed 47 categories and had done since the list
+  became 44. It only runs in the full suite, which is how it survived.
+- **`redirector`'s exclusion was justified with a false reason.** The docstring said such a
+  page "has no content by construction" — that reads the name as an HTTP 301. Shallalist
+  means proxy and circumvention sites: `hotspotshield.com`, `hidemyass.com`,
+  `anonymizer.com`, with Curlie filing 13 of the 14 Tranco-ranked ones under `Computers`.
+  Those have plenty of content. The real reason is a **labeling** failure rather than a
+  taxonomy one: sampling 400 from the corpus gives 46% thin, 19% parked, 7% bot-walled and
+  27% usable — and six of twelve sampled usable pages were not proxies at all, but a Chinese
+  glassware manufacturer, Japanese adult manga, an empty WordPress install and an article on
+  internet exchange points. Cheap TLDs get recycled and the 2015-era list no longer
+  describes the 2022 page.
+- `anonvpn` is recorded as what it is: not a category but a list of network endpoints. Of
+  7,001 entries, 94% are bare IP addresses and 4% residential reverse-DNS; **exactly one has
+  a fetched page.** This is a domain classifier — there is no homepage at `67.164.45.55`.
+
 ## [0.12.0] - 2026-07-31
 
 The model was reading an alphabetised set of words.

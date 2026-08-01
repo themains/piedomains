@@ -57,11 +57,11 @@ TO_CURLIE: dict[str, str] = {
     "jobsearch": "Business",
     "realestate": "Business",
     "automobile": "Recreation",
-    "recreation/travel": "Recreation",
-    "recreation/humor": "Recreation",
-    "recreation/restaurants": "Recreation",
-    "recreation/wellness": "Health",
-    "recreation/sports": "Sports",
+    "travel": "Recreation",
+    "humor": "Recreation",
+    "restaurants": "Recreation",
+    "wellness": "Health",
+    "sports": "Sports",
     "hospitals": "Health",
     "education": "Reference",
     "library": "Reference",
@@ -72,11 +72,11 @@ TO_CURLIE: dict[str, str] = {
     "military": "Society",
     "forum": "Society",
     "fortunetelling": "Society",
-    "hobby/cooking": "Home",
-    "hobby/gardening": "Home",
-    "hobby/pets": "Home",
+    "cooking": "Home",
+    "gardening": "Home",
+    "pets": "Home",
     "homestyle": "Home",
-    "hobby/games": "Games",
+    "games": "Games",
     "searchengines": "Computers",
     "webmail": "Computers",
     "socialnet": "Computers",
@@ -117,9 +117,9 @@ def build_parser() -> argparse.ArgumentParser:
 def collapse_legacy(label: str) -> str:
     """Map a label from an older checkpoint onto the current label space.
 
-    A 47-class checkpoint still emits `hobby/games-misc`, `webradio` and `warez`, none of
+    A 47-class checkpoint still emits `games-misc`, `webradio` and `warez`, none of
     which are keys in :data:`TO_CURLIE` any more. Without this they would score as
-    *unmappable* rather than as `hobby/games`, `radiotv` and `downloads` -- which would
+    *unmappable* rather than as `games`, `radiotv` and `downloads` -- which would
     quietly penalise the older model for a taxonomy change rather than measure it, and the
     whole point of running this is to compare the two fairly.
 

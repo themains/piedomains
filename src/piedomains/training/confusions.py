@@ -13,7 +13,7 @@ So this refuses to run on a split the checkpoint has seen, and it writes what it
 
 **What it reports.**
 
-*Confusions*, directed: `hobby/games-misc -> hobby/games-online` 33 documents, 34.4% of
+*Confusions*, directed: `games-misc -> games-online` 33 documents, 34.4% of
 the gold class. The percentage matters more than the count -- a class can lose most of
 itself to a neighbour while contributing few errors overall.
 
@@ -48,7 +48,7 @@ from .metrics import macro_f1
 DEFAULT_MERGES: tuple[tuple[str, dict[str, str]], ...] = (
     (
         "games-misc + games-online -> games",
-        {"hobby/games-misc": "hobby/games", "hobby/games-online": "hobby/games"},
+        {"games-misc": "games", "games-online": "games"},
     ),
     ("webradio -> radiotv", {"webradio": "radiotv"}),
     ("warez -> downloads", {"warez": "downloads"}),

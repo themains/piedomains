@@ -5,8 +5,18 @@ one label from a flat list of 44 (`piedomains.constants.classes`). This argues t
 flat list is the wrong shape, that the evidence for it is already in this repository, and
 that every comparable taxonomy in the industry reached the same conclusion and acted on it.
 
-Nothing here is implemented. The last section says what each piece would cost and what
-cannot yet be measured.
+**Outcome: the faceted redesign below was considered and declined.** The 44 classes stay
+as one flat list, and the non-MECE-ness is handled by **multi-label output** instead --
+every result row carries a `categories` list of every label above a probability threshold,
+which is what IAB (arrays) and Cloudflare (multi-label, capped at two) both do. That needs
+no retraining, no new label space, and no change to what `category` means, and it lifts the
+chance of reporting the correct label from 79.7% to 86.6% at 1.35 labels per domain.
+
+The argument below still stands and is why multi-label is the right answer rather than a
+patch: the axes are real, they do collide, and a single slot cannot hold them. What is
+declined is *restructuring the label space* to separate them.
+
+The last section says what a faceted design would cost and what cannot yet be measured.
 
 ## 1. The label set has been repaired three times for the same reason
 
@@ -30,7 +40,7 @@ The structure was diagnosed and the worst instance was treated. The structure re
 
 Not "is hard to make MECE" — *cannot be*, as a matter of shape.
 
-Take a shop selling gardening supplies. `hobby/gardening` and `shopping` are both true of
+Take a shop selling gardening supplies. `gardening` and `shopping` are both true of
 it. So the list fails **mutual exclusivity**: two labels apply. It also fails
 **exhaustiveness**: no available label expresses what the site is, because the thing it is
 requires two words from two different vocabularies. An annotator picks one and a second
@@ -65,9 +75,9 @@ call (recorded in the script that produced the table, not asserted here).
 
 Two classes dominate:
 
-- **`shopping` appears in 11 of the 25 pairs** — with `automobile`, `recreation/travel`,
-  `homestyle`, `hobby/gardening`, `hobby/pets`, `recreation/restaurants`,
-  `recreation/sports`, `hobby/games`, `drugs`, `adult`, `news`. It is not a topic. It is
+- **`shopping` appears in 11 of the 25 pairs** — with `automobile`, `travel`,
+  `homestyle`, `gardening`, `pets`, `restaurants`,
+  `sports`, `games`, `drugs`, `adult`, `news`. It is not a topic. It is
   what a site *does*, and it therefore collides with every topic a site can do it about.
 - **`news` appears in 6.** Also not a topic — a news site is *about* politics or sport or
   finance. IAB classifies `News` under content *purpose*, not aboutness, for this reason.
@@ -264,10 +274,10 @@ axis; `–` = undefined because there is no site.
 | `forum` | live | ? | forum | none |
 | `gamble` | live | ? | ? | gambling |
 | `government` | live | law_and_government | ? | none |
-| `hobby/cooking` | live | food_and_drink | ? | none |
-| `hobby/games` | live | games | ? | none |
-| `hobby/gardening` | live | home_and_garden | ? | none |
-| `hobby/pets` | live | pets | ? | none |
+| `cooking` | live | food_and_drink | ? | none |
+| `games` | live | games | ? | none |
+| `gardening` | live | home_and_garden | ? | none |
+| `pets` | live | pets | ? | none |
 | `homestyle` | live | home_and_garden | ? | none |
 | `hospitals` | live | health | ? | none |
 | `imagehosting` | live | ? | file_hosting | none |
@@ -281,11 +291,11 @@ axis; `–` = undefined because there is no site.
 | `politics` | live | politics | ? | none |
 | `radiotv` | live | arts_and_entertainment | streaming | none |
 | `realestate` | live | real_estate | ? | none |
-| `recreation/humor` | live | society_and_culture | ? | none |
-| `recreation/restaurants` | live | food_and_drink | ? | none |
-| `recreation/sports` | live | sports | ? | none |
-| `recreation/travel` | live | travel | ? | none |
-| `recreation/wellness` | live | health | ? | none |
+| `humor` | live | society_and_culture | ? | none |
+| `restaurants` | live | food_and_drink | ? | none |
+| `sports` | live | sports | ? | none |
+| `travel` | live | travel | ? | none |
+| `wellness` | live | health | ? | none |
 | `religion` | live | religion_and_spirituality | ? | none |
 | `science` | live | science | ? | none |
 | `searchengines` | live | ? | search_directory | none |

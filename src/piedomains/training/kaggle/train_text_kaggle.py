@@ -26,7 +26,7 @@ than left contaminating the class of whatever the domain used to sell — which 
 `drugs`.
 
 **The label space is 43, not 47.** Three splits that asked about delivery mechanism or
-legality rather than subject are collapsed — `hobby/games-misc`/`-online`,
+legality rather than subject are collapsed — `games-misc`/`-online`,
 `radiotv`/`webradio`, `downloads`/`warez` — and `aggressive` is dropped for want of data
 at 9 held-out documents and recall 0.111. Relabelling the 47-class model's own predictions
 puts the floor at **+0.023 accuracy and +0.023 macro-F1**; this run measures what a model

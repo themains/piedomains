@@ -103,8 +103,14 @@ class DomainClassifier:
                     "image_path": str,      # Path to screenshot
                     "date_time_collected": str,  # ISO 8601 timestamp
                     "model_used": str,      # e.g. "text/shallalist_ml"
-                    "category": str,        # Predicted category
-                    "confidence": float,    # Confidence score (0.0-1.0)
+                    "category": str,        # Highest-scoring category
+                    "confidence": float,    # Its probability (0.0-1.0)
+                    "categories": [         # Every category above the threshold,
+                        {                   # highest first; >=1 entry when classified,
+                            "category": str,      # [] when the row failed.
+                            "probability": float
+                        }
+                    ],
                     "reason": str,          # LLM reasoning (null for ML models)
                     "error": str,           # Error if classification failed
                     "raw_predictions": dict,  # Full probability distribution
@@ -120,12 +126,12 @@ class DomainClassifier:
         Supported Categories:
             The 44 categories in :data:`piedomains.constants.classes`:
             adult, alcohol, automobile, dating, downloads, drugs, education,
-            finance, fortunetelling, forum, gamble, government, hobby/cooking,
-            hobby/games, hobby/gardening, hobby/pets, homestyle, hospitals,
+            finance, fortunetelling, forum, gamble, government, cooking,
+            games, gardening, pets, homestyle, hospitals,
             imagehosting, isp, jobsearch, library, military, movies, music,
-            news, politics, radiotv, realestate, recreation/humor,
-            recreation/restaurants, recreation/sports, recreation/travel,
-            recreation/wellness, religion, science, searchengines, shopping,
+            news, politics, radiotv, realestate, humor,
+            restaurants, sports, travel,
+            wellness, religion, science, searchengines, shopping,
             socialnet, urlshortener, weapons, webmail, parked, unavailable.
 
             Two kinds of absence, for two different reasons.
@@ -142,7 +148,21 @@ class DomainClassifier:
             no site to classify, and saying so is both plainly readable from the
             text and the answer a caller can act on.
 
-            See training/taxonomy.py.
+            The categories are NOT mutually exclusive, and cannot be while they
+            are one flat list. Four questions share the vocabulary -- status,
+            topic, risk, and what a site *is* -- so `shopping` and `automobile`
+            compete for one slot and a car dealership is honestly both. That is
+            why `categories` exists: `category` is the argmax, `categories` is
+            everything above `multilabel_threshold` (default 0.10).
+
+            On held-out data that raises the chance the correct label is
+            reported from 79.7% to 86.6%, at 1.35 labels per domain -- 65% still
+            get exactly one. **That is a recall figure.** The evaluation gold is
+            single-label, so it cannot say whether a second label is *correct*,
+            only whether the right one is present. Judge extra labels on their
+            probabilities, not on that number.
+
+            See training/taxonomy.py and docs/taxonomy.md.
     """
 
     def __init__(self, cache_dir: str | None = None):

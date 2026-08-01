@@ -39,7 +39,7 @@ from .metrics import macro_f1, per_class_report
 
 #: Classes where per-class weighting gave the screenshot real weight. Reported separately
 #: because an aggregate over 47 classes averages away an effect concentrated in four.
-VISUAL_CLASSES: tuple[str, ...] = ("adult", "news", "socialnet", "hobby/games-online")
+VISUAL_CLASSES: tuple[str, ...] = ("adult", "news", "socialnet", "games-online")
 
 #: Minimum macro-F1 gain over text-only that counts as evidence rather than noise, at
 #: n=1,742 where the standard error on accuracy is about 0.011.
