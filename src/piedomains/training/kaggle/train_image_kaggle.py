@@ -57,7 +57,7 @@ REPO = "https://github.com/themains/piedomains.git"
 #: Branch to clone. The image scripts live here until the branch is merged; cloning the
 #: default branch is what made the first run download 47.58 GB and then fail on a missing
 #: file.
-BRANCH = "text-representation"
+BRANCH = "taxonomy-round-2"
 
 #: Kaggle's persistent output volume, 20 GB, and the kernel's *output* -- everything here
 #: has to be enumerated file-by-file to retrieve any of it. Only the checkpoint lives
@@ -108,7 +108,7 @@ TEXT_MODEL = "soodoku/piedomains-text"
 #: aligned to *these*, not to an earlier version: re-preparing the text corpus reshuffled
 #: the assignments, and 73% of the new test domains landed in the old training set, so a
 #: model aligned to the old splits scored 0.706 on data it had trained on.
-SPLITS_DATASET = "piedomains-text-clean"
+SPLITS_DATASET = "piedomains-text-v13"
 
 
 def find_dataset(name: str) -> Path:

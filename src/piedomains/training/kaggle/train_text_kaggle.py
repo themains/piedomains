@@ -2,7 +2,7 @@
 """Retrain the text classifier on Kaggle, free.
 
 Settings → Accelerator → **GPU T4 x2**, Internet → On, and attach the
-`piedomains-text-43` Dataset.
+`piedomains-text-v13` Dataset.
 
 **Why Kaggle rather than a laptop.** The last local run took about five hours on an M4
 and thrashed swap, and this one doubles `max_length` to 256. Kaggle gives 30 GPU-hours a
@@ -56,11 +56,12 @@ TEMP = Path("/kaggle/temp")
 #: Name of the attached Dataset holding the prepared splits, so this kernel never touches
 #: the 17GB corpus. Built by `prepare_text.py` with the minimal cleaner.
 #:
-#: The 43-class corpus. Two earlier Datasets are kept but should not be trained on:
-#: `piedomains-text-minimal` is the 47-class label space this replaces, and
-#: `piedomains-text-clean` had standalone punctuation stripped -- an idea that looked
-#: obviously right and measured worse (Curlie 0.543 -> 0.523), so it was reverted.
-DATASET = "piedomains-text-43"
+#: The 44-class corpus, split by `training.splits.split_of` so the text and screenshot
+#: corpora cannot disagree about where a domain belongs. Earlier Datasets are kept but
+#: must not be trained on: `piedomains-text-minimal` is the superseded 47-class label
+#: space, and `piedomains-text-clean` had standalone punctuation stripped -- an idea
+#: that looked obviously right and measured worse (Curlie 0.543 -> 0.523).
+DATASET = "piedomains-text-v13"
 
 #: 256, not 128. Under the old cleaner a page collapsed to a few hundred unique
 #: alphabetised words, so 128 subword tokens rarely truncated anything. Real text with
