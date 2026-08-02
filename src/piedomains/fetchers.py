@@ -168,6 +168,21 @@ class BaseFetcher:
             logger.error(f"Validation error for {url}: {error_msg}")
             return False, error_msg
 
+    def _validate_url_offline(self, url: str) -> tuple[bool, str]:
+        """Validate a URL without contacting the host.
+
+        Args:
+            url: URL to validate.
+
+        Returns:
+            tuple: ``(is_safe, error_message)``.
+        """
+        try:
+            result = self.validator.validate_url_offline(url)
+        except Exception as e:  # same posture as _validate_url_security
+            return False, f"Security validation error: {e}"
+        return result.is_safe, result.error_message
+
     def _parse_domain_name(self, url_or_domain: str) -> str:
         """Extract clean domain name from URL or domain string.
 
@@ -720,17 +735,23 @@ class PlaywrightFetcher(BaseFetcher):
         if not url.startswith(("http://", "https://")):
             url = f"https://{url}"
 
-        # Address check first: _validate_url_security runs a blocking preflight request
-        # and _robots_allow fetches robots.txt, so both reach the host before anything
-        # below would have refused it.
+        # The order of these four is load-bearing, cheapest and most-refusing first.
+        #
+        # 1. the address check, which only resolves;
+        # 2. offline URL validation, which touches nothing;
+        # 3. robots.txt, the one request a disallowed host still expects to serve;
+        # 4. the content preflight, which is a real request to the URL itself.
+        #
+        # 4 used to run before 3, so a host whose robots file disallowed `/` was sent a
+        # HEAD -- and possibly a ranged GET -- and only then reported `robots_blocked`.
+        # Honouring robots after making the request it forbids is not honouring robots.
         bad = await self._address_check(url)
         if bad is not None:
             return FetchResult(
                 url=url, success=False, error=f"refused address: {bad}", error_code=bad
             )
 
-        # Security validation
-        is_safe, msg = self._validate_url_security(url)
+        is_safe, msg = self._validate_url_offline(url)
         if not is_safe:
             return FetchResult(
                 url=url,
@@ -745,6 +766,15 @@ class PlaywrightFetcher(BaseFetcher):
                 success=False,
                 error="disallowed by robots.txt",
                 error_code=ErrorCode.ROBOTS_BLOCKED.value,
+            )
+
+        is_safe, msg = self._validate_url_security(url)
+        if not is_safe:
+            return FetchResult(
+                url=url,
+                success=False,
+                error=msg,
+                error_code=ErrorCode.INVALID_DOMAIN.value,
             )
 
         async with async_playwright() as p:
@@ -803,8 +833,17 @@ class PlaywrightFetcher(BaseFetcher):
                 )
                 continue
 
-            is_safe, msg = self._validate_url_security(normalized_url)
-            if is_safe and not await self._robots_allow(normalized_url):
+            # Same order as fetch_single, and for the same reason: robots decides before
+            # the preflight in _validate_url_security issues a request to the URL.
+            is_safe, msg = self._validate_url_offline(normalized_url)
+            if not is_safe:
+                logger.warning(f"Skipping unsafe URL {normalized_url}: {msg}")
+                results.append(
+                    FetchResult(url=normalized_url, success=False, error=msg)
+                )
+                continue
+
+            if not await self._robots_allow(normalized_url):
                 results.append(
                     FetchResult(
                         url=normalized_url,
@@ -813,13 +852,17 @@ class PlaywrightFetcher(BaseFetcher):
                         error_code=ErrorCode.ROBOTS_BLOCKED.value,
                     )
                 )
-            elif is_safe:
-                validated_urls.append(normalized_url)
-            else:
+                continue
+
+            is_safe, msg = self._validate_url_security(normalized_url)
+            if not is_safe:
                 logger.warning(f"Skipping unsafe URL {normalized_url}: {msg}")
                 results.append(
                     FetchResult(url=normalized_url, success=False, error=msg)
                 )
+                continue
+
+            validated_urls.append(normalized_url)
 
         if not validated_urls:
             return results

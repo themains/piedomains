@@ -33,6 +33,13 @@ Measured on eight live domains: 7 ok, 1 `robots_blocked` (reuters.com, which gen
 disallows crawlers). etsy.com still hit a DataDome wall and still came back ok, recovered
 by the archive fallback.
 
+**Robots decides before any request is made.** The content preflight in
+`_validate_url_security` used to run first, so a host whose robots file disallowed `/` was
+sent a HEAD — and possibly a ranged GET — and only then reported `robots_blocked`. Asking
+permission after taking the thing is not compliance. The order in both `fetch_single` and
+`fetch_batch` is now address check, offline URL validation, robots, then preflight, and a
+loopback server that records its requests holds it in place.
+
 ### An address guard, and honesty about what it cannot cover
 
 Nothing checked where a domain resolved, so one redirecting to `127.0.0.1` or the cloud
@@ -57,6 +64,12 @@ CC-MAIN-2026-30 holds cnn.com's `robots.txt` and no homepage — and the index s
 returned 502/504 on four of five probes, so every call retries and the live test skips
 rather than fails. `warcio` parses the WARC.
 
+Crawls are ranked nearest-first by real calendar distance. Two arithmetic shortcuts were
+tried and both misordered: `month * 4` puts 31 December in week 48, and `year * 53 + week`
+invents a 53rd week in 52-week years, scoring a January crawl and a December one as equally
+close to 31 December when they are 19 and 16 days away. With `max_crawls=3` either error
+can push the best capture out of the window.
+
 ### Fixed
 
 - `fuse.py` reported "Fusion beats text alone" on a **0.0002** macro-F1 difference produced
@@ -64,6 +77,13 @@ rather than fails. `warcio` parses the WARC.
   It now requires a paired McNemar test and no macro-F1 regression. Under the corrected
   rule fusion does not help: on 1,604 paired domains the best variant changes **zero**
   predictions (p=1.000).
+- `fuse.py` then still ranked three fusion variants by **test** macro-F1 before running one
+  unadjusted McNemar on the winner — a winner's-curse test with no nominal false-positive
+  rate — and could certify the stacker while serializing a weighted blend, publishing a
+  combiner that was never the one tested. The challenger is now fixed on the fit split
+  before the test split is touched, exactly one paired test runs, and the tensor tested is
+  the tensor written to `fusion.json`. The stacker has no inference path, so it is reported
+  as a diagnostic and never gated on.
 - `parse_batch_response` silently returned only the **first** element of any batch reply.
   `_extract_json` tried a single-object regex before parsing the whole response, and that
   regex matches the first `{...}` inside a JSON array. Dead code until now, so it never bit.

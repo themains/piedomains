@@ -59,10 +59,25 @@ class TestPredicate(unittest.TestCase):
                 self.assertTrue(is_global_address(text))
 
     def test_unwraps_ipv4_mapped_ipv6(self):
-        # The step people forget. stdlib does it for us; the R sibling has to do it by hand.
+        # The step people forget, and the reason we do it by hand: `is_global` reports
+        # False for the whole ::ffff:0:0/96 block on 3.11 and 3.12, and delegates to the
+        # embedded address from 3.13. This assertion failed on CI and passed locally
+        # until the unwrap became explicit.
         self.assertFalse(is_global_address("::ffff:10.0.0.1"))
         self.assertFalse(is_global_address("::ffff:127.0.0.1"))
         self.assertTrue(is_global_address("::ffff:8.8.8.8"))
+
+    def test_other_ipv4_in_ipv6_encodings_are_refused_outright(self):
+        # 6to4 and Teredo can carry a private address too, but every version reports the
+        # whole block non-global, so they need no unwrapping -- pinned here so a future
+        # stdlib change that makes them global does not pass silently.
+        for text in (
+            "2002:7f00:0001::",  # 6to4 wrapping 127.0.0.1
+            "2002:0808:0808::",  # 6to4 wrapping 8.8.8.8 -- refused as well
+            "2001:0:4136:e378:8000:63bf:3fff:fdd2",  # Teredo
+        ):
+            with self.subTest(text=text):
+                self.assertFalse(is_global_address(text))
 
     def test_garbage_is_never_permission(self):
         for text in ("", "   ", "not-an-ip", "999.1.1.1", "1.2.3"):
@@ -213,6 +228,15 @@ class TestNothingReachesTheNetwork(unittest.TestCase):
     def test_the_check_can_be_switched_off_for_an_intranet_corpus(self):
         from piedomains.config import configure, get_config
         from piedomains.fetchers import PlaywrightFetcher
+        from tests.conftest import browser_available
+
+        # The only test here that needs a real browser: switching the guard off means the
+        # fetch proceeds, and proceeding is a page load. CI installs no browsers, so this
+        # skips there. Its sibling above -- the one that proves nothing reaches the
+        # network -- needs no browser and does run everywhere, which is the right way
+        # round: the security assertion is the one that must never be skipped.
+        if not browser_available():
+            self.skipTest("Playwright browsers not available")
 
         original = get_config().get("check_addresses", True)
         try:

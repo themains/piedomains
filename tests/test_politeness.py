@@ -7,11 +7,16 @@ between requests to one host, and the user-agent impersonated Chrome while Chrom
 launched with an automation-hiding flag. ``ErrorCode.ROBOTS_BLOCKED`` existed in the
 taxonomy from the start and was only ever produced by the archive path.
 
-No test here reaches the network; ``aiohttp`` is patched throughout.
+Every test but the last patches ``aiohttp`` and reaches no network at all. The last one
+runs a stdlib server on loopback, because the property it checks -- that a disallowed URL
+is never requested -- can only be shown by a server that can report what it was asked for.
 """
 
 import asyncio
+import threading
 import unittest
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from typing import ClassVar
 from unittest.mock import patch
 
 from piedomains.politeness import HostThrottle, RobotsCache, user_agent_token
@@ -160,6 +165,79 @@ class TestHostThrottle(unittest.TestCase):
 
         self.assertTrue(run(once()))
         self.assertTrue(asyncio.run(once()))
+
+
+class _RobotsServer(BaseHTTPRequestHandler):
+    """Serves a robots.txt that disallows everything, and records every path asked for."""
+
+    hits: ClassVar[list] = []
+
+    def do_HEAD(self):
+        self._respond(body=False)
+
+    def do_GET(self):
+        self._respond(body=True)
+
+    def _respond(self, *, body):
+        type(self).hits.append(f"{self.command} {self.path}")
+        if self.path == "/robots.txt":
+            payload = b"User-agent: *\nDisallow: /\n"
+            content_type = "text/plain"
+        else:
+            payload = b"<html><body>" + b"page content " * 20 + b"</body></html>"
+            content_type = "text/html"
+        self.send_response(200)
+        self.send_header("Content-Type", content_type)
+        self.send_header("Content-Length", str(len(payload)))
+        self.end_headers()
+        if body:
+            self.wfile.write(payload)
+
+    def log_message(self, *args):
+        pass
+
+
+class TestRobotsDecidesBeforeAnythingIsRequested(unittest.TestCase):
+    """A disallowed URL must never be requested -- not even by the content preflight.
+
+    The preflight in ``_validate_url_security`` used to run first, so a host whose robots
+    file disallowed ``/`` was sent a HEAD, and possibly a ranged GET, before the fetcher
+    reported ``robots_blocked``. Asking robots for permission after taking the thing it
+    guards is not compliance, and only a server that records its requests can tell the
+    difference -- the return value was already correct.
+    """
+
+    def setUp(self):
+        _RobotsServer.hits = []
+        self.server = ThreadingHTTPServer(("127.0.0.1", 0), _RobotsServer)
+        self.port = self.server.server_address[1]
+        threading.Thread(target=self.server.serve_forever, daemon=True).start()
+
+    def tearDown(self):
+        self.server.shutdown()
+        self.server.server_close()
+
+    def test_a_disallowed_url_is_never_requested(self):
+        from piedomains.config import configure, get_config
+        from piedomains.fetchers import PlaywrightFetcher
+        from piedomains.outcomes import ErrorCode
+
+        original = get_config().get("check_addresses", True)
+        try:
+            # The address guard would refuse a loopback literal long before robots got a
+            # say, which would make this pass for the wrong reason.
+            configure(check_addresses=False, obey_robots=True)
+            result = run(
+                PlaywrightFetcher().fetch_single(f"http://127.0.0.1:{self.port}/page")
+            )
+        finally:
+            configure(check_addresses=original)
+
+        self.assertFalse(result.success)
+        self.assertEqual(result.error_code, ErrorCode.ROBOTS_BLOCKED.value)
+        # The assertion that carries the fix: robots.txt was read, and nothing else was
+        # touched. No browser launched either -- /page appears in no form.
+        self.assertEqual(_RobotsServer.hits, ["GET /robots.txt"])
 
 
 if __name__ == "__main__":

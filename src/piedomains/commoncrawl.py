@@ -39,6 +39,7 @@ import io
 import json
 import logging
 import time
+from datetime import date
 from typing import Any
 
 from .outcomes import ErrorCode
@@ -91,16 +92,30 @@ def crawls_for(near: str | None = None, timeout: float = 60.0) -> list[str]:
     if not near:
         return ids
 
+    # Ids look like CC-MAIN-2026-25: ISO year and ISO week. Turn both that and the
+    # requested date into real dates and compare in days.
+    #
+    # Two arithmetic shortcuts were tried here and both misordered crawls. `month * 4`
+    # puts 31 December in week 48, ranking a week-48 crawl above the one that actually
+    # covers the date. `year * 53 + week` then fails at the year boundary, because it
+    # invents a 53rd week in years that have 52: against that same date it scores
+    # CC-MAIN-2026-04 and CC-MAIN-2025-51 as equally distant when they are 19 and 16 days
+    # away. With `max_crawls=3` either error is enough to return content weeks off, or to
+    # push a usable capture out of the window entirely. Calendars do not linearise; ask
+    # the calendar.
+    try:
+        target = date(int(near[:4]), int(near[4:6]), int(near[6:8]))
+    except (ValueError, IndexError):
+        logger.debug("could not read %r as YYYYMMDD; leaving crawls in order", near)
+        return ids
+
     def distance(crawl_id: str) -> int:
-        # Ids look like CC-MAIN-2026-25: year and ISO week. Comparing on the year alone
-        # is enough to order candidates, and the week breaks ties.
         try:
             _, _, year, week = crawl_id.split("-")
-            return abs(
-                int(f"{year}{int(week):02d}")
-                - int(f"{near[:4]}{int(near[4:6]) * 4:02d}")
-            )
-        except Exception:
+            # Monday of that ISO week. fromisocalendar rejects week 53 in a 52-week year,
+            # which is a malformed id rather than something to guess at.
+            return abs((date.fromisocalendar(int(year), int(week), 1) - target).days)
+        except (ValueError, TypeError):
             return 10**9
 
     return sorted(ids, key=distance)

@@ -517,12 +517,6 @@ def main(argv: list[str] | None = None) -> int:
         )
         print(f"wrote {Path(args.out).with_name('probabilities.npz')}")
 
-    import numpy as np
-
-    stacker_predictions = stacker.predict(
-        np.hstack([test_text.numpy(), test_image.numpy()])
-    )
-
     report = {
         "text_only": score(test_text, test_targets, labels),
         "image_only": score(test_image, test_targets, labels),
@@ -556,27 +550,29 @@ def main(argv: list[str] | None = None) -> int:
         f"({1 - scalar.item():.3f} to the image model)"
     )
 
-    best_key = max(
-        ("fused_scalar", "fused_per_class", "fused_stacked"),
-        key=lambda k: report[k]["macro_f1"],
-    )
+    # The challenger was chosen on the fit split, above. Two things follow, and getting
+    # either wrong makes the gate meaningless:
+    #
+    # * Do not re-rank on the test split. Taking the best of three test macro-F1 values
+    #   and then running one unadjusted McNemar on the winner is a winner's-curse test:
+    #   whenever noise favours a variant the p-value no longer has its nominal 0.05 rate.
+    #   One challenger, fixed in advance, one test.
+    # * Test the model that ships. The published artifact is the scalar-or-per-class
+    #   blend `chosen` below; the stacker has no serialized form and no inference path,
+    #   so gating on it would certify a combiner that never runs. It stays a diagnostic.
+    best_key = "fused_per_class" if better_per_class else "fused_scalar"
+    chosen = per_class if better_per_class else scalar
     best_fused = report[best_key]["macro_f1"]
     text_f1 = report["text_only"]["macro_f1"]
 
     # `best_fused > text_f1` alone is not a result. It fired once on a 0.0002 macro-F1
     # difference produced by a fusion whose fitted text weight was 0.987 -- the image
-    # model carried 1.3% of the decision and changed no predictions at all. Ranking three
-    # variants and reporting the winner also takes the maximum of three noisy numbers, so
-    # the bar has to be a paired test rather than a comparison of point estimates.
-    predictions = {
-        "fused_scalar": (scalar * test_text + (1 - scalar) * test_image).argmax(1),
-        "fused_per_class": (
-            per_class * test_text + (1 - per_class) * test_image
-        ).argmax(1),
-        "fused_stacked": stacker_predictions,
-    }
+    # model carried 1.3% of the decision and changed no predictions at all. The bar has
+    # to be a paired test rather than a comparison of point estimates.
     p_value, fixed, broken = mcnemar(
-        test_text.argmax(1), predictions[best_key], test_targets
+        test_text.argmax(1),
+        (chosen * test_text + (1 - chosen) * test_image).argmax(1),
+        test_targets,
     )
     report["best_variant"] = best_key
     report["mcnemar_p"] = p_value
@@ -590,9 +586,20 @@ def main(argv: list[str] | None = None) -> int:
 
     print()
     print(
-        f"best variant {best_key}: fixes {fixed}, breaks {broken} "
+        f"deployable variant {best_key}: fixes {fixed}, breaks {broken} "
         f"of {len(test_targets):,} (McNemar p={p_value:.3f})"
     )
+
+    # Reported, never gated on, and never shipped -- but a stacker that clearly beats the
+    # blend is the signal that building an inference path for one is worth the work.
+    stacked_f1 = report["fused_stacked"]["macro_f1"]
+    report["stacker_is_deployable"] = False
+    if stacked_f1 > best_fused:
+        print(
+            f"note: the stacker scores {stacked_f1:.3f} macro-F1 against "
+            f"{best_fused:.3f} for the blend, but has no serialized form and is not "
+            "shipped. Building one is the follow-up this number argues for."
+        )
     if helps:
         print(f"Fusion beats text alone: {text_f1:.3f} -> {best_fused:.3f} macro-F1.")
     else:
@@ -604,8 +611,8 @@ def main(argv: list[str] | None = None) -> int:
 
     # The weights are an artifact, not just a number in a log. Write them next to the
     # image model so inference can load them; without this file `combined` refuses to
-    # fuse rather than falling back to a guessed 0.5.
-    chosen = per_class if better_per_class else scalar
+    # fuse rather than falling back to a guessed 0.5. `chosen` is the same tensor the
+    # McNemar test ran on -- the gate and the artifact must not be able to disagree.
     (image_dir / "fusion.json").write_text(
         json.dumps(
             {

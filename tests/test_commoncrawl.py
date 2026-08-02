@@ -201,6 +201,36 @@ class TestCrawlSelection(unittest.TestCase):
         self.assertEqual(commoncrawl.crawls_for(near="20200101")[0], "CC-MAIN-2020-05")
         self.assertEqual(commoncrawl.crawls_for(near="20240201")[0], "CC-MAIN-2024-10")
 
+    def test_a_year_end_date_picks_the_year_end_crawl(self):
+        # The case a month*4 approximation gets wrong: 31 December is ISO week 1 of the
+        # next year, not week 48. Ranked by that approximation a week-48 crawl came first
+        # and the genuinely closest one could fall outside the max_crawls window.
+        commoncrawl._crawls = [
+            {"id": "CC-MAIN-2025-52"},
+            {"id": "CC-MAIN-2025-48"},
+            {"id": "CC-MAIN-2025-30"},
+        ]
+        self.assertEqual(commoncrawl.crawls_for(near="20251231")[0], "CC-MAIN-2025-52")
+
+    def test_ranking_across_a_year_boundary_uses_real_distance(self):
+        # The case the `year * 53 + week` fix still got wrong. 31 December 2025 is ISO
+        # 2026-W01, so pseudo-week arithmetic scored both of these 3 away and the stable
+        # sort kept the newest-first order -- picking the January crawl. In real days
+        # they are 19 and 16 away, so the December one is closer.
+        commoncrawl._crawls = [{"id": "CC-MAIN-2026-04"}, {"id": "CC-MAIN-2025-51"}]
+        self.assertEqual(commoncrawl.crawls_for(near="20251231")[0], "CC-MAIN-2025-51")
+
+    def test_a_malformed_week_sorts_last_rather_than_raising(self):
+        # 2025 has 52 ISO weeks, so week 53 is not a date. Rank it last; do not guess.
+        commoncrawl._crawls = [{"id": "CC-MAIN-2025-53"}, {"id": "CC-MAIN-2025-40"}]
+        self.assertEqual(commoncrawl.crawls_for(near="20251001")[0], "CC-MAIN-2025-40")
+
+    def test_an_unparseable_date_leaves_the_order_alone(self):
+        self.assertEqual(
+            commoncrawl.crawls_for(near="not-a-date")[0], "CC-MAIN-2026-30"
+        )
+        self.assertEqual(commoncrawl.crawls_for(near="20261301")[0], "CC-MAIN-2026-30")
+
     def test_an_unreachable_crawl_list_is_empty_not_an_error(self):
         commoncrawl._crawls = None
         with patch("requests.get", side_effect=OSError("down")):

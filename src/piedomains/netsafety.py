@@ -8,9 +8,11 @@ guard; this closes the gap.
 
 **Nothing here is hand-rolled.** ``ipaddress`` is stdlib and already knows every range that
 matters -- RFC1918, loopback, link-local, CGNAT, benchmarking, TEST-NET, IPv6 ULA and
-link-local -- and it unwraps IPv4-mapped IPv6 (``::ffff:10.0.0.1``) without a manual step,
-which is the step people forget. The R sibling spells these out only because R's equivalent
-is a package rather than the standard library.
+link-local. The R sibling spells these out only because R's equivalent is a package rather
+than the standard library.
+
+The one manual step is unwrapping IPv4-mapped IPv6 (``::ffff:10.0.0.1``), because
+``is_global`` answers differently by interpreter version -- see :func:`is_global_address`.
 
 ``is_global`` alone is not enough: multicast reports ``True``. The predicate is
 ``is_global and not is_multicast and not is_reserved``.
@@ -92,6 +94,15 @@ def is_global_address(text: str) -> bool:
         address = ipaddress.ip_address(text.strip())
     except ValueError:
         return False
+    # Unwrap IPv4-mapped IPv6 ourselves rather than leaving it to `is_global`, which
+    # answers differently by version: 3.13 delegates to the embedded address, 3.11 and
+    # 3.12 report False for the whole ``::ffff:0:0/96`` block. That older answer is
+    # fail-closed and so not a hole, but it makes the predicate -- and any test of it --
+    # depend on the interpreter. 6to4 and Teredo need no unwrapping: every version
+    # already reports False for those blocks whatever they embed.
+    mapped = getattr(address, "ipv4_mapped", None)
+    if mapped is not None:
+        address = mapped
     return bool(
         address.is_global and not address.is_multicast and not address.is_reserved
     )
