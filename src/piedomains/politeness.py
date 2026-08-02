@@ -107,7 +107,11 @@ class RobotsCache:
             headers = {"User-Agent": self.user_agent}
             async with (
                 aiohttp.ClientSession(timeout=timeout, headers=headers) as session,
-                session.get(f"{origin}/robots.txt") as response,
+                # allow_redirects=False: aiohttp follows by default, and a redirected
+                # robots.txt is not worth a second place for a hostile host to send us.
+                # RFC 9309 permits following up to five hops; treating a 3xx as "no
+                # robots file" is the safer reading and costs almost nothing in practice.
+                session.get(f"{origin}/robots.txt", allow_redirects=False) as response,
             ):
                 if response.status >= 500:
                     return None, False

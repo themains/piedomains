@@ -216,11 +216,16 @@ class ContentValidator:
 
         try:
             # Make HEAD request to get headers without downloading content
+            # allow_redirects=False: this runs before the browser exists and before any
+            # address check, so following redirects here would fetch wherever a hostile
+            # host points -- including 127.0.0.1 or 169.254.169.254 -- and the ranged GET
+            # below would read the first kilobyte of it. A 3xx simply yields no
+            # content-type and falls through to the existing "no Content-Type" path.
             response = requests.head(
                 url,
                 timeout=self.config.http_timeout,
                 headers={"User-Agent": self.config.user_agent},
-                allow_redirects=True,
+                allow_redirects=False,
             )
             response.raise_for_status()
 
@@ -235,7 +240,7 @@ class ContentValidator:
                         "Range": "bytes=0-1023",  # Just get first 1KB
                     },
                     stream=True,
-                    allow_redirects=True,
+                    allow_redirects=False,
                 )
                 response.raise_for_status()
             except requests.RequestException:

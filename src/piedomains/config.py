@@ -88,6 +88,19 @@ class Config:
         "crawl_delay": 1.0,
         "max_crawl_delay": 30.0,
         "max_concurrent_fetches": 8,
+        # Refuse destinations that are not on the public internet. The flag exists
+        # because classifying an intranet corpus is a real need, and a documented
+        # switch beats someone monkeypatching the module.
+        "check_addresses": True,
+        "allow_hosts": [],
+        "address_cache_ttl": 300.0,
+        "dns_timeout": 5.0,
+        # Route the browser through an egress proxy, e.g. Stripe's Smokescreen
+        # (https://github.com/stripe/smokescreen). This is the only thing that closes
+        # the redirect and DNS-rebinding gaps the in-process address check cannot:
+        # the browser issues a fresh CONNECT for every hop and every subresource, so
+        # the proxy re-checks each one against its own ACL. Empty means direct.
+        "proxy_server": "",
         # Archive.org settings. Rate limiting, retries and backoff are handled
         # by the wayback session rather than hand-rolled sleeps.
         "archive_max_parallel": 2,  # Concurrent snapshot fetches
@@ -216,6 +229,8 @@ class Config:
             "PIEDOMAINS_BATCH_SIZE": ("batch_size", int),
             "PIEDOMAINS_PARALLEL_WORKERS": ("parallel_workers", int),
             "PIEDOMAINS_USER_AGENT": ("user_agent", str),
+            "PIEDOMAINS_ALLOW_HOSTS": ("allow_hosts", "csv"),
+            "PIEDOMAINS_PROXY_SERVER": ("proxy_server", str),
             "PIEDOMAINS_EXTRACTOR": ("extractor", str),
             "PIEDOMAINS_MULTILABEL_THRESHOLD": ("multilabel_threshold", float),
             "PIEDOMAINS_FILTER_NON_ENGLISH": (

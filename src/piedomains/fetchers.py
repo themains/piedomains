@@ -81,6 +81,21 @@ class BaseFetcher:
         self.config = get_config()
         self.validator = ContentValidator(self.config)
 
+    def _proxy_kwargs(self) -> dict:
+        """Proxy settings for a browser context, if one is configured.
+
+        The in-process address check cannot see server-side redirect hops -- Playwright
+        continues them itself without creating a ``Route`` -- and cannot close the
+        rebinding window between our resolution and the browser's. An egress proxy can do
+        both, because the browser issues a fresh ``CONNECT`` per hop and per subresource
+        and the proxy re-checks each one. Stripe's Smokescreen is built for this.
+
+        Returns:
+            dict: ``{"proxy": {...}}`` when configured, otherwise empty.
+        """
+        server = str(self.config.get("proxy_server", "") or "").strip()
+        return {"proxy": {"server": server}} if server else {}
+
     def _context_kwargs(self) -> dict:
         """Build the browser-context settings every capture path shares.
 
@@ -297,6 +312,48 @@ class BaseFetcher:
                 ),
             )
         return self._politeness_state
+
+    def _address_guard(self):
+        """Address guard for this fetcher, built on first use.
+
+        Unlike ``_politeness``, the lazy construction here is only for symmetry -- the
+        guard holds a plain dict and is loop-agnostic.
+
+        Returns:
+            AddressGuard: The shared guard.
+        """
+        if getattr(self, "_address_guard_state", None) is None:
+            from .netsafety import AddressGuard
+
+            config = self.config
+            self._address_guard_state = AddressGuard(
+                allow_hosts=frozenset(
+                    h.strip().lower()
+                    for h in config.get("allow_hosts", [])
+                    if h.strip()
+                ),
+                ttl=float(config.get("address_cache_ttl", 300.0)),
+                timeout=float(config.get("dns_timeout", 5.0)),
+            )
+        return self._address_guard_state
+
+    async def _address_check(self, url: str) -> str | None:
+        """Whether this URL resolves somewhere we may fetch.
+
+        Args:
+            url: The URL about to be fetched.
+
+        Returns:
+            str | None: ``None`` when safe, otherwise an :class:`ErrorCode` value.
+        """
+        if not self.config.get("check_addresses", True):
+            return None
+        from .netsafety import check_url
+
+        try:
+            return await check_url(url, guard=self._address_guard())
+        except Exception:  # a broken guard must not silently allow
+            return ErrorCode.PRIVATE_ADDRESS.value
 
     async def _robots_allow(self, url: str) -> bool:
         """Whether robots.txt permits fetching this URL.
@@ -663,10 +720,24 @@ class PlaywrightFetcher(BaseFetcher):
         if not url.startswith(("http://", "https://")):
             url = f"https://{url}"
 
+        # Address check first: _validate_url_security runs a blocking preflight request
+        # and _robots_allow fetches robots.txt, so both reach the host before anything
+        # below would have refused it.
+        bad = await self._address_check(url)
+        if bad is not None:
+            return FetchResult(
+                url=url, success=False, error=f"refused address: {bad}", error_code=bad
+            )
+
         # Security validation
         is_safe, msg = self._validate_url_security(url)
         if not is_safe:
-            return FetchResult(url=url, success=False, error=msg)
+            return FetchResult(
+                url=url,
+                success=False,
+                error=msg,
+                error_code=ErrorCode.INVALID_DOMAIN.value,
+            )
 
         if not await self._robots_allow(url):
             return FetchResult(
@@ -685,6 +756,7 @@ class PlaywrightFetcher(BaseFetcher):
             )
 
             context = await browser.new_context(
+                **self._proxy_kwargs(),
                 **self._context_kwargs(),
                 ignore_https_errors=False,
             )
@@ -718,6 +790,18 @@ class PlaywrightFetcher(BaseFetcher):
                 normalized_url = f"https://{url}"
             else:
                 normalized_url = url
+
+            bad = await self._address_check(normalized_url)
+            if bad is not None:
+                results.append(
+                    FetchResult(
+                        url=normalized_url,
+                        success=False,
+                        error=f"refused address: {bad}",
+                        error_code=bad,
+                    )
+                )
+                continue
 
             is_safe, msg = self._validate_url_security(normalized_url)
             if is_safe and not await self._robots_allow(normalized_url):
@@ -757,6 +841,7 @@ class PlaywrightFetcher(BaseFetcher):
             contexts = []
             for i in range(min(self.max_parallel, len(validated_urls))):
                 context = await browser.new_context(
+                    **self._proxy_kwargs(),
                     **self._context_kwargs(),
                     ignore_https_errors=False,
                 )
@@ -1021,7 +1106,9 @@ class ArchiveFetcher(BaseFetcher):
                     headless=self.config.get("playwright_headless", True)
                 )
                 try:
-                    context = await browser.new_context(**self._context_kwargs())
+                    context = await browser.new_context(
+                        **self._context_kwargs(), **self._proxy_kwargs()
+                    )
                     page = await context.new_page()
 
                     # archive.org serves assets slowly; fonts and media are not

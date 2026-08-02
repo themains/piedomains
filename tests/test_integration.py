@@ -212,8 +212,10 @@ class TestResourceManagement:
 
             assert success is False
             assert error is not None
-            # The error should mention the connection/resolution failure
-            assert "ERR_NAME_NOT_RESOLVED" in error or "not resolve" in error.lower()
+            # Same as above: the address guard reports dns_error before a browser is
+            # launched, so this no longer sees a Chromium string. That is the point --
+            # cleanup is still exercised, and the outcome is now a taxonomy value.
+            assert "dns_error" in error or "not resolve" in error.lower()
 
     def test_temporary_file_cleanup(self):
         """Test that temporary files are properly cleaned up."""
@@ -270,8 +272,11 @@ class TestLoggingIntegration:
         # Should fail with this invalid domain
         assert success is False
         assert error is not None
-        # The error should mention the domain resolution failure
-        assert "ERR_NAME_NOT_RESOLVED" in error or "not resolve" in error.lower()
+        # The address guard resolves before the browser launches, so an unresolvable
+        # host is now reported as the structured `dns_error` rather than whatever string
+        # Chromium happened to produce. This assertion used to pin
+        # "ERR_NAME_NOT_RESOLVED", which was a browser message, not a contract.
+        assert "dns_error" in error or "not resolve" in error.lower()
 
 
 @pytest.mark.integration
