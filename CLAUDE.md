@@ -114,10 +114,27 @@ extraction missed. Live: `walmart.com` → drugs 0.56, `zappos.com` → drugs 0.
 and `drugs` is top-2 for four of five retailers tested. This is a labelling
 problem, not a data-volume one.
 
-**Weakest classes** are starved rather than hard: `urlshortener` 0.154 (n=7),
-`library` 0.333 (n=9), `socialnet` 0.372. `shopping` 0.453 is the exception — it
-has tens of thousands of unused documents and still fails, because it names what
-a site *does* while competing against topics.
+**Weak classes are incoherent, not starved.** Training volume does not predict
+per-class F1 in this corpus:
+
+| class | train n | F1 |
+|---|---|---|
+| `military` | 93 | **0.800** |
+| `weapons` | 161 | 0.837 |
+| `cooking` | 196 | 0.880 |
+| `library` | 96 | 0.333 |
+| `urlshortener` | 158 | 0.154 |
+| `socialnet` | 217 | 0.372 |
+| `shopping` | **1,337** | **0.453** |
+
+`military` at 93 documents beats `shopping` at 1,337. What separates them is
+whether the class names one recognisable thing: `shopping` says what a site
+*does* while competing against topics, and `urlshortener` is a redirect stub with
+almost no page to read. So the remedy for a weak class is a cleaner definition,
+not more documents — and a small coherent class is a perfectly good outcome.
+
+Do not use `--min-docs` as evidence that a class is unviable; it is a CLI default,
+not a measurement.
 
 Do not add accuracy claims to docs without a measured number.
 
