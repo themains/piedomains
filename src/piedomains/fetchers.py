@@ -272,6 +272,67 @@ class BaseFetcher:
         recovered.url = result.url
         return recovered
 
+    def _politeness(self) -> tuple:
+        """Robots cache and throttle for this fetcher, built on first use.
+
+        Built lazily rather than in ``__init__`` because every public entry point creates
+        a fresh event loop, and an ``asyncio.Lock`` bound to a dead loop raises when
+        awaited from a new one.
+
+        Returns:
+            tuple: ``(RobotsCache, HostThrottle)``.
+        """
+        if getattr(self, "_politeness_state", None) is None:
+            from .politeness import HostThrottle, RobotsCache
+
+            config = self.config
+            self._politeness_state = (
+                RobotsCache(
+                    user_agent=config.get("user_agent", "piedomains"),
+                    timeout=float(config.get("http_timeout", 10)),
+                ),
+                HostThrottle(
+                    delay=float(config.get("crawl_delay", 1.0)),
+                    max_concurrent=int(config.get("max_concurrent_fetches", 8)),
+                ),
+            )
+        return self._politeness_state
+
+    async def _robots_allow(self, url: str) -> bool:
+        """Whether robots.txt permits fetching this URL.
+
+        Args:
+            url: The URL about to be fetched.
+
+        Returns:
+            bool: True when permitted, or when robots compliance is switched off.
+        """
+        if not self.config.get("obey_robots", True):
+            return True
+        robots, _ = self._politeness()
+        try:
+            return await robots.allowed(url)
+        except Exception:  # never let the robots check itself break a fetch
+            return True
+
+    async def _be_polite(self, url: str) -> None:
+        """Wait until it is polite to request this URL.
+
+        Args:
+            url: The URL about to be fetched.
+        """
+        robots, throttle = self._politeness()
+        delay = None
+        if self.config.get("obey_robots", True):
+            try:
+                delay = await robots.crawl_delay(url)
+                cap = float(self.config.get("max_crawl_delay", 30.0))
+                if delay is not None and delay > cap:
+                    delay = cap
+            except Exception:
+                delay = None
+        await throttle.wait(url, delay)
+
     def cleanup(self) -> None:
         """Release any resources held by the fetcher.
 
@@ -443,7 +504,13 @@ class PlaywrightFetcher(BaseFetcher):
             # Wait for the DOM, then race a short network-quiet window -- capped,
             # because nytimes.com does yield more text once the network settles,
             # so the upside is kept without the 20s cliff.
-            await page.goto(url, wait_until="domcontentloaded", timeout=timeout)
+            # Both fetch_single and fetch_batch navigate here, so one throttle covers
+            # both. max_parallel bounds browser contexts, not navigations -- a page is
+            # opened per URL and all are gathered at once -- so without this a batch of
+            # 500 arrives simultaneously.
+            await self._be_polite(url)
+            async with self._politeness()[1].limit():
+                await page.goto(url, wait_until="domcontentloaded", timeout=timeout)
             settle = self.config.get("settle_ms", 1500)
             quiet = self.config.get("network_quiet_ms", 3000)
             await page.wait_for_timeout(settle)
@@ -601,10 +668,20 @@ class PlaywrightFetcher(BaseFetcher):
         if not is_safe:
             return FetchResult(url=url, success=False, error=msg)
 
+        if not await self._robots_allow(url):
+            return FetchResult(
+                url=url,
+                success=False,
+                error="disallowed by robots.txt",
+                error_code=ErrorCode.ROBOTS_BLOCKED.value,
+            )
+
         async with async_playwright() as p:
             browser = await p.chromium.launch(
                 headless=self.config.get("playwright_headless", True),
-                args=["--disable-blink-features=AutomationControlled"],
+                # No automation-hiding flag: blocking.py states this project detects bot
+                # walls and falls back to archive.org rather than evading them.
+                args=[],
             )
 
             context = await browser.new_context(
@@ -643,7 +720,16 @@ class PlaywrightFetcher(BaseFetcher):
                 normalized_url = url
 
             is_safe, msg = self._validate_url_security(normalized_url)
-            if is_safe:
+            if is_safe and not await self._robots_allow(normalized_url):
+                results.append(
+                    FetchResult(
+                        url=normalized_url,
+                        success=False,
+                        error="disallowed by robots.txt",
+                        error_code=ErrorCode.ROBOTS_BLOCKED.value,
+                    )
+                )
+            elif is_safe:
                 validated_urls.append(normalized_url)
             else:
                 logger.warning(f"Skipping unsafe URL {normalized_url}: {msg}")
@@ -662,7 +748,9 @@ class PlaywrightFetcher(BaseFetcher):
         async with async_playwright() as p:
             browser = await p.chromium.launch(
                 headless=self.config.get("playwright_headless", True),
-                args=["--disable-blink-features=AutomationControlled"],
+                # No automation-hiding flag: blocking.py states this project detects bot
+                # walls and falls back to archive.org rather than evading them.
+                args=[],
             )
 
             # Create parallel contexts

@@ -82,6 +82,12 @@ class Config:
         "filter_non_english": False,
         # Parallel processing
         "max_parallel": 4,
+        # Live-path politeness. The archive path has had rate limits since it was
+        # written; the live path had none.
+        "obey_robots": True,
+        "crawl_delay": 1.0,
+        "max_crawl_delay": 30.0,
+        "max_concurrent_fetches": 8,
         # Archive.org settings. Rate limiting, retries and backoff are handled
         # by the wayback session rather than hand-rolled sleeps.
         "archive_max_parallel": 2,  # Concurrent snapshot fetches
@@ -115,7 +121,11 @@ class Config:
         "html_extension": ".html",
         "image_extension": ".png",
         # User agent for HTTP requests
-        "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+        # Identify ourselves and give operators a way to ask us to stop. The previous
+        # value impersonated Chrome on macOS, which is dishonest, contradicts this
+        # project's stated no-evasion position in blocking.py, and does not even work:
+        # DataDome and Cloudflare fingerprint TLS and HTTP/2, not the UA string.
+        "user_agent": ("piedomains/0.13 (+https://github.com/themains/piedomains)"),
         # Legacy WebDriver settings for backward compatibility
         "webdriver_timeout": 30,
         "webdriver_window_size": "1280,1024",

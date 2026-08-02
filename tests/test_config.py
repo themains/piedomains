@@ -160,12 +160,23 @@ class TestConfig(unittest.TestCase):
         self.assertEqual(window_size, "1280,1024")
 
     def test_user_agent_property(self):
-        """Test user agent property."""
+        """The crawler identifies itself and offers a way to be contacted.
+
+        This used to assert ``"Mozilla" in user_agent``, pinning a string that
+        impersonated Chrome on macOS. That contradicted the project's own stated position
+        in ``blocking.py`` -- "detection plus an archive.org fallback is the honest
+        response rather than an evasion arms race" -- and it did not even work, because
+        DataDome and Cloudflare fingerprint TLS and HTTP/2 rather than the UA string.
+        """
         config = Config()
         user_agent = config.user_agent
 
         self.assertIsInstance(user_agent, str)
-        self.assertIn("Mozilla", user_agent)
+        self.assertTrue(user_agent.startswith("piedomains/"))
+        # A contact URL an operator can use to ask us to stop.
+        self.assertIn("github.com/themains/piedomains", user_agent)
+        for impersonated in ("Mozilla", "Chrome", "Safari", "AppleWebKit"):
+            self.assertNotIn(impersonated, user_agent)
 
 
 class TestScreenshotScale(unittest.TestCase):
