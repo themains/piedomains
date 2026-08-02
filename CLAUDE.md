@@ -43,6 +43,9 @@ Flat modules under `src/piedomains/`. There is no `classifiers/` or
 | `labels.py` | `top_labels` (multi-label) and `project` (map a checkpoint onto the current space) |
 | `training/splits.py` | `split_of(domain)` — train/val/test as a pure function of the domain |
 | `fetchers.py` | `PlaywrightFetcher` (live), `ArchiveFetcher` (archive.org via `wayback`) |
+| `commoncrawl.py` | Common Crawl as a third source: CDX index + `warcio` byte-range WARC |
+| `politeness.py` | robots.txt via `protego`, per-host throttle, honest UA |
+| `netsafety.py` | stdlib `ipaddress` address guard; see its docstring for what it cannot cover |
 | `text.py` / `image.py` | Transformers inference paths (mmBERT / SigLIP 2) |
 | `text_processor.py` | The live HTML→text cleaner |
 | `outcomes.py` | `Stage`/`ErrorCode` taxonomy and run-report builder |
