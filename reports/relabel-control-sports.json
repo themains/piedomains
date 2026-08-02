@@ -1,0 +1,61 @@
+{
+  "note": "Model reasoning is a post-hoc rationalisation, not evidence. These labels must never be used as evaluation gold.",
+  "prompt_hash": "d2d97691c4763268",
+  "summary": {
+    "total": 200,
+    "statuses": {
+      "ok": 183,
+      "abstain": 17
+    },
+    "cells": {
+      "keep": 125,
+      "no-verdict:abstain": 17,
+      "move:wellness": 9,
+      "move:pets": 7,
+      "move:travel": 7,
+      "move:gardening": 4,
+      "move:education": 4,
+      "move:automobile": 4,
+      "move:games": 4,
+      "move:forum": 3,
+      "move:homestyle": 3,
+      "move:gamble": 2,
+      "move:library": 2,
+      "move:finance": 2,
+      "move:jobsearch": 1,
+      "move:realestate": 1,
+      "move:movies": 1,
+      "move:shopping": 1,
+      "move:status": 1,
+      "move:imagehosting": 1,
+      "move:news": 1
+    },
+    "kept": 125,
+    "kept_share": 0.6830601092896175,
+    "substance_of_kept": {
+      "none": 125
+    },
+    "destinations": {
+      "gamble": 2,
+      "gardening": 4,
+      "wellness": 9,
+      "library": 2,
+      "jobsearch": 1,
+      "pets": 7,
+      "realestate": 1,
+      "travel": 7,
+      "finance": 2,
+      "movies": 1,
+      "forum": 3,
+      "education": 4,
+      "automobile": 4,
+      "games": 4,
+      "shopping": 1,
+      "parked": 1,
+      "imagehosting": 1,
+      "news": 1,
+      "homestyle": 3
+    },
+    "mean_confidence_keep": 0.9124
+  }
+}

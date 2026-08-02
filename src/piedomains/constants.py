@@ -12,9 +12,9 @@ Example:
     Accessing classification categories:
         >>> from piedomains.constants import classes, most_common_words
         >>> print(f"Available categories: {len(classes)}")
-        Available categories: 47
+        Available categories: 44
         >>> print(f"Example categories: {classes[:3]}")
-        Example categories: ['adult', 'aggressive', 'alcohol']
+        Example categories: ['adult', 'alcohol', 'automobile']
         >>> print(f"Common words to filter: {most_common_words[:3]}")
         Common words to filter: ['home', 'contact', 'us']
 """
@@ -34,11 +34,28 @@ Example:
 #
 # The loaded model's `labels.json` is authoritative at inference; this list documents
 # the shipped set and is the last-resort fallback.
+#
+# THE LIST IS NOT MUTUALLY EXCLUSIVE, AND CANNOT BE MADE SO WHILE IT IS ONE FLAT LIST.
+# Four different questions share this vocabulary, and sorting the classes by which one they
+# answer shows the error rate tracking the axis rather than the class:
+#
+#   status  (2)   parked, unavailable                              1% error
+#   topic   (24)  automobile, sports, religion, science, ...      15%
+#   risk    (5)   adult, gamble, drugs, alcohol, weapons          21%
+#   form    (13)  shopping, news, forum, searchengines, ...       31%
+#
+# `shopping` describes what a site does and `automobile` what it is about, so a car
+# dealership is honestly both and the argmax has to discard one. That accounts for roughly
+# a quarter of all errors -- see docs/taxonomy.md for the measurement.
+#
+# The answer is multi-label output rather than a redesign: every result row carries a
+# `categories` list of the labels above `multilabel_threshold`, which is how IAB and
+# Cloudflare both handle the same problem. `category` remains the argmax.
 classes: list[str] = [
     "adult",  # Adult - pornography, sexual content and glamour. Merged from porn/sex/models
-    "aggressive",  # Aggressive - hate speech and racism
     "alcohol",  # Alcohol - breweries, wineries, distilleries
     "automobile",  # Automobile - cars, bikes, boats, planes
+    "cooking",  # Cooking - recipes and food preparation
     "dating",  # Dating - dating and personals
     "downloads",  # Downloads - software and file downloads
     "drugs",  # Drugs - illegal drugs and paraphernalia
@@ -47,14 +64,13 @@ classes: list[str] = [
     "fortunetelling",  # Fortune telling - astrology, psychics
     "forum",  # Forum - discussion boards
     "gamble",  # Gambling - casinos, betting, lottery
+    "games",  # Games. Merged: splitting by whether a game is played
+    # online asks about delivery, not subject, and cost games-misc 34.4% of itself
+    "gardening",  # Gardening - plants, horticulture, landscaping
     "government",  # Government - official government sites
-    "hobby/cooking",  # Hobby: cooking - split out from the 'hobby' grab-bag
-    "hobby/games-misc",  # Hobby: games-misc - split out from the 'hobby' grab-bag
-    "hobby/games-online",  # Hobby: games-online - split out from the 'hobby' grab-bag
-    "hobby/gardening",  # Hobby: gardening - split out from the 'hobby' grab-bag
-    "hobby/pets",  # Hobby: pets - split out from the 'hobby' grab-bag
     "homestyle",  # Homestyle - home and living
     "hospitals",  # Hospitals - medical facilities and health services
+    "humor",  # Humor
     "imagehosting",  # Image hosting - photo sharing and image storage
     "isp",  # ISP - internet service providers and telecoms
     "jobsearch",  # Job search - employment and career sites
@@ -63,38 +79,42 @@ classes: list[str] = [
     "movies",  # Movies - film and cinema
     "music",  # Music - artists, labels, music sites
     "news",  # News - newspapers, agencies, news portals
+    "pets",  # Pets - animals, breeders, veterinary
     "politics",  # Politics - parties, advocacy, political content
     "radiotv",  # Radio/TV - broadcast stations and streaming
     "realestate",  # Real estate - property listings and agents. Promoted out of finance
-    "recreation/humor",  # Recreation: humor - split out; 'recreation' alone was 98% travel or sports
-    "recreation/restaurants",  # Recreation: restaurants - split out; 'recreation' alone was 98% travel or sports
-    "recreation/sports",  # Recreation: sports - split out; 'recreation' alone was 98% travel or sports
-    "recreation/travel",  # Recreation: travel - split out; 'recreation' alone was 98% travel or sports
-    "recreation/wellness",  # Recreation: wellness - split out; 'recreation' alone was 98% travel or sports
     "religion",  # Religion - religious groups and spirituality
+    "restaurants",  # Restaurants
     "science",  # Science - astronomy, chemistry, research
     "searchengines",  # Search engines - search and directories
     "shopping",  # Shopping - ecommerce, retail, marketplaces
     "socialnet",  # Social networks - social media platforms
+    "sports",  # Sports
+    "travel",  # Travel
     "urlshortener",  # URL shortener - link shortening services
-    "warez",  # Warez - piracy and cracked software
     "weapons",  # Weapons - firearms and armaments
     "webmail",  # Webmail - browser-based email
-    "webradio",  # Web radio - internet radio streaming
+    "wellness",  # Wellness
     # A domain-parking placeholder rather than a site. Included because it is plainly
     # stated in the page text ("this domain is for sale"), unlike the hosting and
     # monetisation properties the taxonomy deliberately excludes -- and because leaving
     # it out was actively harmful: parked pages made up 42% of the `drugs` class, so the
     # model learned a for-sale template *meant* drugs and returned it for zappos.com.
     "parked",  # Domain parking placeholder, not a real site
+    # The other way a domain serves bytes without being a site: a server autoindex, a
+    # registrar's "coming soon", a suspended account, a bare 404. 321 of these sat in the
+    # corpus wearing the label of whatever the domain used to be.
+    "unavailable",  # Domain resolves, but there is no site behind it
 ]
 """
 List[str]: Complete list of website classification categories.
 
-This list contains 47 categories used for domain content classification.
+This list contains 44 categories used for domain content classification.
 Derived from Shallalist but not identical to it: classes describing how a site is
-hosted or monetised are removed, `recreation` and `hobby` are split, and the adult
-categories are merged. See training/taxonomy.py for the mapping.
+hosted or monetised are removed, so are those asking about delivery mechanism or
+legality, `recreation` and `hobby` are split, and the adult categories are merged.
+`parked` and `unavailable` are added, because a domain with no site behind it is a
+fact the caller can act on and the page states it plainly. See training/taxonomy.py.
 
 The categories are used by both traditional ML models and LLM-based classification
 to provide consistent categorization across different classification methods.
@@ -182,6 +202,6 @@ def get_category_count() -> int:
     Example:
         >>> count = get_category_count()
         >>> print(f"Total categories available: {count}")
-        Total categories available: 47
+        Total categories available: 44
     """
     return len(classes)

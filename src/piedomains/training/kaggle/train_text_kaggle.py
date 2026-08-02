@@ -2,7 +2,7 @@
 """Retrain the text classifier on Kaggle, free.
 
 Settings → Accelerator → **GPU T4 x2**, Internet → On, and attach the
-`piedomains-text-minimal` Dataset.
+`piedomains-text-v13` Dataset.
 
 **Why Kaggle rather than a laptop.** The last local run took about five hours on an M4
 and thrashed swap, and this one doubles `max_length` to 256. Kaggle gives 30 GPU-hours a
@@ -24,6 +24,14 @@ The prepared Dataset also carries two corrections the old corpus did not have: a
 interstitials are refused, and domain-parking placeholders are labelled `parked` rather
 than left contaminating the class of whatever the domain used to sell — which was 42% of
 `drugs`.
+
+**The label space is 43, not 47.** Three splits that asked about delivery mechanism or
+legality rather than subject are collapsed — `games-misc`/`-online`,
+`radiotv`/`webradio`, `downloads`/`warez` — and `aggressive` is dropped for want of data
+at 9 held-out documents and recall 0.111. Relabelling the 47-class model's own predictions
+puts the floor at **+0.023 accuracy and +0.023 macro-F1**; this run measures what a model
+that never had to learn the impossible distinction does instead. See
+`training/taxonomy.py` and `training/confusions.py`.
 """
 
 from __future__ import annotations
@@ -35,8 +43,8 @@ from pathlib import Path
 
 REPO = "https://github.com/themains/piedomains.git"
 
-#: Branch carrying the new cleaner and the parked class.
-BRANCH = "text-representation"
+#: Branch carrying the 43-class taxonomy.
+BRANCH = "taxonomy-round-2"
 
 #: Kernel output. Only the checkpoint goes here: retrieving any file means enumerating
 #: every file, and a run that writes thousands of them becomes unreachable through the API.
@@ -47,10 +55,13 @@ TEMP = Path("/kaggle/temp")
 
 #: Name of the attached Dataset holding the prepared splits, so this kernel never touches
 #: the 17GB corpus. Built by `prepare_text.py` with the minimal cleaner.
-#: The punctuation-fixed corpus. `piedomains-text-minimal` was prepared before standalone
-#: punctuation was dropped, so 4.8% of its tokens were pipes and hyphens; this one is at
-#: 0.00%.
-DATASET = "piedomains-text-clean"
+#:
+#: The 44-class corpus, split by `training.splits.split_of` so the text and screenshot
+#: corpora cannot disagree about where a domain belongs. Earlier Datasets are kept but
+#: must not be trained on: `piedomains-text-minimal` is the superseded 47-class label
+#: space, and `piedomains-text-clean` had standalone punctuation stripped -- an idea
+#: that looked obviously right and measured worse (Curlie 0.543 -> 0.523).
+DATASET = "piedomains-text-v13"
 
 #: 256, not 128. Under the old cleaner a page collapsed to a few hundred unique
 #: alphabetised words, so 128 subword tokens rarely truncated anything. Real text with

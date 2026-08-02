@@ -59,6 +59,12 @@ class ErrorCode(StrEnum):
 
     INVALID_DOMAIN = "invalid_domain"
     DNS_ERROR = "dns_error"
+    #: Resolved to a loopback, private, link-local or otherwise non-global address.
+    #: Verbatim parity with the R sibling, so results from either aggregate together.
+    #: Deliberately not retryable: this is a property of a DNS record rather than a
+    #: transient condition, and repeated retries are exactly what a rebinding attacker
+    #: needs to get a favourable roll.
+    PRIVATE_ADDRESS = "private_address"
     CONNECTION_ERROR = "connection_error"
     TIMEOUT = "timeout"
     HTTP_ERROR = "http_error"

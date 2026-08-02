@@ -38,18 +38,18 @@ import sys
 from collections import Counter, defaultdict
 from pathlib import Path
 
-#: Our 47 classes to Curlie's 14. Only mappings a Curlie editor would plausibly agree
+#: Our 44 classes to Curlie's 14. Only mappings a Curlie editor would plausibly agree
 #: with; everything else is left out and reported as unmappable rather than scored.
 #:
 #: The awkward ones, stated rather than hidden: Curlie has no Adult branch in this release,
-#: so `adult`, `dating`, `drugs`, `weapons`, `gamble`, `warez` and `aggressive` have no
-#: target and are excluded. `searchengines`, `webmail`, `socialnet`, `isp`, `hosting` and
+#: so `adult`, `dating`, `drugs`, `weapons` and `gamble` have no target and are excluded.
+#: `parked` and `unavailable` are excluded too, and for a better reason -- a domain with no
+#: site behind it has no Curlie topic to be right or wrong about. `searchengines`, `webmail`, `socialnet`, `isp`, `hosting` and
 #: friends go to `Computers` because that is where the directory puts them -- a site-type
 #: judgement, not a topic one.
 TO_CURLIE: dict[str, str] = {
     "news": "News",
     "radiotv": "News",
-    "webradio": "Arts",
     "movies": "Arts",
     "music": "Arts",
     "shopping": "Shopping",
@@ -57,11 +57,11 @@ TO_CURLIE: dict[str, str] = {
     "jobsearch": "Business",
     "realestate": "Business",
     "automobile": "Recreation",
-    "recreation/travel": "Recreation",
-    "recreation/humor": "Recreation",
-    "recreation/restaurants": "Recreation",
-    "recreation/wellness": "Health",
-    "recreation/sports": "Sports",
+    "travel": "Recreation",
+    "humor": "Recreation",
+    "restaurants": "Recreation",
+    "wellness": "Health",
+    "sports": "Sports",
     "hospitals": "Health",
     "education": "Reference",
     "library": "Reference",
@@ -72,12 +72,11 @@ TO_CURLIE: dict[str, str] = {
     "military": "Society",
     "forum": "Society",
     "fortunetelling": "Society",
-    "hobby/cooking": "Home",
-    "hobby/gardening": "Home",
-    "hobby/pets": "Home",
+    "cooking": "Home",
+    "gardening": "Home",
+    "pets": "Home",
     "homestyle": "Home",
-    "hobby/games-misc": "Games",
-    "hobby/games-online": "Games",
+    "games": "Games",
     "searchengines": "Computers",
     "webmail": "Computers",
     "socialnet": "Computers",
@@ -85,7 +84,6 @@ TO_CURLIE: dict[str, str] = {
     "imagehosting": "Computers",
     "downloads": "Computers",
     "urlshortener": "Computers",
-    "ringtones": "Computers",
 }
 
 
@@ -104,11 +102,86 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--cache-dir", default="cache/curlie")
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--out", default="", help="Write the report as JSON")
+    parser.add_argument(
+        "--corpus",
+        default="",
+        help="prepare_text.py output directory. Domains in its train split are withheld "
+        "so the benchmark stays independent of the model being scored.",
+    )
     return parser
 
 
+def collapse_legacy(label: str) -> str:
+    """Map a label from an older checkpoint onto the current label space.
+
+    A 47-class checkpoint still emits `games-misc`, `webradio` and `warez`, none of
+    which are keys in :data:`TO_CURLIE` any more. Without this they would score as
+    *unmappable* rather than as `games`, `radiotv` and `downloads` -- which would
+    quietly penalise the older model for a taxonomy change rather than measure it, and the
+    whole point of running this is to compare the two fairly.
+
+    Delegates to :func:`piedomains.labels.project`, which the serving path also uses. A
+    second hand-rolled copy is precisely how this function came to disagree with the
+    taxonomy once already: it handled the merges but not the split-parent flattening, so
+    `cooking`, `sports`, `travel`, `pets` and five more silently became unmappable and
+    dropped out of the benchmark while it went on printing a number.
+
+    Args:
+        label: A predicted label, possibly from a superseded label space.
+
+    Returns:
+        str: The equivalent label in the current space, unchanged if already current.
+        Excluded classes map to themselves, so they are reported as unmappable rather
+        than vanishing.
+    """
+    from ..labels import project
+
+    names, _ = project([label])
+    return names[0] if names else label
+
+
+def training_domains(corpus: Path | None) -> set[str]:
+    """Read the domains the model was trained on.
+
+    A Curlie domain is unsafe to score on only if it is in the *training split of our
+    corpus*. Being in the training split is now a pure function of the domain
+    (:func:`piedomains.training.splits.split_of`), but corpus *membership* is not -- most
+    popular domains are simply absent from a 2022 Shallalist scrape.
+
+    Filtering on the hash alone would therefore discard every Curlie domain that happens
+    to hash to ``train`` whether or not the model ever saw it: measured, 5,917 of 8,082
+    domains excluded to protect against 536 real ones, shrinking the benchmark 4.6x for
+    nothing.
+
+    Args:
+        corpus: A ``prepare_text.py`` output directory, or None to skip the check.
+
+    Returns:
+        set[str]: Lowercased training domains, empty when no corpus was given.
+
+    Raises:
+        SystemExit: If a corpus directory was given but holds no train split.
+    """
+    if corpus is None:
+        return set()
+    path = corpus / "train.jsonl"
+    if not path.exists():
+        raise SystemExit(
+            f"{path} not found -- pass the prepare_text.py output directory"
+        )
+    return {
+        json.loads(line)["domain"].lower()
+        for line in path.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    }
+
+
 def sample(
-    paired: list[list], limit: int, max_rank: int, seed: int
+    paired: list[list],
+    limit: int,
+    max_rank: int,
+    seed: int,
+    trained_on: set[str] | None = None,
 ) -> list[tuple[str, str, int]]:
     """Take a class-balanced sample of popular domains.
 
@@ -121,14 +194,16 @@ def sample(
         limit: Total domains to return.
         max_rank: Only consider domains at least this popular.
         seed: Sampling seed.
+        trained_on: Domains in the training split, which must not enter the sample.
 
     Returns:
         list[tuple[str, str, int]]: The sampled triples.
     """
     rng = random.Random(seed)  # noqa: S311 -- sampling, not security
     by_class: dict[str, list[tuple[str, str, int]]] = defaultdict(list)
+    withheld = trained_on or set()
     for domain, label, rank in paired:
-        if rank <= max_rank:
+        if rank <= max_rank and domain.lower() not in withheld:
             by_class[label].append((domain, label, rank))
 
     per_class = max(1, limit // max(1, len(by_class)))
@@ -154,7 +229,16 @@ def main(argv: list[str] | None = None) -> int:
     from ..api import DomainClassifier
 
     paired = json.loads(Path(args.paired).read_text(encoding="utf-8"))
-    chosen = sample(paired, args.limit, args.max_rank, args.seed)
+    trained_on = training_domains(Path(args.corpus) if args.corpus else None)
+    if trained_on:
+        print(f"withholding {len(trained_on):,} training domains")
+    else:
+        print(
+            "WARNING: no --corpus given, so nothing is withheld. If the model being "
+            "scored trained on any of these domains, this number is inflated.",
+            file=sys.stderr,
+        )
+    chosen = sample(paired, args.limit, args.max_rank, args.seed, trained_on)
     print(f"scoring {len(chosen)} domains (Tranco <= {args.max_rank:,})")
     print("class balance:", dict(Counter(c for _, c, _ in chosen)))
 
@@ -171,7 +255,10 @@ def main(argv: list[str] | None = None) -> int:
                 "domain": result["domain"],
                 "curlie": gold.get(result["domain"]),
                 "predicted": predicted,
-                "mapped": TO_CURLIE.get(predicted) if predicted else None,
+                "collapsed": collapse_legacy(predicted) if predicted else None,
+                "mapped": TO_CURLIE.get(collapse_legacy(predicted))
+                if predicted
+                else None,
                 "confidence": result.get("confidence"),
                 "status": result.get("status"),
                 "error_code": result.get("error_code"),

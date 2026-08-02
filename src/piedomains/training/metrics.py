@@ -17,6 +17,7 @@ from collections import Counter
 from typing import Any
 
 __all__ = [
+    "accuracy",
     "confusion_pairs",
     "expected_calibration_error",
     "macro_f1",
@@ -50,6 +51,26 @@ def _counts(truth: list[str], pred: list[str]) -> dict[str, dict[str, int]]:
             out[p]["fp"] += 1
             out[t]["fn"] += 1
     return out
+
+
+def accuracy(truth: list[str], pred: list[str]) -> float:
+    """Fraction of predictions that match the gold label.
+
+    Trivial enough that seven call sites wrote it inline -- and they disagreed. Four
+    divided by ``max(1, len(truth))`` and three by bare ``len(truth)``, so an empty split
+    returned 0.0 in the trainers and raised ``ZeroDivisionError`` in the audit scripts.
+    One contract, in one place.
+
+    Args:
+        truth: Gold labels.
+        pred: Predicted labels, same length and order.
+
+    Returns:
+        float: Accuracy, or 0.0 when there is nothing to score.
+    """
+    if not truth:
+        return 0.0
+    return sum(t == p for t, p in zip(truth, pred, strict=True)) / len(truth)
 
 
 def per_class_report(truth: list[str], pred: list[str]) -> dict[str, dict[str, float]]:

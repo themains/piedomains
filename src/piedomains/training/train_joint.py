@@ -11,7 +11,7 @@ macro-F1 on 1,742 paired domains and is not worth shipping.
 fusion is exactly "trust whichever modality is better for this class", and it gave the
 image model real weight on visually distinctive categories::
 
-    adult               0.500      hobby/games-online  0.278
+    adult               0.500      games-online  0.278
     news                0.380      drugs               0.210
     socialnet           0.338
 
@@ -53,7 +53,7 @@ VISUAL_CLASSES: tuple[str, ...] = (
     "adult",
     "news",
     "socialnet",
-    "hobby/games-online",
+    "games-online",
 )
 
 #: Minimum macro-F1 gain over text-only that counts as evidence rather than noise.

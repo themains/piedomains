@@ -259,3 +259,72 @@ def looks_parked(text: str) -> bool:
     if len(lowered.split()) > PARKED_MAX_WORDS:
         return False
     return any(phrase in lowered for phrase in PARKING_PHRASES)
+
+
+#: What a web server emits when there is no site behind the domain: an autoindex, a
+#: distribution's default vhost page, a bare 404.
+SERVER_ARTIFACTS: tuple[str, ...] = (
+    "index of /",
+    "parent directory",
+    "proudly served by",
+    "litespeed web server",
+    "welcome to nginx",
+    "default web page",
+    "it works!",
+    "object not found!",
+)
+
+#: What a site says when it exists on paper but has no content yet, or has been taken
+#: away. Multilingual because the corpus is: the German "diese webpräsenz befindet sich
+#: noch im aufbau" template alone accounts for a run of these.
+UNAVAILABLE_PHRASES: tuple[str, ...] = (
+    "coming soon",
+    "under construction",
+    "im aufbau",
+    "en construcci",
+    "en travaux",
+    "account suspended",
+    "site is offline",
+    "seite ist offline",
+    "maintenance page",
+    "we will be back",
+    "website expired",
+    "bandwidth limit exceeded",
+    "site temporarily unavailable",
+    "page is under maintenance",
+)
+
+#: Far tighter than :data:`PARKED_MAX_WORDS`, and it has to be. "Coming soon" and "under
+#: construction" are things live sites say in passing: a 319-word breeder site saying
+#: puppies are coming soon, an 877-word games portal, a 592-word lottery shop. Sampled at
+#: 100 words the rule still swept in a riding school; at 60 the first thirty hits are all
+#: genuine. Precision matters more than recall here, because a false positive relabels a
+#: real page out of its real class.
+UNAVAILABLE_MAX_WORDS = 60
+
+
+def looks_unavailable(text: str) -> bool:
+    """Report whether the domain resolves but has no site behind it.
+
+    Distinct from :func:`looks_parked`, which is specifically *for sale*. This is the
+    other way a domain can serve bytes without being a website: an Apache autoindex, a
+    registrar's "coming soon", a suspended account, a 404. There is nothing to classify
+    on such a page, and 321 of them sat in the training corpus wearing the label of
+    whatever the domain used to be -- 30 in `games-online`, 24 in `pets`,
+    22 in `forum`.
+
+    Args:
+        text: Extracted page text.
+
+    Returns:
+        bool: True when the page is a no-site placeholder.
+    """
+    lowered = text.lower()
+    # Length first: these phrases are common inside real pages, and the guard is what
+    # separates "we will be back after maintenance" from a shop mentioning a new line
+    # is coming soon.
+    if len(lowered.split()) > UNAVAILABLE_MAX_WORDS:
+        return False
+    return any(marker in lowered for marker in SERVER_ARTIFACTS) or any(
+        phrase in lowered for phrase in UNAVAILABLE_PHRASES
+    )

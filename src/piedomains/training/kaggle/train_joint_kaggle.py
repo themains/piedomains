@@ -2,7 +2,7 @@
 r"""Measure every way of combining text and screenshots, in one Kaggle session.
 
 Settings → Accelerator → **GPU T4 x2**, Internet → On, and attach three Datasets:
-`piedomains-text-v5` (the text tower), `piedomains-text-minimal` (the paired splits) and
+`piedomains-text-model` (the text tower), `piedomains-text-v13` (the splits) and
 nothing else -- the screenshots are rebuilt here.
 
 **Why one kernel and not three.** The resized screenshot corpus lives in `/kaggle/temp` so
@@ -35,7 +35,7 @@ import sys
 from pathlib import Path
 
 REPO = "https://github.com/themains/piedomains.git"
-BRANCH = "text-representation"
+BRANCH = "taxonomy-round-2"
 
 WORK = Path("/kaggle/working")
 TEMP = Path("/kaggle/temp")
@@ -43,8 +43,9 @@ TEMP = Path("/kaggle/temp")
 #: Attached Datasets, found by search: mount paths are not one convention. The splits
 #: appeared under /kaggle/input/datasets/<owner>/<name> while an earlier Dataset appeared
 #: at /kaggle/input/<name>, which cost two runs before a listing was printed.
-TEXT_MODEL_DATASET = "piedomains-text-v5"
-SPLITS_DATASET = "piedomains-text-minimal"
+#: The trained text checkpoint, uploaded as a Dataset -- not the corpus.
+TEXT_MODEL_DATASET = "piedomains-text-model"
+SPLITS_DATASET = "piedomains-text-v13"
 
 IMAGE_MODEL = "soodoku/piedomains-image"
 
@@ -203,9 +204,10 @@ def ensure_usable_gpu() -> None:
 def build_images(splits: Path) -> Path:
     """Stream the screenshot corpus and resize it, aligned to the text splits.
 
-    ``--respect-splits`` is not optional here. Without it the image model's training set
-    overlaps the domains fusion scores, which read 0.768 image-only where the honest figure
-    was 0.429.
+    Splits come from :func:`piedomains.training.splits.split_of`, so the screenshots and
+    the text corpus cannot disagree about where a domain belongs. That used to be a flag
+    you had to remember, and forgetting it put the image model's training set inside the
+    domains fusion scored -- reported as 0.768 against an honest 0.429.
 
     Args:
         splits: Directory of prepared text splits.
@@ -303,8 +305,6 @@ def build_images(splits: Path) -> Path:
                     "--append",
                     "--index",
                     str(labels_dir / "screenshot-index.tab"),
-                    "--respect-splits",
-                    str(splits),
                 ]
             )
         except subprocess.CalledProcessError as exc:

@@ -219,6 +219,12 @@ def save_checkpoint(
 ) -> None:
     """Write weights, tokenizer, labels and run state.
 
+    This used to also write ``train_domains.json``, so a later evaluation could prove it
+    was not scoring the model on its own training data. That is no longer something a
+    checkpoint has to record: :func:`piedomains.training.splits.split_of` derives the
+    split from the domain, so anyone can recompute what this model trained on without
+    being told.
+
     Args:
         out: Directory to write into.
         model: The classifier.
@@ -281,7 +287,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--batch-size", type=int, default=32)
     parser.add_argument("--grad-accum", type=int, default=1)
     parser.add_argument("--lr", type=float, default=3e-5)
-    parser.add_argument("--max-length", type=int, default=128)
+    # Defaults to the dataclass rather than a second literal. These disagreed -- 128 here
+    # against 256 there -- and since main() always passes the CLI value, the dataclass
+    # default was dead and a local run silently trained at half the documented length.
+    parser.add_argument("--max-length", type=int, default=TrainConfig.max_length)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument(
         "--limit",

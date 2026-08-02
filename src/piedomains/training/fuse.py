@@ -39,7 +39,7 @@ from pathlib import Path
 from typing import Any
 
 from .metrics import macro_f1, per_class_report
-from .train_text import pick_device, read_jsonl
+from .train_text import TrainConfig, pick_device, read_jsonl
 
 
 def load_calibrated(model_dir: Path) -> float:
@@ -112,7 +112,10 @@ def text_probabilities(
 
     # Typed Any because torch's DataLoader stub demands a Dataset subclass, while the
     # runtime only needs __len__/__getitem__ -- which TextDataset has. See its docstring.
-    dataset: Any = TextDataset(rows, tokenizer, labels, 128)
+    # The shipped text model trains at 256 (train_text.TrainConfig.max_length and the
+    # Kaggle kernel both say so). Scoring it at 128 truncated half of every page and
+    # understated the text side of every fusion number computed here.
+    dataset: Any = TextDataset(rows, tokenizer, labels, TrainConfig.max_length)
     loader = DataLoader(dataset, batch_size=batch_size, shuffle=False)
     chunks = []
     with torch.no_grad():
@@ -286,6 +289,35 @@ def fit_stacker(
     return stacker, cv_f1
 
 
+def mcnemar(baseline: Any, challenger: Any, targets: Any) -> tuple[float, int, int]:
+    """Paired test of whether a challenger's predictions differ from a baseline's.
+
+    Accuracy on the same domains is a *paired* measurement, so the question is not
+    whether two rates differ but whether the challenger fixes more than it breaks. Only
+    the disagreements carry information; McNemar's exact form is a binomial test on them.
+
+    Args:
+        baseline: Predicted class indices from the baseline model.
+        challenger: Predicted class indices from the challenger.
+        targets: Gold class indices.
+
+    Returns:
+        tuple[float, int, int]: Two-sided p-value, how many the challenger fixed, and how
+        many it broke.
+    """
+    import numpy as np
+    from scipy.stats import binomtest
+
+    truth = np.asarray(targets)
+    base_ok = np.asarray(baseline) == truth
+    chal_ok = np.asarray(challenger) == truth
+    fixed = int((~base_ok & chal_ok).sum())
+    broken = int((base_ok & ~chal_ok).sum())
+    if fixed + broken == 0:
+        return 1.0, 0, 0
+    return float(binomtest(fixed, fixed + broken, 0.5).pvalue), fixed, broken
+
+
 def score_stacker(
     stacker: Any, text_p: Any, image_p: Any, targets: Any, labels: list[str]
 ) -> dict[str, Any]:
@@ -338,104 +370,6 @@ def score(probabilities: Any, targets: Any, labels: list[str]) -> dict[str, Any]
         "macro_f1": macro_f1(truth_names, pred_names),
         "per_class": per_class_report(truth_names, pred_names),
     }
-
-
-def refuse_if_leaky(text_data: Path, image_data: Path, image_model: Path) -> None:
-    """Refuse to fuse when the image model trained on the domains fusion scores.
-
-    **This is the bug that made the first fused number look like a clear win.**
-    ``prepare_text.py`` and ``prepare_images.py`` each shuffled *their own* list with the
-    same seed, and the lists differ -- 46,754 documents against 44,712 screenshots -- so a
-    domain landed in unrelated splits on each side. Around 80% of the domains fusion fits
-    and scores on were in the image model's training set, and image-only read 0.768 where
-    the honest figure was 0.429.
-
-    ``prepare_images.py --respect-splits`` fixes it, but a flag you can forget is not a
-    fix for a failure that produces a plausible wrong number rather than an error. So this
-    checks rather than trusts.
-
-    Args:
-        text_data: A ``prepare_text.py`` output directory.
-        image_data: A ``prepare_images.py`` output directory.
-        image_model: The image checkpoint, which records its own training domains.
-
-    Raises:
-        SystemExit: If any domain held out on the text side is in the image training
-            split, naming the count and the remedy.
-    """
-    # Ask the *model* what it trained on, not the split files. Those agree with each
-    # other whenever both were rebuilt with --respect-splits, which says nothing about a
-    # checkpoint fitted against an earlier version of the splits. That is exactly how a
-    # run scored image-only at 0.706 when the honest figure was 0.429: 73% of the test
-    # domains were in the model's training set, and every split file looked consistent.
-    manifest = image_model / "train_domains.json"
-    if manifest.exists():
-        trained_on = {
-            d.lower() for d in json.loads(manifest.read_text(encoding="utf-8"))
-        }
-        held_out = set()
-        for split in ("val", "test"):
-            path = text_data / f"{split}.jsonl"
-            if path.exists():
-                held_out |= {
-                    json.loads(line)["domain"].lower()
-                    for line in path.read_text(encoding="utf-8").splitlines()
-                    if line.strip()
-                }
-        leaked = held_out & trained_on
-        if leaked:
-            raise SystemExit(
-                f"{len(leaked):,} of the {len(held_out):,} domains this would fit and "
-                f"score on are in the image model's own training set "
-                f"(e.g. {', '.join(sorted(leaked)[:3])}).\n"
-                "That model was trained against a different version of the splits. "
-                "Retrain it with --respect-splits against the current text data."
-            )
-        print(
-            f"checked the image model's own manifest: none of {len(held_out):,} "
-            "held-out domains were trained on"
-        )
-    else:
-        print(
-            f"WARNING: {manifest} is absent, so this cannot verify what the image model "
-            "trained on. Split files agreeing is not sufficient -- see the docstring.",
-            file=sys.stderr,
-        )
-
-    train_path = image_data / "train.jsonl"
-    if not train_path.exists():
-        print(
-            f"WARNING: no {train_path}, so the image splits cannot be checked against "
-            "the text splits. If the image model trained on the domains scored below, "
-            "every number in this report is inflated.",
-            file=sys.stderr,
-        )
-        return
-
-    image_train = {
-        json.loads(line)["domain"].lower()
-        for line in train_path.read_text(encoding="utf-8").splitlines()
-        if line.strip()
-    }
-    held_out = set()
-    for split in ("val", "test"):
-        path = text_data / f"{split}.jsonl"
-        if path.exists():
-            held_out |= {
-                json.loads(line)["domain"].lower()
-                for line in path.read_text(encoding="utf-8").splitlines()
-                if line.strip()
-            }
-
-    leaked = held_out & image_train
-    if leaked:
-        raise SystemExit(
-            f"{len(leaked):,} domains held out from the text model are in the image "
-            f"model's training split (e.g. {', '.join(sorted(leaked)[:3])}).\n"
-            "Fusion would be fitted and scored on data the image model memorised. "
-            "Re-run prepare_images.py with --respect-splits <text-data>."
-        )
-    print(f"splits are aligned: no overlap across {len(held_out):,} held-out domains")
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -499,7 +433,6 @@ def main(argv: list[str] | None = None) -> int:
 
     text_data, image_data = Path(args.text_data), Path(args.image_data)
     available = {p.stem for p in (image_data / "images").glob("*.jpg")}
-    refuse_if_leaky(text_data, image_data, image_dir)
 
     def paired(split: str) -> list[dict[str, Any]]:
         rows = read_jsonl(text_data / f"{split}.jsonl")
@@ -617,28 +550,69 @@ def main(argv: list[str] | None = None) -> int:
         f"({1 - scalar.item():.3f} to the image model)"
     )
 
-    best_fused = max(
-        report["fused_scalar"]["macro_f1"],
-        report["fused_per_class"]["macro_f1"],
-        report["fused_stacked"]["macro_f1"],
-    )
+    # The challenger was chosen on the fit split, above. Two things follow, and getting
+    # either wrong makes the gate meaningless:
+    #
+    # * Do not re-rank on the test split. Taking the best of three test macro-F1 values
+    #   and then running one unadjusted McNemar on the winner is a winner's-curse test:
+    #   whenever noise favours a variant the p-value no longer has its nominal 0.05 rate.
+    #   One challenger, fixed in advance, one test.
+    # * Test the model that ships. The published artifact is the scalar-or-per-class
+    #   blend `chosen` below; the stacker has no serialized form and no inference path,
+    #   so gating on it would certify a combiner that never runs. It stays a diagnostic.
+    best_key = "fused_per_class" if better_per_class else "fused_scalar"
+    chosen = per_class if better_per_class else scalar
+    best_fused = report[best_key]["macro_f1"]
     text_f1 = report["text_only"]["macro_f1"]
-    helps = best_fused > text_f1
+
+    # `best_fused > text_f1` alone is not a result. It fired once on a 0.0002 macro-F1
+    # difference produced by a fusion whose fitted text weight was 0.987 -- the image
+    # model carried 1.3% of the decision and changed no predictions at all. The bar has
+    # to be a paired test rather than a comparison of point estimates.
+    p_value, fixed, broken = mcnemar(
+        test_text.argmax(1),
+        (chosen * test_text + (1 - chosen) * test_image).argmax(1),
+        test_targets,
+    )
+    report["best_variant"] = best_key
+    report["mcnemar_p"] = p_value
+    report["fixed"] = fixed
+    report["broken"] = broken
+
+    # Both conditions, because they fail independently: stacking here gained 0.6pp of
+    # accuracy while *losing* 1.1pp of macro-F1, which is a trade, not an improvement.
+    helps = p_value < 0.05 and best_fused > text_f1
     report["fusion_helps"] = helps
 
     print()
+    print(
+        f"deployable variant {best_key}: fixes {fixed}, breaks {broken} "
+        f"of {len(test_targets):,} (McNemar p={p_value:.3f})"
+    )
+
+    # Reported, never gated on, and never shipped -- but a stacker that clearly beats the
+    # blend is the signal that building an inference path for one is worth the work.
+    stacked_f1 = report["fused_stacked"]["macro_f1"]
+    report["stacker_is_deployable"] = False
+    if stacked_f1 > best_fused:
+        print(
+            f"note: the stacker scores {stacked_f1:.3f} macro-F1 against "
+            f"{best_fused:.3f} for the blend, but has no serialized form and is not "
+            "shipped. Building one is the follow-up this number argues for."
+        )
     if helps:
         print(f"Fusion beats text alone: {text_f1:.3f} -> {best_fused:.3f} macro-F1.")
     else:
         print(
-            f"Fusion does NOT beat text alone ({best_fused:.3f} vs {text_f1:.3f}).\n"
+            f"Fusion does NOT beat text alone ({best_fused:.3f} vs {text_f1:.3f}, "
+            f"p={p_value:.3f}).\n"
             "Ship image classification opt-in and put this number in the README."
         )
 
     # The weights are an artifact, not just a number in a log. Write them next to the
     # image model so inference can load them; without this file `combined` refuses to
-    # fuse rather than falling back to a guessed 0.5.
-    chosen = per_class if better_per_class else scalar
+    # fuse rather than falling back to a guessed 0.5. `chosen` is the same tensor the
+    # McNemar test ran on -- the gate and the artifact must not be able to disagree.
     (image_dir / "fusion.json").write_text(
         json.dumps(
             {

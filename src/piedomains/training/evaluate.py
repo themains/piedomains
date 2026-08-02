@@ -95,7 +95,7 @@ def evaluate(
     def to_eval_space(label: str | None) -> str | None:
         """Project a prediction into the label space the gold set uses.
 
-        A model trained on a split taxonomy answers `recreation/travel` where
+        A model trained on a split taxonomy answers `travel` where
         the gold set says `recreation`. Scoring that as wrong measures the
         taxonomy change rather than the model, so a subcategory collapses to
         its parent when the parent is what the gold set uses. Anything else is
