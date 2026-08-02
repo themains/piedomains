@@ -7,6 +7,77 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-08-02
+
+### The crawler identifies itself and obeys robots.txt
+
+The live fetch path never read robots.txt, never delayed between requests to one host, and
+sent a user-agent impersonating Chrome on macOS while Chromium launched with
+`--disable-blink-features=AutomationControlled`. That flag contradicted this project's own
+position, stated in `blocking.py`: *"detection plus an archive.org fallback is the honest
+response rather than an evasion arms race."*
+
+- robots.txt honoured via `protego`, Scrapy's parser, fetched with `aiohttp` — already a
+  declared dependency that was imported nowhere. `ErrorCode.ROBOTS_BLOCKED` has existed
+  since the taxonomy was written and was only ever produced by the archive path.
+- Per-host throttling and a real concurrency bound. `max_parallel` bounds browser
+  *contexts*, not navigations — a page is opened per URL and all are gathered at once, so a
+  batch of 500 arrived simultaneously.
+- The user-agent identifies the package, carries a contact URL, and takes its version from
+  installed metadata.
+- Robots failures are directional: a 5xx or unparseable body fails closed, but an
+  unreachable host fails **open** so the fetch reports the real `dns_error` rather than
+  claiming the host refused us.
+
+Measured on eight live domains: 7 ok, 1 `robots_blocked` (reuters.com, which genuinely
+disallows crawlers). etsy.com still hit a DataDome wall and still came back ok, recovered
+by the archive fallback.
+
+### An address guard, and honesty about what it cannot cover
+
+Nothing checked where a domain resolved, so one redirecting to `127.0.0.1` or the cloud
+metadata endpoint `169.254.169.254` was fetched.
+
+- New `netsafety.py`, stdlib `ipaddress`, resolve-based rather than parse-based so
+  `http://2130706433/` cannot walk past it. Every resolved address is checked, not the
+  first — the browser resolves independently and may pick a different record.
+- **The larger hole was not the browser.** `content_validation.py` was issuing
+  `requests.get(allow_redirects=True)` and reading the first kilobyte from wherever a
+  hostile host pointed, before Chromium existed. Both it and the robots fetch now use
+  `allow_redirects=False`.
+- `page.route` cannot veto a server-side 3xx — verified against a local server, where the
+  handler saw `/evil` but not `/landing`. New `proxy_server` config routes the browser
+  through an egress proxy such as Stripe's Smokescreen, which does cover redirect hops and
+  DNS rebinding. The module docstring states what the in-process check cannot do.
+
+### Common Crawl as a third content source
+
+Beside the live fetch and archive.org. Coverage is a sample rather than a census —
+CC-MAIN-2026-30 holds cnn.com's `robots.txt` and no homepage — and the index server
+returned 502/504 on four of five probes, so every call retries and the live test skips
+rather than fails. `warcio` parses the WARC.
+
+### Fixed
+
+- `fuse.py` reported "Fusion beats text alone" on a **0.0002** macro-F1 difference produced
+  by a fusion whose fitted text weight was 0.987 and which changed no predictions at all.
+  It now requires a paired McNemar test and no macro-F1 regression. Under the corrected
+  rule fusion does not help: on 1,604 paired domains the best variant changes **zero**
+  predictions (p=1.000).
+- `parse_batch_response` silently returned only the **first** element of any batch reply.
+  `_extract_json` tried a single-object regex before parsing the whole response, and that
+  regex matches the first `{...}` inside a JSON array. Dead code until now, so it never bit.
+- The batch parser accepted categories outside the supplied vocabulary without comment;
+  invented labels are now flagged rather than silently accepted.
+
+### Added
+
+- `training/relabel.py` and `relabel_audit.py`: an auditable LLM re-labelling pass, with
+  caching keyed on a prompt hash, an enforced spend cap, and label quarantine. Its control
+  class **failed** at 31.7% disagreement against a 15% bar, so `data/prepared-relabelled/`
+  must not be trained on.
+
+
 ### A domain can now carry more than one label
 
 The categories were never mutually exclusive and could not be made so while they were one
