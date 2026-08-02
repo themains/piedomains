@@ -1,0 +1,85 @@
+{
+  "note": "Model reasoning is a post-hoc rationalisation, not evidence. These labels must never be used as evaluation gold.",
+  "prompt_hash": "d2d97691c4763268",
+  "summary": {
+    "total": 53,
+    "statuses": {
+      "ok": 53
+    },
+    "cells": {
+      "keep": 47,
+      "move:news": 1,
+      "move:jobsearch": 1,
+      "move:science": 1,
+      "move:hospitals": 1,
+      "move:wellness": 1,
+      "move:forum": 1
+    },
+    "kept": 47,
+    "kept_share": 0.8867924528301887,
+    "substance_of_kept": {
+      "none": 47
+    },
+    "destinations": {
+      "news": 1,
+      "jobsearch": 1,
+      "science": 1,
+      "hospitals": 1,
+      "wellness": 1,
+      "forum": 1
+    },
+    "mean_confidence_keep": 0.9734
+  },
+  "against_gold": {
+    "scored": 53,
+    "agreement": 0.8867924528301887,
+    "ci95": [
+      0.7742,
+      0.9471
+    ],
+    "disagreements": [
+      {
+        "domain": "linkedin.com",
+        "expected": "socialnet",
+        "llm": "jobsearch",
+        "confidence": 0.95,
+        "evidence": "\"Explore jobs and grow your network\", \"Find the right job or internship for you\", \"Post your job for millions of people to see\""
+      },
+      {
+        "domain": "reddit.com",
+        "expected": "socialnet",
+        "llm": "forum",
+        "confidence": 0.95,
+        "evidence": "\"Open sort options\" and \"Change post view\" indicate a discussion or forum structure."
+      },
+      {
+        "domain": "bing.com",
+        "expected": "searchengines",
+        "llm": "news",
+        "confidence": 0.85,
+        "evidence": "Seattle Center shooting; Pride attack suspect shot; Heat dome expands across US; Nikki Hiltz wins 4th title; US pauses attacks on Iran"
+      },
+      {
+        "domain": "nasa.gov",
+        "expected": "government",
+        "llm": "science",
+        "confidence": 0.97,
+        "evidence": "In its mission to explore the unknown in air and space, NASA ends up inventing a lot of new things."
+      },
+      {
+        "domain": "webmd.com",
+        "expected": "hospitals",
+        "llm": "wellness",
+        "confidence": 0.9,
+        "evidence": "Doctor-approved health and wellness information delivered to your inbox."
+      },
+      {
+        "domain": "nih.gov",
+        "expected": "government",
+        "llm": "hospitals",
+        "confidence": 0.85,
+        "evidence": "NIH will start introducing a new website experience designed to make it easier to find health information, research, funding opportunities, and other resources."
+      }
+    ]
+  }
+}

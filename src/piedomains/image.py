@@ -26,6 +26,8 @@ from typing import Any
 from .checkpoints import read_labels, read_temperature
 from .constants import classes
 from .content_processor import ContentProcessor
+from .images import resize_for_model
+from .labels import project, top_labels
 from .piedomains_logging import get_logger
 
 logger = get_logger()
@@ -153,11 +155,22 @@ class ImageClassifier:
             logger.warning(f"Could not read screenshot {path}: {e}")
             return None
 
-        encoded = self._processor(images=img, return_tensors="pt").to(self._device)
+        # Resize here rather than leaving it to the processor, so this path and corpus
+        # preparation apply the identical transform. They had drifted -- training
+        # centre-cropped to a square while serving squashed -- which is the same
+        # train/serve mismatch that made the previous image model call Khan Academy porn.
+        encoded = self._processor(images=resize_for_model(img), return_tensors="pt").to(
+            self._device
+        )
         with torch.no_grad():
             logits = self._model(**encoded).logits[0]
         probabilities = torch.softmax(logits / self._temperature, dim=-1)
-        return {name: float(probabilities[i]) for i, name in enumerate(self._labels)}
+        # Same projection as the text path, so both modalities report the documented
+        # names. Merged classes sum; excluded ones drop and the rest renormalise.
+        names, groups = project(self._labels)
+        summed = [sum(float(probabilities[i]) for i in group) for group in groups]
+        total = sum(summed) or 1.0
+        return {name: value / total for name, value in zip(names, summed, strict=True)}
 
     def _classify_one(self, domain: str, image_path: str | Path | None) -> dict:
         """Build one result row for a domain.
@@ -169,6 +182,7 @@ class ImageClassifier:
         Returns:
             dict: A result row, carrying an ``error`` when no screenshot was usable.
         """
+        from .config import get_config
         from .outcomes import ErrorCode, Stage
 
         result: dict[str, Any] = {
@@ -181,6 +195,7 @@ class ImageClassifier:
             "model_used": f"image/{self._backbone_name()}",
             "category": None,
             "confidence": None,
+            "categories": [],
             "raw_predictions": None,
             "error": None,
         }
@@ -200,6 +215,11 @@ class ImageClassifier:
         best = max(scores, key=lambda k: scores[k])
         result["category"] = best
         result["confidence"] = scores[best]
+        # Same treatment as the text path: the label set is not mutually exclusive,
+        # so the argmax alone discards a true answer on ambiguous sites.
+        result["categories"] = top_labels(
+            scores, get_config().get("multilabel_threshold", 0.10)
+        )
         result["raw_predictions"] = scores
         return result
 

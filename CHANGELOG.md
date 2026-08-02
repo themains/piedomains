@@ -5,6 +5,167 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+## [0.13.0] - 2026-08-02
+
+### The crawler identifies itself and obeys robots.txt
+
+The live fetch path never read robots.txt, never delayed between requests to one host, and
+sent a user-agent impersonating Chrome on macOS while Chromium launched with
+`--disable-blink-features=AutomationControlled`. That flag contradicted this project's own
+position, stated in `blocking.py`: *"detection plus an archive.org fallback is the honest
+response rather than an evasion arms race."*
+
+- robots.txt honoured via `protego`, Scrapy's parser, fetched with `aiohttp` — already a
+  declared dependency that was imported nowhere. `ErrorCode.ROBOTS_BLOCKED` has existed
+  since the taxonomy was written and was only ever produced by the archive path.
+- Per-host throttling and a real concurrency bound. `max_parallel` bounds browser
+  *contexts*, not navigations — a page is opened per URL and all are gathered at once, so a
+  batch of 500 arrived simultaneously.
+- The user-agent identifies the package, carries a contact URL, and takes its version from
+  installed metadata.
+- Robots failures are directional: a 5xx or unparseable body fails closed, but an
+  unreachable host fails **open** so the fetch reports the real `dns_error` rather than
+  claiming the host refused us.
+
+Measured on eight live domains: 7 ok, 1 `robots_blocked` (reuters.com, which genuinely
+disallows crawlers). etsy.com still hit a DataDome wall and still came back ok, recovered
+by the archive fallback.
+
+**Robots decides before any request is made.** The content preflight in
+`_validate_url_security` used to run first, so a host whose robots file disallowed `/` was
+sent a HEAD — and possibly a ranged GET — and only then reported `robots_blocked`. Asking
+permission after taking the thing is not compliance. The order in both `fetch_single` and
+`fetch_batch` is now address check, offline URL validation, robots, then preflight, and a
+loopback server that records its requests holds it in place.
+
+### An address guard, and honesty about what it cannot cover
+
+Nothing checked where a domain resolved, so one redirecting to `127.0.0.1` or the cloud
+metadata endpoint `169.254.169.254` was fetched.
+
+- New `netsafety.py`, stdlib `ipaddress`, resolve-based rather than parse-based so
+  `http://2130706433/` cannot walk past it. Every resolved address is checked, not the
+  first — the browser resolves independently and may pick a different record.
+- **The larger hole was not the browser.** `content_validation.py` was issuing
+  `requests.get(allow_redirects=True)` and reading the first kilobyte from wherever a
+  hostile host pointed, before Chromium existed. Both it and the robots fetch now use
+  `allow_redirects=False`.
+- `page.route` cannot veto a server-side 3xx — verified against a local server, where the
+  handler saw `/evil` but not `/landing`. New `proxy_server` config routes the browser
+  through an egress proxy such as Stripe's Smokescreen, which does cover redirect hops and
+  DNS rebinding. The module docstring states what the in-process check cannot do.
+
+### Common Crawl as a third content source
+
+Beside the live fetch and archive.org. Coverage is a sample rather than a census —
+CC-MAIN-2026-30 holds cnn.com's `robots.txt` and no homepage — and the index server
+returned 502/504 on four of five probes, so every call retries and the live test skips
+rather than fails. `warcio` parses the WARC.
+
+Crawls are ranked nearest-first by real calendar distance. Two arithmetic shortcuts were
+tried and both misordered: `month * 4` puts 31 December in week 48, and `year * 53 + week`
+invents a 53rd week in 52-week years, scoring a January crawl and a December one as equally
+close to 31 December when they are 19 and 16 days away. With `max_crawls=3` either error
+can push the best capture out of the window.
+
+### Fixed
+
+- `fuse.py` reported "Fusion beats text alone" on a **0.0002** macro-F1 difference produced
+  by a fusion whose fitted text weight was 0.987 and which changed no predictions at all.
+  It now requires a paired McNemar test and no macro-F1 regression. Under the corrected
+  rule fusion does not help: on 1,604 paired domains the best variant changes **zero**
+  predictions (p=1.000).
+- `fuse.py` then still ranked three fusion variants by **test** macro-F1 before running one
+  unadjusted McNemar on the winner — a winner's-curse test with no nominal false-positive
+  rate — and could certify the stacker while serializing a weighted blend, publishing a
+  combiner that was never the one tested. The challenger is now fixed on the fit split
+  before the test split is touched, exactly one paired test runs, and the tensor tested is
+  the tensor written to `fusion.json`. The stacker has no inference path, so it is reported
+  as a diagnostic and never gated on.
+- `parse_batch_response` silently returned only the **first** element of any batch reply.
+  `_extract_json` tried a single-object regex before parsing the whole response, and that
+  regex matches the first `{...}` inside a JSON array. Dead code until now, so it never bit.
+- The batch parser accepted categories outside the supplied vocabulary without comment;
+  invented labels are now flagged rather than silently accepted.
+
+### Added
+
+- `training/relabel.py` and `relabel_audit.py`: an auditable LLM re-labelling pass, with
+  caching keyed on a prompt hash, an enforced spend cap, and label quarantine. Its control
+  class **failed** at 31.7% disagreement against a 15% bar, so `data/prepared-relabelled/`
+  must not be trained on.
+
+
+### A domain can now carry more than one label
+
+The categories were never mutually exclusive and could not be made so while they were one
+flat list. Four different questions share the vocabulary, and sorting the 44 classes by
+which one they answer shows the error rate tracking the axis rather than the class:
+
+| axis | classes | held-out docs | error |
+|---|---|---|---|
+| status — `parked`, `unavailable` | 2 | 378 | **1%** |
+| topic — `automobile`, `sports`, `religion` … | 24 | 2,680 | 15% |
+| risk — `adult`, `gamble`, `drugs` … | 5 | 429 | 21% |
+| form — `shopping`, `news`, `forum` … | 13 | 1,177 | **31%** |
+
+`shopping` says what a site *does*; `automobile` says what it is *about*. A car dealership
+is honestly both, so the argmax had to throw one away — and about a quarter of all errors
+came from exactly that. `cnn.com` is the clean case: `news` 0.63 and `radiotv` 0.28, and
+the `news`↔`radiotv` pair cost 20 errors on its own.
+
+Every result row now carries `categories`, a list of every label above
+`multilabel_threshold` (default 0.10), highest first. `category` is unchanged — still the
+argmax — so nothing breaks.
+
+| | chance the right label is reported | labels per domain |
+|---|---|---|
+| argmax alone | 79.7% | 1.00 |
+| **p ≥ 0.10** | **86.6%** | **1.35** |
+| p ≥ 0.05 | 90.1% | 1.86 |
+
+65% of domains still get exactly one label. No retraining was involved: the model already
+computed the distribution and the argmax discarded it.
+
+**That is a recall number and must be read as one.** Reporting more labels trivially raises
+the chance of covering the gold one, and the evaluation gold is single-label — so it cannot
+say whether a second label is *correct*, only whether the right one is present. When a
+domain labelled `automobile` also gets `shopping`, this data cannot tell a car dealership
+from noise. Settling that needs a gold set annotated with every applicable label, which
+does not exist yet.
+
+This is the same conclusion IAB and Cloudflare reached: IAB ships arrays of categories,
+Cloudflare multi-labels with a cap of two. A faceted redesign — separate heads per axis —
+was designed in `docs/taxonomy.md` and declined in favour of this, which buys most of the
+benefit without changing the label space or the return shape.
+
+### Changed
+
+- **Category names are flat.** `hobby/cooking` → `cooking`, `recreation/sports` → `sports`,
+  and seven more. `hobby/` and `recreation/` were Shallalist's filing structure, not part of
+  the answer, and the children are unique across the label space so nothing is lost. Still
+  44 classes. Raw Shallalist inputs keep their prefixes; only the emitted label is flat.
+
+### Fixed
+
+- `constants.get_category_count`'s doctest claimed 47 categories and had done since the list
+  became 44. It only runs in the full suite, which is how it survived.
+- **`redirector`'s exclusion was justified with a false reason.** The docstring said such a
+  page "has no content by construction" — that reads the name as an HTTP 301. Shallalist
+  means proxy and circumvention sites: `hotspotshield.com`, `hidemyass.com`,
+  `anonymizer.com`, with Curlie filing 13 of the 14 Tranco-ranked ones under `Computers`.
+  Those have plenty of content. The real reason is a **labeling** failure rather than a
+  taxonomy one: sampling 400 from the corpus gives 46% thin, 19% parked, 7% bot-walled and
+  27% usable — and six of twelve sampled usable pages were not proxies at all, but a Chinese
+  glassware manufacturer, Japanese adult manga, an empty WordPress install and an article on
+  internet exchange points. Cheap TLDs get recycled and the 2015-era list no longer
+  describes the 2022 page.
+- `anonvpn` is recorded as what it is: not a category but a list of network endpoints. Of
+  7,001 entries, 94% are bare IP addresses and 4% residential reverse-DNS; **exactly one has
+  a fetched page.** This is a domain classifier — there is no homepage at `67.164.45.55`.
+
 ## [0.12.0] - 2026-07-31
 
 The model was reading an alphabetised set of words.

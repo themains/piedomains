@@ -49,6 +49,8 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
+from ..images import resize_for_model
+
 #: Written at this edge length, matching prepare_images.py, so the two sources are
 #: interchangeable as training data.
 DEFAULT_SIZE = 224
@@ -84,9 +86,13 @@ def read_domains(data: Path, splits: list[str], limit: int) -> list[dict[str, An
 def resize_into(source: Path, target: Path, size: int) -> bool:
     """Downscale one capture to a square JPEG.
 
-    The top square is taken rather than the whole page: a homepage screenshot is far
-    taller than it is wide, and squashing it to a square destroys the aspect ratio the
-    layout signal lives in.
+    The resize itself is :func:`piedomains.images.resize_for_model`, the single transform
+    every path shares. This function only adds the file handling around it.
+
+    An earlier docstring here claimed the top square was taken "because squashing destroys
+    the aspect ratio the layout signal lives in". That was wrong twice over: this code
+    cropped from the *left* rather than the top, and squashing is what SigLIP 2 pretrained
+    on, so preserving aspect ratio was the departure rather than the safe choice.
 
     Args:
         source: The captured PNG.
@@ -100,11 +106,7 @@ def resize_into(source: Path, target: Path, size: int) -> bool:
 
     try:
         with Image.open(source) as img:
-            img = img.convert("RGB")
-            edge = min(img.width, img.height)
-            img = img.crop((0, 0, edge, edge)).resize(
-                (size, size), Image.Resampling.LANCZOS
-            )
+            img = resize_for_model(img, size)
             target.parent.mkdir(parents=True, exist_ok=True)
             img.save(target, "JPEG", quality=85, optimize=True)
         return True

@@ -44,7 +44,7 @@ class TestTrainingScriptsShip(unittest.TestCase):
             "train_text.py",  # the text model
             "train_image.py",  # the screenshot model
             "prepare_text.py",  # corpus -> splits
-            "prepare_images.py",  # tarballs -> 224px, and --respect-splits
+            "prepare_images.py",  # tarballs -> 224px
             "calibrate.py",  # temperature scaling
             "fuse.py",  # the late-fusion measurement and its gate
             "evaluate.py",  # tests/eval/labels.csv

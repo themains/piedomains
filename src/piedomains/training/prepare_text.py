@@ -31,14 +31,14 @@ from __future__ import annotations
 
 import argparse
 import json
-import random
 import sys
 import tarfile
 from collections import Counter
 from collections.abc import Iterator
 from pathlib import Path
 
-from ..blocking import detect_block, looks_parked
+from ..blocking import detect_block, looks_parked, looks_unavailable
+from .splits import SPLITS, split_of
 from .taxonomy import DROPPED_BY_NAME, map_category
 
 #: Surviving Shallalist mirror. The one the original notebooks used
@@ -219,7 +219,6 @@ def build_parser() -> argparse.ArgumentParser:
         help="Cap documents per class. Balances the long tail and makes the "
         "corpus trainable in hours rather than days; 0 keeps everything",
     )
-    parser.add_argument("--seed", type=int, default=42, help="Split seed")
     parser.add_argument(
         "--limit", type=int, help="Stop after N documents (for a smoke run)"
     )
@@ -248,6 +247,7 @@ def main(argv: list[str] | None = None) -> int:
     kept_per_class: Counter[str] = Counter()
     blocked_per_class: Counter[str] = Counter()
     parked_from: Counter[str] = Counter()
+    unavailable_from: Counter[str] = Counter()
     scanned = 0
 
     if corpus.is_dir():
@@ -324,6 +324,12 @@ def main(argv: list[str] | None = None) -> int:
         if looks_parked(text):
             parked_from[category] += 1
             category = "parked"
+        # The other way a domain serves bytes without being a site: an autoindex, a
+        # registrar's "coming soon", a suspended account, a 404. Checked after parking
+        # because a for-sale page is the more specific answer, and some say both.
+        elif looks_unavailable(text):
+            unavailable_from[category] += 1
+            category = "unavailable"
         kept_per_class[category] += 1
         records.append({"domain": domain, "category": category, "text": text})
         seen_text[text] += 1
@@ -342,16 +348,12 @@ def main(argv: list[str] | None = None) -> int:
     dropped = sorted(set(counts) - keep)
     records = [r for r in records if r["category"] in keep]
 
-    # Reproducible train/val/test split; not a security context.
-    rng = random.Random(args.seed)  # noqa: S311
-    rng.shuffle(records)
-    n = len(records)
-    train_end, val_end = int(0.8 * n), int(0.9 * n)
-    splits = {
-        "train": records[:train_end],
-        "val": records[train_end:val_end],
-        "test": records[val_end:],
-    }
+    # The split is a pure function of the domain, so this preparer and the screenshot
+    # preparer cannot disagree about where a domain belongs -- which they did, three
+    # times, each producing a plausible wrong number. See splits.py.
+    splits: dict[str, list[dict]] = {name: [] for name in SPLITS}
+    for record in records:
+        splits[split_of(record["domain"])].append(record)
 
     out_dir = Path(args.out)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -369,13 +371,19 @@ def main(argv: list[str] | None = None) -> int:
             f"refused {sum(blocked_per_class.values()):,} anti-bot interstitials "
             f"(worst: {worst})"
         )
+    if unavailable_from:
+        worst = ", ".join(f"{c} {n}" for c, n in unavailable_from.most_common(5))
+        print(
+            f"relabelled {sum(unavailable_from.values()):,} no-site placeholders as "
+            f"`unavailable` (taken from: {worst})"
+        )
     if parked_from:
         worst = ", ".join(f"{c} {n}" for c, n in parked_from.most_common(5))
         print(
             f"relabelled {sum(parked_from.values()):,} parking placeholders as `parked` "
             f"(taken from: {worst})"
         )
-    print(f"documents kept: {n}")
+    print(f"documents kept: {len(records)}")
     print(f"categories: {len(labels)}")
     if dropped:
         print(f"dropped for <{args.min_docs} docs: {', '.join(dropped)}")

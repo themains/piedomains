@@ -12,6 +12,7 @@ from .checkpoints import eager_config, read_labels, read_temperature
 from .config import get_config
 from .constants import classes
 from .content_processor import ContentProcessor
+from .labels import project, top_labels
 from .outcomes import ErrorCode, Stage
 from .piedomains_logging import get_logger
 
@@ -195,6 +196,7 @@ class TextClassifier(Base):
             "model_used": "text/shallalist_ml",
             "category": None,
             "confidence": None,
+            "categories": [],
             "raw_predictions": None,
             "reason": None,
             "error": None,
@@ -254,6 +256,7 @@ class TextClassifier(Base):
         predictions = self._predict_text(self._model_input(domain, text))
         result["category"] = predictions.get("text_label")
         result["confidence"] = predictions.get("text_prob")
+        result["categories"] = predictions.get("text_categories") or []
         result["raw_predictions"] = predictions.get("text_domain_probs")
 
     def classify_from_paths(
@@ -296,6 +299,7 @@ class TextClassifier(Base):
                 "model_used": "text/shallalist_ml",
                 "category": None,
                 "confidence": None,
+                "categories": [],
                 "raw_predictions": None,
                 "reason": None,
                 "error": None,
@@ -344,7 +348,7 @@ class TextClassifier(Base):
             from datetime import datetime
 
             # Create results directory if needed
-            os.makedirs(os.path.dirname(output_file), exist_ok=True)
+            os.makedirs(os.path.dirname(output_file) or ".", exist_ok=True)
 
             # Add metadata
             output_data = {
@@ -415,8 +419,9 @@ class TextClassifier(Base):
             text: Cleaned page text, already carrying the domain prefix.
 
         Returns:
-            dict: ``text_label``, ``text_prob`` and the full
-            ``text_domain_probs`` distribution; all ``None`` on failure.
+            dict: ``text_label``, ``text_prob``, the full ``text_domain_probs``
+            distribution, and ``text_categories`` -- every label above the
+            configured threshold. All ``None``/empty on failure.
         """
         try:
             import torch  # pyright: ignore[reportMissingImports]
@@ -433,18 +438,35 @@ class TextClassifier(Base):
                 logits = self._model(**encoded).logits[0]
             probabilities = torch.softmax(logits / self._temperature, dim=-1)
 
+            # Project the checkpoint's own labels onto the documented space. Merged
+            # classes sum -- renaming dict keys instead would keep whichever source came
+            # last and silently discard the other's mass. Excluded classes are dropped and
+            # the remainder renormalised, so this is still a distribution.
+            names, groups = project(self._labels)
+            summed = [sum(float(probabilities[i]) for i in group) for group in groups]
+            total = sum(summed) or 1.0
             scores = {
-                name: float(probabilities[i]) for i, name in enumerate(self._labels)
+                name: value / total for name, value in zip(names, summed, strict=True)
             }
             best = max(scores, key=lambda k: scores[k])
             logger.debug(f"Text prediction: {best} ({scores[best]:.3f})")
+
+            # Built from the same distribution as `text_domain_probs`, so the reported
+            # labels and the raw probabilities cannot disagree.
+            ranked = top_labels(scores, get_config().get("multilabel_threshold", 0.10))
 
             return {
                 "text_label": best,
                 "text_prob": scores[best],
                 "text_domain_probs": scores,
+                "text_categories": ranked,
             }
 
         except Exception as e:
             logger.error(f"Text prediction failed: {e}")
-            return {"text_label": None, "text_prob": None, "text_domain_probs": None}
+            return {
+                "text_label": None,
+                "text_prob": None,
+                "text_domain_probs": None,
+                "text_categories": [],
+            }

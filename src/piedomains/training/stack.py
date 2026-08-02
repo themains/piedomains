@@ -35,11 +35,11 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from .metrics import macro_f1, per_class_report
+from .metrics import accuracy, macro_f1, per_class_report
 
 #: Classes where per-class weighting gave the screenshot real weight. Reported separately
 #: because an aggregate over 47 classes averages away an effect concentrated in four.
-VISUAL_CLASSES: tuple[str, ...] = ("adult", "news", "socialnet", "hobby/games-online")
+VISUAL_CLASSES: tuple[str, ...] = ("adult", "news", "socialnet", "games-online")
 
 #: Minimum macro-F1 gain over text-only that counts as evidence rather than noise, at
 #: n=1,742 where the standard error on accuracy is about 0.011.
@@ -183,11 +183,11 @@ def main(argv: list[str] | None = None) -> int:
         model.fit(fit_x, fit_y)
         pred = [labels[int(p)] for p in model.predict(test_x)]
         test_f1 = macro_f1(truth, pred)
-        accuracy = sum(t == p for t, p in zip(truth, pred, strict=True)) / len(truth)
+        test_accuracy = accuracy(truth, pred)
         results[name] = {
             "cv_macro_f1": cv_f1,
             "test_macro_f1": test_f1,
-            "test_accuracy": accuracy,
+            "test_accuracy": test_accuracy,
             "per_class": per_class_report(truth, pred),
         }
         print(f"{name:12s} {cv_f1:12.4f} {test_f1:14.4f}")

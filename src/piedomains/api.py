@@ -14,6 +14,8 @@ import uuid
 from datetime import UTC, datetime
 
 # LLM imports happen lazily when needed
+from .config import get_config
+from .labels import top_labels
 from .outcomes import ErrorCode, Stage, annotate, build_report, classify_exception
 from .piedomains_logging import bind_context, get_logger
 
@@ -103,8 +105,14 @@ class DomainClassifier:
                     "image_path": str,      # Path to screenshot
                     "date_time_collected": str,  # ISO 8601 timestamp
                     "model_used": str,      # e.g. "text/shallalist_ml"
-                    "category": str,        # Predicted category
-                    "confidence": float,    # Confidence score (0.0-1.0)
+                    "category": str,        # Highest-scoring category
+                    "confidence": float,    # Its probability (0.0-1.0)
+                    "categories": [         # Every category above the threshold,
+                        {                   # highest first; >=1 entry when classified,
+                            "category": str,      # [] when the row failed.
+                            "probability": float
+                        }
+                    ],
                     "reason": str,          # LLM reasoning (null for ML models)
                     "error": str,           # Error if classification failed
                     "raw_predictions": dict,  # Full probability distribution
@@ -118,20 +126,45 @@ class DomainClassifier:
             ]
 
         Supported Categories:
-            The 47 categories in :data:`piedomains.constants.classes`:
-            adult, aggressive, alcohol, automobile, dating, downloads, drugs,
-            education, finance, fortunetelling, forum, gamble, government,
-            hobby/cooking, hobby/games-misc, hobby/games-online,
-            hobby/gardening, hobby/pets, homestyle, hospitals, imagehosting,
-            isp, jobsearch, library, military, movies, music, news, politics,
-            radiotv, realestate, recreation/humor, recreation/restaurants,
-            recreation/sports, recreation/travel, recreation/wellness,
-            parked, religion, science, searchengines, shopping, socialnet,
-            urlshortener, warez, weapons, webmail, webradio.
+            The 44 categories in :data:`piedomains.constants.classes`:
+            adult, alcohol, automobile, dating, downloads, drugs, education,
+            finance, fortunetelling, forum, gamble, government, cooking,
+            games, gardening, pets, homestyle, hospitals,
+            imagehosting, isp, jobsearch, library, military, movies, music,
+            news, politics, radiotv, realestate, humor,
+            restaurants, sports, travel,
+            wellness, religion, science, searchengines, shopping,
+            socialnet, urlshortener, weapons, webmail, parked, unavailable.
+
+            Two kinds of absence, for two different reasons.
 
             Categories describing how a site is hosted or monetised
-            (adv, tracker, spyware, redirector) are deliberately absent:
-            a page does not state them. See training/taxonomy.py.
+            (adv, tracker, spyware, redirector) are absent because a page does
+            not state them. So are those asking about delivery mechanism or
+            legality rather than subject: games split by whether they are played
+            online, radio split by whether it is broadcast, downloads split by
+            whether the licence permitted them.
+
+            `parked` and `unavailable` are present for the mirror-image reason.
+            A domain that resolves to a for-sale page or a server autoindex has
+            no site to classify, and saying so is both plainly readable from the
+            text and the answer a caller can act on.
+
+            The categories are NOT mutually exclusive, and cannot be while they
+            are one flat list. Four questions share the vocabulary -- status,
+            topic, risk, and what a site *is* -- so `shopping` and `automobile`
+            compete for one slot and a car dealership is honestly both. That is
+            why `categories` exists: `category` is the argmax, `categories` is
+            everything above `multilabel_threshold` (default 0.10).
+
+            On held-out data that raises the chance the correct label is
+            reported from 79.7% to 86.6%, at 1.35 labels per domain -- 65% still
+            get exactly one. **That is a recall figure.** The evaluation gold is
+            single-label, so it cannot say whether a second label is *correct*,
+            only whether the right one is present. Judge extra labels on their
+            probabilities, not on that number.
+
+            See training/taxonomy.py and docs/taxonomy.md.
     """
 
     def __init__(self, cache_dir: str | None = None):
@@ -703,6 +736,12 @@ class DomainClassifier:
             merged["category"] = best
             merged["confidence"] = blended[best]
             merged["raw_predictions"] = blended
+            # Recompute from the fused distribution. `merged = dict(row)` carried the
+            # text-only list, so `categories` and `raw_predictions` described different
+            # distributions -- the exact disagreement text.py documents as impossible.
+            merged["categories"] = top_labels(
+                blended, get_config().get("multilabel_threshold", 0.10)
+            )
             merged["model_used"] = "combined/text_image"
             merged["modalities"] = [
                 m for m, p in (("text", text_probs), ("image", image_probs)) if p

@@ -103,6 +103,35 @@ class ContentValidator:
                 sandbox_recommended=True,  # Recommend sandbox on uncertainty
             )
 
+    def validate_url_offline(
+        self, url: str, *, ignore_extensions: bool = False
+    ) -> ContentValidationResult:
+        """Validate a URL without contacting the host.
+
+        Step 1 of :meth:`validate_url` on its own. It exists so a caller can decide a URL
+        is unfetchable -- or ask robots.txt about it -- before the preflight in step 2
+        issues a request. Sending that request first and *then* honouring robots means
+        having already done the thing robots forbade.
+
+        Args:
+            url: URL to validate.
+            ignore_extensions: Skip file-extension validation.
+
+        Returns:
+            ContentValidationResult: Safe when nothing about the URL itself disqualifies
+            it. Says nothing about what the host will serve.
+        """
+        if not self.config.enable_content_validation:
+            return ContentValidationResult(
+                is_safe=True,
+                content_type=None,
+                content_length=None,
+                error_message="",
+                warnings=[],
+                sandbox_recommended=False,
+            )
+        return self._validate_url_patterns(url, ignore_extensions)
+
     def _validate_url_patterns(
         self, url: str, ignore_extensions: bool
     ) -> ContentValidationResult:
@@ -216,11 +245,16 @@ class ContentValidator:
 
         try:
             # Make HEAD request to get headers without downloading content
+            # allow_redirects=False: this runs before the browser exists and before any
+            # address check, so following redirects here would fetch wherever a hostile
+            # host points -- including 127.0.0.1 or 169.254.169.254 -- and the ranged GET
+            # below would read the first kilobyte of it. A 3xx simply yields no
+            # content-type and falls through to the existing "no Content-Type" path.
             response = requests.head(
                 url,
                 timeout=self.config.http_timeout,
                 headers={"User-Agent": self.config.user_agent},
-                allow_redirects=True,
+                allow_redirects=False,
             )
             response.raise_for_status()
 
@@ -235,7 +269,7 @@ class ContentValidator:
                         "Range": "bytes=0-1023",  # Just get first 1KB
                     },
                     stream=True,
-                    allow_redirects=True,
+                    allow_redirects=False,
                 )
                 response.raise_for_status()
             except requests.RequestException:

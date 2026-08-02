@@ -1,0 +1,369 @@
+{
+  "n": 4673,
+  "accuracy": 0.7973464583779157,
+  "macro_f1": 0.7266971433241864,
+  "classes": 47,
+  "confusions": [
+    {
+      "gold": "hobby/games-misc",
+      "predicted": "hobby/games-online",
+      "n": 33,
+      "share_of_gold_class": 0.34375
+    },
+    {
+      "gold": "hobby/games-online",
+      "predicted": "hobby/games-misc",
+      "n": 24,
+      "share_of_gold_class": 0.1411764705882353
+    },
+    {
+      "gold": "webradio",
+      "predicted": "radiotv",
+      "n": 21,
+      "share_of_gold_class": 0.3181818181818182
+    },
+    {
+      "gold": "radiotv",
+      "predicted": "webradio",
+      "n": 17,
+      "share_of_gold_class": 0.09090909090909091
+    },
+    {
+      "gold": "shopping",
+      "predicted": "automobile",
+      "n": 13,
+      "share_of_gold_class": 0.07428571428571429
+    },
+    {
+      "gold": "news",
+      "predicted": "radiotv",
+      "n": 11,
+      "share_of_gold_class": 0.07051282051282051
+    },
+    {
+      "gold": "recreation/travel",
+      "predicted": "recreation/sports",
+      "n": 11,
+      "share_of_gold_class": 0.06111111111111111
+    },
+    {
+      "gold": "radiotv",
+      "predicted": "news",
+      "n": 9,
+      "share_of_gold_class": 0.0481283422459893
+    },
+    {
+      "gold": "recreation/sports",
+      "predicted": "hobby/pets",
+      "n": 9,
+      "share_of_gold_class": 0.049723756906077346
+    },
+    {
+      "gold": "shopping",
+      "predicted": "news",
+      "n": 9,
+      "share_of_gold_class": 0.05142857142857143
+    },
+    {
+      "gold": "recreation/sports",
+      "predicted": "recreation/travel",
+      "n": 8,
+      "share_of_gold_class": 0.04419889502762431
+    },
+    {
+      "gold": "warez",
+      "predicted": "downloads",
+      "n": 8,
+      "share_of_gold_class": 0.3076923076923077
+    },
+    {
+      "gold": "hobby/games-online",
+      "predicted": "recreation/sports",
+      "n": 7,
+      "share_of_gold_class": 0.041176470588235294
+    },
+    {
+      "gold": "homestyle",
+      "predicted": "shopping",
+      "n": 7,
+      "share_of_gold_class": 0.4375
+    },
+    {
+      "gold": "recreation/restaurants",
+      "predicted": "shopping",
+      "n": 7,
+      "share_of_gold_class": 0.07291666666666667
+    },
+    {
+      "gold": "recreation/travel",
+      "predicted": "shopping",
+      "n": 7,
+      "share_of_gold_class": 0.03888888888888889
+    },
+    {
+      "gold": "news",
+      "predicted": "recreation/sports",
+      "n": 6,
+      "share_of_gold_class": 0.038461538461538464
+    },
+    {
+      "gold": "downloads",
+      "predicted": "movies",
+      "n": 6,
+      "share_of_gold_class": 0.061855670103092786
+    },
+    {
+      "gold": "hobby/gardening",
+      "predicted": "shopping",
+      "n": 6,
+      "share_of_gold_class": 0.1935483870967742
+    },
+    {
+      "gold": "drugs",
+      "predicted": "shopping",
+      "n": 6,
+      "share_of_gold_class": 0.075
+    },
+    {
+      "gold": "forum",
+      "predicted": "news",
+      "n": 6,
+      "share_of_gold_class": 0.0379746835443038
+    },
+    {
+      "gold": "hobby/games-online",
+      "predicted": "shopping",
+      "n": 5,
+      "share_of_gold_class": 0.029411764705882353
+    },
+    {
+      "gold": "news",
+      "predicted": "shopping",
+      "n": 5,
+      "share_of_gold_class": 0.03205128205128205
+    },
+    {
+      "gold": "hobby/pets",
+      "predicted": "shopping",
+      "n": 5,
+      "share_of_gold_class": 0.032679738562091505
+    },
+    {
+      "gold": "recreation/sports",
+      "predicted": "shopping",
+      "n": 5,
+      "share_of_gold_class": 0.027624309392265192
+    }
+  ],
+  "conflated_pairs": [
+    {
+      "a": "hobby/games-misc",
+      "b": "hobby/games-online",
+      "total": 57,
+      "a_to_b": 33,
+      "b_to_a": 24
+    },
+    {
+      "a": "radiotv",
+      "b": "webradio",
+      "total": 38,
+      "a_to_b": 17,
+      "b_to_a": 21
+    },
+    {
+      "a": "news",
+      "b": "radiotv",
+      "total": 20,
+      "a_to_b": 11,
+      "b_to_a": 9
+    },
+    {
+      "a": "recreation/sports",
+      "b": "recreation/travel",
+      "total": 19,
+      "a_to_b": 8,
+      "b_to_a": 11
+    },
+    {
+      "a": "automobile",
+      "b": "shopping",
+      "total": 17,
+      "a_to_b": 4,
+      "b_to_a": 13
+    },
+    {
+      "a": "news",
+      "b": "shopping",
+      "total": 14,
+      "a_to_b": 5,
+      "b_to_a": 9
+    },
+    {
+      "a": "hobby/games-online",
+      "b": "recreation/sports",
+      "total": 11,
+      "a_to_b": 7,
+      "b_to_a": 4
+    },
+    {
+      "a": "drugs",
+      "b": "shopping",
+      "total": 11,
+      "a_to_b": 6,
+      "b_to_a": 5
+    },
+    {
+      "a": "recreation/travel",
+      "b": "shopping",
+      "total": 10,
+      "a_to_b": 7,
+      "b_to_a": 3
+    },
+    {
+      "a": "downloads",
+      "b": "warez",
+      "total": 10,
+      "a_to_b": 2,
+      "b_to_a": 8
+    },
+    {
+      "a": "automobile",
+      "b": "recreation/sports",
+      "total": 9,
+      "a_to_b": 4,
+      "b_to_a": 5
+    },
+    {
+      "a": "homestyle",
+      "b": "shopping",
+      "total": 9,
+      "a_to_b": 7,
+      "b_to_a": 2
+    },
+    {
+      "a": "hobby/pets",
+      "b": "recreation/sports",
+      "total": 9,
+      "a_to_b": 0,
+      "b_to_a": 9
+    },
+    {
+      "a": "hobby/games-online",
+      "b": "shopping",
+      "total": 8,
+      "a_to_b": 5,
+      "b_to_a": 3
+    },
+    {
+      "a": "downloads",
+      "b": "movies",
+      "total": 8,
+      "a_to_b": 6,
+      "b_to_a": 2
+    },
+    {
+      "a": "hobby/gardening",
+      "b": "shopping",
+      "total": 8,
+      "a_to_b": 6,
+      "b_to_a": 2
+    },
+    {
+      "a": "recreation/sports",
+      "b": "shopping",
+      "total": 8,
+      "a_to_b": 5,
+      "b_to_a": 3
+    },
+    {
+      "a": "news",
+      "b": "recreation/sports",
+      "total": 7,
+      "a_to_b": 6,
+      "b_to_a": 1
+    },
+    {
+      "a": "news",
+      "b": "politics",
+      "total": 7,
+      "a_to_b": 4,
+      "b_to_a": 3
+    },
+    {
+      "a": "movies",
+      "b": "news",
+      "total": 7,
+      "a_to_b": 3,
+      "b_to_a": 4
+    },
+    {
+      "a": "hobby/pets",
+      "b": "shopping",
+      "total": 7,
+      "a_to_b": 5,
+      "b_to_a": 2
+    },
+    {
+      "a": "recreation/restaurants",
+      "b": "shopping",
+      "total": 7,
+      "a_to_b": 7,
+      "b_to_a": 0
+    },
+    {
+      "a": "adult",
+      "b": "shopping",
+      "total": 7,
+      "a_to_b": 3,
+      "b_to_a": 4
+    },
+    {
+      "a": "downloads",
+      "b": "news",
+      "total": 7,
+      "a_to_b": 3,
+      "b_to_a": 4
+    },
+    {
+      "a": "searchengines",
+      "b": "socialnet",
+      "total": 7,
+      "a_to_b": 2,
+      "b_to_a": 5
+    }
+  ],
+  "merge_simulation": [
+    {
+      "scenario": "games-misc + games-online -> games",
+      "classes": 46,
+      "accuracy": 0.8095441900278194,
+      "macro_f1": 0.7347588070614167,
+      "accuracy_gain": 0.012197731649903676,
+      "macro_f1_gain": 0.008061663737230274
+    },
+    {
+      "scenario": "webradio -> radiotv",
+      "classes": 46,
+      "accuracy": 0.8054782794778514,
+      "macro_f1": 0.7316402670478758,
+      "accuracy_gain": 0.00813182109993571,
+      "macro_f1_gain": 0.004943123723689324
+    },
+    {
+      "scenario": "warez -> downloads",
+      "classes": 46,
+      "accuracy": 0.7994864112989514,
+      "macro_f1": 0.7355018095436016,
+      "accuracy_gain": 0.002139952921035637,
+      "macro_f1_gain": 0.008804666219415114
+    },
+    {
+      "scenario": "all of the above",
+      "classes": 44,
+      "accuracy": 0.819815964048791,
+      "macro_f1": 0.7494979358081728,
+      "accuracy_gain": 0.022469505670875245,
+      "macro_f1_gain": 0.022800792483986365
+    }
+  ]
+}

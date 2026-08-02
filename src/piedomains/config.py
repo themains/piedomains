@@ -10,6 +10,24 @@ from .piedomains_logging import get_logger
 logger = get_logger()
 
 
+def _default_user_agent() -> str:
+    """Build the identifying user-agent.
+
+    Returns:
+        str: Product token, version and a contact URL an operator can use to ask us to
+        stop.
+    """
+    try:
+        from importlib.metadata import version
+
+        installed = version("piedomains")
+    except Exception:
+        installed = "0"
+    # Dev installs carry a long local suffix; the release part is what identifies us.
+    installed = installed.split("+")[0].split(".post")[0]
+    return f"piedomains/{installed} (+https://github.com/themains/piedomains)"
+
+
 class Config:
     """Configuration class for piedomains settings."""
 
@@ -33,6 +51,15 @@ class Config:
         "network_quiet_ms": 3000,
         # Minimum usable tokens before a label is meaningful.
         "min_tokens": 30,
+        # Probability floor for the `categories` list. The label set is not mutually
+        # exclusive -- `shopping` says what a site does and `automobile` says what it is
+        # about, and a car dealership is both -- so the argmax alone throws away a true
+        # answer on genuinely ambiguous sites. Emitting every label above this floor
+        # raises the chance of covering the right one from 79.7% to 86.6% on held-out
+        # data, at 1.35 labels per domain: 65% still get exactly one.
+        #
+        # 0.05 would reach 90.1% but at 1.86 labels each, which is mostly noise.
+        "multilabel_threshold": 0.10,
         # "trafilatura" | "legacy". Measured across 188 cached homepages, both through
         # the minimal cleaner:
         #
@@ -73,6 +100,25 @@ class Config:
         "filter_non_english": False,
         # Parallel processing
         "max_parallel": 4,
+        # Live-path politeness. The archive path has had rate limits since it was
+        # written; the live path had none.
+        "obey_robots": True,
+        "crawl_delay": 1.0,
+        "max_crawl_delay": 30.0,
+        "max_concurrent_fetches": 8,
+        # Refuse destinations that are not on the public internet. The flag exists
+        # because classifying an intranet corpus is a real need, and a documented
+        # switch beats someone monkeypatching the module.
+        "check_addresses": True,
+        "allow_hosts": [],
+        "address_cache_ttl": 300.0,
+        "dns_timeout": 5.0,
+        # Route the browser through an egress proxy, e.g. Stripe's Smokescreen
+        # (https://github.com/stripe/smokescreen). This is the only thing that closes
+        # the redirect and DNS-rebinding gaps the in-process address check cannot:
+        # the browser issues a fresh CONNECT for every hop and every subresource, so
+        # the proxy re-checks each one against its own ACL. Empty means direct.
+        "proxy_server": "",
         # Archive.org settings. Rate limiting, retries and backoff are handled
         # by the wayback session rather than hand-rolled sleeps.
         "archive_max_parallel": 2,  # Concurrent snapshot fetches
@@ -106,7 +152,14 @@ class Config:
         "html_extension": ".html",
         "image_extension": ".png",
         # User agent for HTTP requests
-        "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+        # Identify ourselves and give operators a way to ask us to stop. The previous
+        # value impersonated Chrome on macOS, which is dishonest, contradicts this
+        # project's stated no-evasion position in blocking.py, and does not even work:
+        # DataDome and Cloudflare fingerprint TLS and HTTP/2, not the UA string.
+        # The version comes from the installed metadata, not a literal. A hardcoded
+        # "0.13" here would be wrong the moment anything else ships, and a crawler whose
+        # UA misstates its version is worse than one that omits it.
+        "user_agent": _default_user_agent(),
         # Legacy WebDriver settings for backward compatibility
         "webdriver_timeout": 30,
         "webdriver_window_size": "1280,1024",
@@ -197,7 +250,10 @@ class Config:
             "PIEDOMAINS_BATCH_SIZE": ("batch_size", int),
             "PIEDOMAINS_PARALLEL_WORKERS": ("parallel_workers", int),
             "PIEDOMAINS_USER_AGENT": ("user_agent", str),
+            "PIEDOMAINS_ALLOW_HOSTS": ("allow_hosts", "csv"),
+            "PIEDOMAINS_PROXY_SERVER": ("proxy_server", str),
             "PIEDOMAINS_EXTRACTOR": ("extractor", str),
+            "PIEDOMAINS_MULTILABEL_THRESHOLD": ("multilabel_threshold", float),
             "PIEDOMAINS_FILTER_NON_ENGLISH": (
                 "filter_non_english",
                 lambda x: x.lower() in ("true", "1", "yes"),

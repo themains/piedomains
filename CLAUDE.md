@@ -39,8 +39,14 @@ Flat modules under `src/piedomains/`. There is no `classifiers/` or
 |---|---|
 | `api.py` | `DomainClassifier` facade; `_run` collects, classifies, annotates, reports |
 | `data_collector.py` | `DataCollector` — fetch + cache HTML/screenshots |
+| `images.py` | `resize_for_model` — the **one** screenshot transform every path shares |
+| `labels.py` | `top_labels` (multi-label) and `project` (map a checkpoint onto the current space) |
+| `training/splits.py` | `split_of(domain)` — train/val/test as a pure function of the domain |
 | `fetchers.py` | `PlaywrightFetcher` (live), `ArchiveFetcher` (archive.org via `wayback`) |
-| `text.py` / `image.py` | TensorFlow inference paths |
+| `commoncrawl.py` | Common Crawl as a third source: CDX index + `warcio` byte-range WARC |
+| `politeness.py` | robots.txt via `protego`, per-host throttle, honest UA |
+| `netsafety.py` | stdlib `ipaddress` address guard; see its docstring for what it cannot cover |
+| `text.py` / `image.py` | Transformers inference paths (mmBERT / SigLIP 2) |
 | `text_processor.py` | The live HTML→text cleaner |
 | `outcomes.py` | `Stage`/`ErrorCode` taxonomy and run-report builder |
 | `llm_classifier.py`, `llm/` | litellm-based classification |
@@ -67,25 +73,73 @@ archive date.
 
 ## Categories
 
-**39** categories, defined in `constants.py` — not 41, despite what older docs
-said. `piedomains.constants.classes` is the source of truth.
+**44** categories, defined in `constants.py`. `piedomains.constants.classes` is
+the source of truth. Two of them are not topics: `parked` and `unavailable` mean
+the domain resolves but there is no site.
+
+The set is **deliberately not mutually exclusive** — four questions share one
+vocabulary (status, topic, risk, what-a-site-*is*), and error rate tracks the
+axis: status ~1%, topic ~15%, risk ~21%, form ~31%. `classify()` therefore
+returns a `categories` list alongside the argmax. That lifts the chance of
+reporting the right label from 81.8% to 87.3% at 1.30 labels per domain — **read
+that as recall**, since the gold is single-label and nothing establishes whether
+a second label is correct.
 
 ## Model state — read before trusting any accuracy number
 
-Measured by `piedomains.training.evaluate` against `tests/eval/labels.csv`:
+Both checkpoints are Hub-hosted and unpinned, so `soodoku/piedomains-{text,image}`
+is what ships.
 
-- **Text model: accuracy 0.267, macro-F1 0.191** — against a training-time
-  figure of 71.3% (`notebooks/04_train_model.ipynb`). Baseline recorded in
-  `tests/eval/baseline_text_tf.json`.
-- **Calibration is inactive.** All 39 pickled isotonic calibrators unpickle
-  cleanly under scikit-learn 1.9 but predict `NaN`, so every one is dropped and
-  confidences are raw model outputs. Logged as a WARNING.
-- **The image model is not trustworthy.** It labels Khan Academy and Yahoo as
-  `porn` under both `/255` and raw-0-255 scaling. Do not "fix" the
-  preprocessing line without re-measuring — the audit's premise that
-  `resnet50.preprocess_input` is baked into the graph did not reproduce.
+- **Text: accuracy 0.818, macro-F1 0.758** over 44 classes, temperature 1.248,
+  ECE 0.049 → 0.017. Replaced the TensorFlow model that measured 0.267/0.191.
+- **Image: accuracy 0.501, macro-F1 0.370** over **39** classes — no `parked`,
+  `unavailable`, `library`, `military` or `homestyle`, because the screenshot
+  corpus was captured in 2022 and predates those labels. Replaces a model whose
+  honest figure was 0.429. Screenshots are simply weaker than text; prefer text
+  when you have it.
+- Backbone choice was measured, not assumed: SigLIP 2 beat ViT-base-in21k on
+  this corpus **0.531/0.397 vs 0.335/0.140**.
 
-Do not add accuracy claims to docs without a number from `piedomains.training.evaluate`.
+**Fusion does not help, and this is now settled.** On 1,604 paired domains the
+fitted text weight is 0.986 — the image model carries 1.4% of the decision and
+the best variant by macro-F1 changes *zero* predictions (McNemar p=1.000).
+Stacking buys 0.6pp of accuracy while losing 1.1pp of macro-F1, p=0.25. So
+`classify(use_screenshots=True)` falls back to text and screenshot
+classification stays opt-in; `fusion.json` is deliberately **not** published.
+
+Re-check it locally with `data/fusion-corpus` (8,825 held-out screenshots, 86 MB,
+exported by the image kernel) — it no longer needs a Kaggle session.
+
+**Known defect — `drugs` absorbs retail.** Only 28% of the 672 `drugs` training
+documents mention any drug or pharmacy term (vs 4% of `shopping`); the rest are
+expired pharmacy domains recycled into SEO spam, plus parked and dead pages the
+extraction missed. Live: `walmart.com` → drugs 0.56, `zappos.com` → drugs 0.40,
+and `drugs` is top-2 for four of five retailers tested. This is a labelling
+problem, not a data-volume one.
+
+**Weak classes are incoherent, not starved.** Training volume does not predict
+per-class F1 in this corpus:
+
+| class | train n | F1 |
+|---|---|---|
+| `military` | 93 | **0.800** |
+| `weapons` | 161 | 0.837 |
+| `cooking` | 196 | 0.880 |
+| `library` | 96 | 0.333 |
+| `urlshortener` | 158 | 0.154 |
+| `socialnet` | 217 | 0.372 |
+| `shopping` | **1,337** | **0.453** |
+
+`military` at 93 documents beats `shopping` at 1,337. What separates them is
+whether the class names one recognisable thing: `shopping` says what a site
+*does* while competing against topics, and `urlshortener` is a redirect stub with
+almost no page to read. So the remedy for a weak class is a cleaner definition,
+not more documents — and a small coherent class is a perfectly good outcome.
+
+Do not use `--min-docs` as evidence that a class is unviable; it is a CLI default,
+not a measurement.
+
+Do not add accuracy claims to docs without a measured number.
 
 ## Versioning
 
