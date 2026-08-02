@@ -175,21 +175,42 @@ def get_custom_prompt(
     return base_prompt
 
 
-def get_batch_prompt(domains_data: list[dict[str, Any]], categories: list[str]) -> str:
+def get_batch_prompt(
+    domains_data: list[dict[str, Any]],
+    categories: list[str],
+    definitions: dict[str, str] | None = None,
+    extra_fields: dict[str, str] | None = None,
+    max_chars: int = 2000,
+    abstain: str | None = None,
+) -> str:
     """Generate a batch classification prompt for multiple domains.
 
     Args:
         domains_data: List of dictionaries with domain info
         categories: List of available categories
+        definitions: Optional per-category glosses. A model given only bare names resolves
+            overlapping categories by its own priors, which for a deliberately
+            non-mutually-exclusive vocabulary means inventing a taxonomy.
+        extra_fields: Optional additional response fields, as name to description.
+        max_chars: Per-document truncation length.
+        abstain: Optional token the model may return instead of a category when the page
+            does not support a confident answer.
 
     Returns:
         Formatted batch prompt string
     """
-    categories_str = ", ".join(categories)
+    if definitions:
+        catalogue = "\n".join(
+            f"- {name}: {definitions[name]}" if name in definitions else f"- {name}"
+            for name in categories
+        )
+        header = f"Available categories:\n{catalogue}"
+    else:
+        header = f"Available categories: {', '.join(categories)}"
 
     prompt = f"""You are a domain classification expert. Analyze and classify multiple domains.
 
-Available categories: {categories_str}
+{header}
 
 Domains to classify:
 """
@@ -199,24 +220,36 @@ Domains to classify:
         content = domain_data.get("content", "")
 
         # Limit content length for batch processing
-        if len(content) > 2000:
-            content = content[:2000] + "... [truncated]"
+        if len(content) > max_chars:
+            content = content[:max_chars] + "... [truncated]"
 
         prompt += f"\n{i}. Domain: {domain}\n"
         if content:
             prompt += f"   Content: {content}\n"
 
-    prompt += """
-For each domain, classify it into ONE of the provided categories.
+    escape = (
+        f'\nIf the page does not support a confident answer, return "{abstain}" as the '
+        "category rather than guessing.\n"
+        if abstain
+        else ""
+    )
+    fields = "".join(
+        f',\n        "{name}": "{description}"'
+        for name, description in (extra_fields or {}).items()
+    )
 
-Respond with a JSON array containing objects for each domain:
+    prompt += f"""
+For each domain, classify it into ONE of the provided categories. Judge the page by what
+it actually says, not by what its name suggests.
+{escape}
+Respond with a JSON array containing one object per domain, echoing the domain exactly:
 [
-    {
+    {{
         "domain": "domain1.com",
         "category": "category_name",
         "confidence": 0.85,
-        "reasoning": "brief explanation"
-    },
+        "reasoning": "brief explanation"{fields}
+    }},
     ...
 ]
 

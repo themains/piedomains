@@ -40,11 +40,19 @@ def parse_llm_response(response_text: str) -> dict[str, Any]:
     return _parse_text_response(response_text)
 
 
-def parse_batch_response(response_text: str) -> list[dict[str, Any]]:
+def parse_batch_response(
+    response_text: str, allowed: list[str] | None = None
+) -> list[dict[str, Any]]:
     """Parse batch LLM response into list of classification results.
+
+    The returned list carries **no ordering guarantee**. Callers must match results to
+    requests by the ``domain`` field, never by position.
 
     Args:
         response_text: Raw batch response text from LLM
+        allowed: Optional list of permitted categories. When given, a category outside it
+            is flagged ``valid: False`` and returned rather than dropped, so the caller can
+            quarantine it. Without this, an invented category is accepted silently.
 
     Returns:
         List of dictionaries with parsed classification data
@@ -62,7 +70,7 @@ def parse_batch_response(response_text: str) -> list[dict[str, Any]]:
         results = []
         for item in json_data:
             try:
-                results.append(_validate_classification_result(item))
+                results.append(_validate_classification_result(item, allowed))
             except ValueError as e:
                 logger.warning(f"Skipping invalid batch item: {e}")
                 continue
@@ -70,7 +78,7 @@ def parse_batch_response(response_text: str) -> list[dict[str, Any]]:
 
     # If not a list, try to parse as single item
     if isinstance(json_data, dict):
-        return [_validate_classification_result(json_data)]
+        return [_validate_classification_result(json_data, allowed)]
 
     raise ValueError("Could not parse batch response as JSON array or object")
 
@@ -80,12 +88,23 @@ def _extract_json(text: str) -> dict[str, Any] | list[dict[str, Any]] | None:
     # Clean the text
     text = text.strip()
 
-    # Try to find JSON block markers
+    # The whole response first. The single-object patterns below match the *first* object
+    # in a JSON array, so trying them first silently truncated every batch reply to one
+    # result -- a batch of 10 came back as 1, and the other 9 looked like the model had
+    # simply not answered for them.
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        pass
+
+    # Then fenced or embedded JSON, arrays before objects for the same reason.
     json_patterns = [
+        r"```json\s*(\[.*?\])\s*```",
+        r"```\s*(\[.*?\])\s*```",
         r"```json\s*(\{.*?\})\s*```",
         r"```\s*(\{.*?\})\s*```",
+        r'(\[[^[\]]*\{[^{}]*"category"[^{}]*\}.*?\])',
         r'(\{[^{}]*"category"[^{}]*\})',
-        r'(\[[^[\]]*\{[^{}]*"category"[^{}]*\}[^[\]]*\])',
     ]
 
     for pattern in json_patterns:
@@ -95,12 +114,6 @@ def _extract_json(text: str) -> dict[str, Any] | list[dict[str, Any]] | None:
                 return json.loads(matches[0])
             except json.JSONDecodeError:
                 continue
-
-    # Try to parse the entire response as JSON
-    try:
-        return json.loads(text)
-    except json.JSONDecodeError:
-        pass
 
     # Try to find JSON-like structure without quotes around keys
     try:
@@ -113,7 +126,9 @@ def _extract_json(text: str) -> dict[str, Any] | list[dict[str, Any]] | None:
     return None
 
 
-def _validate_classification_result(data: dict[str, Any]) -> dict[str, Any]:
+def _validate_classification_result(
+    data: dict[str, Any], allowed: list[str] | None = None
+) -> dict[str, Any]:
     """Validate and normalize a classification result."""
     if not isinstance(data, dict):
         raise ValueError("Classification result must be a dictionary")
@@ -125,6 +140,11 @@ def _validate_classification_result(data: dict[str, Any]) -> dict[str, Any]:
     category = str(data["category"]).strip().lower()
     if not category:
         raise ValueError("Category cannot be empty")
+
+    # Membership is checked only when the caller says what the vocabulary is. Flagged
+    # rather than raised: an invented label is a fact worth counting, and dropping it
+    # here would make it indistinguishable from a domain the model never answered for.
+    valid = allowed is None or category in allowed
 
     # Optional fields with defaults
     confidence = data.get("confidence", 0.5)
@@ -140,12 +160,18 @@ def _validate_classification_result(data: dict[str, Any]) -> dict[str, Any]:
         logger.warning(f"Invalid confidence value: {confidence}, using 0.5")
         confidence = 0.5
 
-    return {
+    result = {
         "category": category,
         "confidence": confidence,
         "reasoning": str(reasoning).strip(),
+        "valid": valid,
         "raw_response": data,
     }
+    # Batch replies identify themselves; matching on this is what keeps one document's
+    # verdict from being written onto another.
+    if "domain" in data:
+        result["domain"] = str(data["domain"]).strip().lower()
+    return result
 
 
 def _parse_text_response(text: str) -> dict[str, Any]:

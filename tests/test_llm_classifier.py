@@ -4,6 +4,7 @@
 Tests for LLM-based domain classification.
 """
 
+import json
 import unittest
 from unittest.mock import MagicMock, patch
 
@@ -118,6 +119,43 @@ class TestPrompts(unittest.TestCase):
 
 class TestResponseParser(unittest.TestCase):
     """Test LLM response parsing."""
+
+    def test_batch_response_keeps_every_result(self):
+        """A batch reply must not be truncated to its first element.
+
+        ``_extract_json`` used to try a single-object regex before parsing the whole
+        response, and that regex matches the first ``{...}`` inside a JSON array. A batch
+        of ten came back as one, and the other nine were indistinguishable from domains
+        the model had declined to answer for.
+        """
+        from piedomains.llm.response_parser import parse_batch_response
+
+        response = json.dumps(
+            [
+                {"domain": "a.com", "category": "news", "confidence": 0.9},
+                {"domain": "b.com", "category": "shopping", "confidence": 0.8},
+                {"domain": "c.com", "category": "sports", "confidence": 0.7},
+            ]
+        )
+        results = parse_batch_response(response)
+        self.assertEqual(len(results), 3)
+        self.assertEqual([r["domain"] for r in results], ["a.com", "b.com", "c.com"])
+
+    def test_batch_response_flags_labels_outside_the_allowed_set(self):
+        """An invented category is reported, not silently accepted."""
+        from piedomains.llm.response_parser import parse_batch_response
+
+        response = json.dumps(
+            [
+                {"domain": "a.com", "category": "news", "confidence": 0.9},
+                {"domain": "b.com", "category": "cryptocurrency", "confidence": 0.9},
+            ]
+        )
+        results = {
+            r["domain"]: r for r in parse_batch_response(response, allowed=["news"])
+        }
+        self.assertTrue(results["a.com"]["valid"])
+        self.assertFalse(results["b.com"]["valid"])
 
     def test_parse_valid_json_response(self):
         """Test parsing valid JSON response."""
