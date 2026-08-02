@@ -10,6 +10,24 @@ from .piedomains_logging import get_logger
 logger = get_logger()
 
 
+def _default_user_agent() -> str:
+    """Build the identifying user-agent.
+
+    Returns:
+        str: Product token, version and a contact URL an operator can use to ask us to
+        stop.
+    """
+    try:
+        from importlib.metadata import version
+
+        installed = version("piedomains")
+    except Exception:
+        installed = "0"
+    # Dev installs carry a long local suffix; the release part is what identifies us.
+    installed = installed.split("+")[0].split(".post")[0]
+    return f"piedomains/{installed} (+https://github.com/themains/piedomains)"
+
+
 class Config:
     """Configuration class for piedomains settings."""
 
@@ -138,7 +156,10 @@ class Config:
         # value impersonated Chrome on macOS, which is dishonest, contradicts this
         # project's stated no-evasion position in blocking.py, and does not even work:
         # DataDome and Cloudflare fingerprint TLS and HTTP/2, not the UA string.
-        "user_agent": ("piedomains/0.13 (+https://github.com/themains/piedomains)"),
+        # The version comes from the installed metadata, not a literal. A hardcoded
+        # "0.13" here would be wrong the moment anything else ships, and a crawler whose
+        # UA misstates its version is worse than one that omits it.
+        "user_agent": _default_user_agent(),
         # Legacy WebDriver settings for backward compatibility
         "webdriver_timeout": 30,
         "webdriver_window_size": "1280,1024",
