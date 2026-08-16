@@ -5,6 +5,20 @@ optional dependencies (like playwright) are not installed.
 """
 
 from importlib.metadata import PackageNotFoundError, version
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    # Declared for type checkers only; the runtime bindings come from the
+    # __getattr__ below, which is what keeps TensorFlow and Playwright off the
+    # import path until something actually asks for them. Without these,
+    # pyright reports every name in __all__ as unsupported -- seven findings
+    # for a module that works.
+    from .api import DomainClassifier, classify_domains
+    from .data_collector import DataCollector
+    from .image import ImageClassifier
+    from .llm.config import LLMConfig
+    from .llm_classifier import LLMClassifier
+    from .text import TextClassifier
 
 try:
     # The git tag is the version; uv-dynamic-versioning bakes it into the

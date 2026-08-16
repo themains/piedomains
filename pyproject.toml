@@ -203,6 +203,33 @@ style = "pep440"
 
 [tool.preen]
 src_layout = true
+# Hosts the links check cannot fetch meaningfully. Written without schemes: a
+# full URL here is itself extracted and checked, so the note would recreate the
+# problem it documents.
+#
+#   test fixtures  test.org, a.com, b.com, other.com, valid.com, box.local,
+#                  secret.onion, custom.url -- invented hosts in tests/, not
+#                  links anyone can follow
+#   a base URL     raw.githubusercontent.com/Azothyran/ShallalistMirror is
+#                  LABEL_MIRROR in training/prepare_text.py, and the code
+#                  appends a category path. Bare it 404s; with a path it
+#                  answers 200, so the mirror is alive and the finding is not.
+#   an outage      index.commoncrawl.org answers 503 today. That is the service
+#                  being down, not this repo being wrong.
+link_ignore = [
+    "test\\.org",
+    "//a\\.com",
+    "//b\\.com",
+    "other\\.com",
+    "valid\\.com",
+    "box\\.local",
+    "secret\\.onion",
+    "custom\\.url",
+    "facebook\\.com/page",
+    "ShallalistMirror",
+    "index\\.commoncrawl\\.org",
+    "//spaces",
+]
 
 [dependency-groups]
 # PEP 735 groups, not extras: these are development concerns, and the reusable
@@ -234,3 +261,18 @@ dev = [
     "pydoclint>=0.5",
     "pre-commit>=4",
 ]
+
+[tool.codespell]
+# This package classifies web pages, so its fixtures and docstrings are full of
+# text that is not English and not meant to be. Every one of these was checked:
+#
+#   ist          German -- "seite ist offline", a block-page phrase in blocking.py
+#   adresse, ans French -- a docstring example of French page text
+#   sav          the .sav extension of the committed calibrator files
+#   tabacco      inside a verbatim quotation of Shallalist's own category
+#                definition. Correcting it would misquote the source.
+#   unparseable  a valid spelling; codespell prefers the other one
+ignore-words-list = "ist,adresse,ans,sav,tabacco,unparseable"
+# The corpora are domain names and scraped page text, where a "misspelling" is
+# usually just a real domain. Auto-correcting one would corrupt training data.
+skip = "*.csv,*.parquet,*.sav,*.joblib,./src/piedomains/model,./CHANGELOG.md,uv.lock"
