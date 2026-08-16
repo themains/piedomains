@@ -111,6 +111,7 @@ BACKBONE = "google/siglip2-base-patch16-224"
 
 #: Published text model, pulled from the Hub for stage 4. Public, so no token is needed.
 TEXT_MODEL = "gojiberries/piedomains-text"
+TEXT_MODEL_REVISION = "38d7e6403f911902f47b9218ce5c645a06dd02fe"
 
 #: Set this to a Hub repo to skip training and calibration and fuse an already-trained
 #: checkpoint instead. Fusion cannot be done locally -- the resized screenshots live in
@@ -119,6 +120,7 @@ TEXT_MODEL = "gojiberries/piedomains-text"
 #: Hub while a new text model was still uploading, compared the new flat class names
 #: against the old prefixed ones, and refused.
 IMAGE_MODEL: str | None = None  # e.g. "gojiberries/piedomains-image"
+IMAGE_MODEL_REVISION = "e751348e3ca57b24cb299db7c4ce87a924a91c21"
 
 #: Name of the attached Dataset holding the current text splits. The image model must be
 #: aligned to *these*, not to an earlier version: re-preparing the text corpus reshuffled
@@ -550,7 +552,7 @@ def stage_four_fuse(data: Path, model: Path) -> None:
     print(f"\ndownloading the text model from {TEXT_MODEL}...")
     from huggingface_hub import snapshot_download
 
-    text_dir = snapshot_download(repo_id=TEXT_MODEL)
+    text_dir = snapshot_download(repo_id=TEXT_MODEL, revision=TEXT_MODEL_REVISION)
 
     try:
         run(
@@ -636,7 +638,9 @@ def main() -> int:
         from huggingface_hub import snapshot_download
 
         print(f"\nusing the published checkpoint {IMAGE_MODEL}; not training")
-        model = Path(snapshot_download(repo_id=IMAGE_MODEL))
+        model = Path(
+            snapshot_download(repo_id=IMAGE_MODEL, revision=IMAGE_MODEL_REVISION)
+        )
     else:
         model = stage_two_train(data)
         stage_three_calibrate(data, model)

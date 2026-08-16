@@ -189,6 +189,8 @@ scikit-learn = "sklearn"
 [tool.pyright]
 include = ["src"]
 typeCheckingMode = "standard"
+venvPath = "."
+venv = ".venv"
 
 [tool.pydoclint]
 style = "google"

@@ -48,6 +48,7 @@ TEXT_MODEL_DATASET = "piedomains-text-model"
 SPLITS_DATASET = "piedomains-text-v13"
 
 IMAGE_MODEL = "gojiberries/piedomains-image"
+IMAGE_MODEL_REVISION = "e751348e3ca57b24cb299db7c4ce87a924a91c21"
 
 IMAGE_SIZE = 224
 MAX_PER_CLASS = 3000
@@ -336,7 +337,7 @@ def main() -> int:
 
     from huggingface_hub import snapshot_download
 
-    image_model = snapshot_download(repo_id=IMAGE_MODEL)
+    image_model = snapshot_download(repo_id=IMAGE_MODEL, revision=IMAGE_MODEL_REVISION)
     print(f"image model at {image_model}")
 
     images = build_images(splits)
