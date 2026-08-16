@@ -258,7 +258,7 @@ social networks, search engines and others, plus `parked` and `unavailable` for 
 with no site behind them. Derived from Shallalist, with classes that describe hosting
 rather than content removed, those asking about delivery mechanism or legality
 collapsed, and the grab-bag categories split — see
-[`piedomains.training.taxonomy`](https://github.com/themains/piedomains/blob/main/piedomains.training.taxonomy).
+[`piedomains.training.taxonomy`](https://github.com/themains/piedomains/blob/main/src/piedomains/training/taxonomy.py).
 
 ## Security & Docker
 
