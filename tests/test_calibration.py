@@ -10,16 +10,10 @@ long. These tests pin the behavior: a NaN calibrator must never be treated as
 usable, and losing all of them must be loud.
 """
 
-import glob
 import logging
 import unittest
-import warnings
-
-import joblib
 
 from piedomains.constants import classes
-
-CALIBRATOR_GLOB = "src/piedomains/model/calibrate/text/*.sav"
 
 
 def usable(values: list[float]) -> bool:
@@ -66,40 +60,6 @@ class TestZeroCalibratorsIsLoud(unittest.TestCase):
         # The message has to say what it means for the caller, not just that a
         # load failed -- "0/39 calibrators" alone reads like a routine note.
         self.assertIn("RAW model outputs", joined)
-
-
-class TestShippedCalibrators(unittest.TestCase):
-    """Record the real state of the calibrator files that ship with the repo."""
-
-    def test_every_calibrator_is_either_usable_or_rejected(self):
-        """No calibrator may be half-usable: NaN output must be rejected.
-
-        This intentionally does not assert that the calibrators work. Under
-        scikit-learn 1.9 every one returns NaN, and asserting otherwise would
-        just encode today's breakage as a requirement. What must hold is that
-        the usability predicate never admits a NaN.
-        """
-        paths = sorted(glob.glob(CALIBRATOR_GLOB))
-        if not paths:
-            self.skipTest("calibrators not present in this checkout")
-
-        for path in paths:
-            with self.subTest(calibrator=path.rsplit("/", 1)[-1]):
-                try:
-                    with warnings.catch_warnings():
-                        warnings.simplefilter("ignore")
-                        # Trusted input: these .sav files are committed to this
-                        # repository, not fetched or user-supplied.
-                        values = [
-                            float(v) for v in joblib.load(path).predict([0.1, 0.5, 0.9])
-                        ]
-                except Exception:
-                    continue  # unloadable is a legitimate rejected state
-                if not usable(values):
-                    self.assertFalse(
-                        usable(values),
-                        "a calibrator producing NaN must never be counted usable",
-                    )
 
 
 if __name__ == "__main__":

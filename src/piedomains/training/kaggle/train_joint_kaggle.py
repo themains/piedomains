@@ -47,7 +47,7 @@ TEMP = Path("/kaggle/temp")
 TEXT_MODEL_DATASET = "piedomains-text-model"
 SPLITS_DATASET = "piedomains-text-v13"
 
-IMAGE_MODEL = "soodoku/piedomains-image"
+IMAGE_MODEL = "gojiberries/piedomains-image"
 
 IMAGE_SIZE = 224
 MAX_PER_CLASS = 3000

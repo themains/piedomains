@@ -4,6 +4,8 @@
 [![PyPI Version](https://img.shields.io/pypi/v/piedomains.svg)](https://pypi.org/project/piedomains)
 [![Downloads](https://pepy.tech/badge/piedomains)](https://pepy.tech/project/piedomains)
 [![Documentation](https://img.shields.io/badge/docs-github.io-blue)](https://themains.github.io/piedomains/)
+[![Text model](https://img.shields.io/badge/%F0%9F%A4%97-text%20model-yellow)](https://huggingface.co/gojiberries/piedomains-text)
+[![Image model](https://img.shields.io/badge/%F0%9F%A4%97-image%20model-yellow)](https://huggingface.co/gojiberries/piedomains-image)
 
 ## What's New in v0.12.0
 

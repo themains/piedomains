@@ -110,7 +110,7 @@ MAX_PER_CLASS = 3000
 BACKBONE = "google/siglip2-base-patch16-224"
 
 #: Published text model, pulled from the Hub for stage 4. Public, so no token is needed.
-TEXT_MODEL = "soodoku/piedomains-text"
+TEXT_MODEL = "gojiberries/piedomains-text"
 
 #: Set this to a Hub repo to skip training and calibration and fuse an already-trained
 #: checkpoint instead. Fusion cannot be done locally -- the resized screenshots live in
@@ -118,7 +118,7 @@ TEXT_MODEL = "soodoku/piedomains-text"
 #: otherwise costs a second full GPU run. The first one did: it pulled TEXT_MODEL from the
 #: Hub while a new text model was still uploading, compared the new flat class names
 #: against the old prefixed ones, and refused.
-IMAGE_MODEL: str | None = None  # e.g. "soodoku/piedomains-image"
+IMAGE_MODEL: str | None = None  # e.g. "gojiberries/piedomains-image"
 
 #: Name of the attached Dataset holding the current text splits. The image model must be
 #: aligned to *these*, not to an earlier version: re-preparing the text corpus reshuffled

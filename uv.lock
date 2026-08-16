@@ -1974,7 +1974,7 @@ source = { editable = "." }
 dependencies = [
     { name = "aiohttp" },
     { name = "beautifulsoup4" },
-    { name = "joblib" },
+    { name = "huggingface-hub" },
     { name = "litellm" },
     { name = "nltk" },
     { name = "numpy" },
@@ -1984,7 +1984,6 @@ dependencies = [
     { name = "protego" },
     { name = "requests" },
     { name = "safetensors" },
-    { name = "scikit-learn" },
     { name = "torch" },
     { name = "torchvision" },
     { name = "tqdm" },
@@ -2024,13 +2023,15 @@ test = [
 train = [
     { name = "accelerate" },
     { name = "datasets" },
+    { name = "joblib" },
+    { name = "scikit-learn" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "aiohttp", specifier = ">=3.8.0" },
     { name = "beautifulsoup4", specifier = ">=4.10.0" },
-    { name = "joblib", specifier = ">=1.2.0" },
+    { name = "huggingface-hub", specifier = ">=0.23" },
     { name = "litellm", specifier = ">=1.55.0" },
     { name = "nltk", specifier = ">=3.8" },
     { name = "numpy", specifier = ">=1.24.0" },
@@ -2040,7 +2041,6 @@ requires-dist = [
     { name = "protego", specifier = ">=0.3.0" },
     { name = "requests", specifier = ">=2.25.0" },
     { name = "safetensors", specifier = ">=0.4.5" },
-    { name = "scikit-learn", specifier = ">=1.3.0" },
     { name = "torch", specifier = ">=2.6.0" },
     { name = "torchvision", specifier = ">=0.20" },
     { name = "tqdm", specifier = ">=4.64.0" },
@@ -2079,6 +2079,8 @@ test = [
 train = [
     { name = "accelerate", specifier = ">=0.34" },
     { name = "datasets", specifier = ">=2.20" },
+    { name = "joblib", specifier = ">=1.2.0" },
+    { name = "scikit-learn", specifier = ">=1.3.0" },
 ]
 
 [[package]]

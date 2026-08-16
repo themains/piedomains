@@ -21,7 +21,8 @@ logger = get_logger()
 #: Where the fine-tuned classifier lives. Overridable with
 #: ``PIEDOMAINS_TEXT_MODEL`` (a Hub repo id or a local directory), which is what
 #: `training/train_text.py` output is pointed at before it is published.
-DEFAULT_TEXT_MODEL = "soodoku/piedomains-text"
+DEFAULT_TEXT_MODEL = "gojiberries/piedomains-text"
+DEFAULT_TEXT_REVISION = "38d7e6403f911902f47b9218ce5c645a06dd02fe"
 
 
 def _pick_device() -> str:
@@ -57,7 +58,7 @@ def resolve_text_model(latest: bool = False) -> str:
     if configured:
         return str(configured)
     if latest:
-        logger.info("latest=True: re-resolving %s from the Hub", DEFAULT_TEXT_MODEL)
+        logger.info("latest=True: reloading pinned %s checkpoint", DEFAULT_TEXT_MODEL)
     return DEFAULT_TEXT_MODEL
 
 
@@ -112,16 +113,21 @@ class TextClassifier(Base):
             )
 
             source = resolve_text_model(latest)
-            self._tokenizer = AutoTokenizer.from_pretrained(source)
+            revision = DEFAULT_TEXT_REVISION if source == DEFAULT_TEXT_MODEL else None
+            self._tokenizer = AutoTokenizer.from_pretrained(source, revision=revision)
             self._model = AutoModelForSequenceClassification.from_pretrained(
-                source, config=eager_config(source)
+                source,
+                config=eager_config(source, revision=revision),
+                revision=revision,
             )
             self._model.eval()
             self._device = _pick_device()
             self._model.to(self._device)
 
-            self._labels = read_labels(source, self._model.config, classes)
-            self._temperature = read_temperature(source)
+            self._labels = read_labels(
+                source, self._model.config, classes, revision=revision
+            )
+            self._temperature = read_temperature(source, revision=revision)
 
             logger.info(
                 f"Loaded text model from {source} on {self._device}: "
