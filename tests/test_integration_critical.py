@@ -326,6 +326,15 @@ class TestCriticalIntegration(unittest.TestCase):
     @pytest.mark.ml
     def test_real_model_inference_basic(self):
         """Test actual model inference with real TensorFlow models (requires ML models)."""
+        # classify_by_text fetches the page, so this needs a browser. @skip_in_ci
+        # keeps it off CI, which installs none -- but it ran on a developer
+        # machine without them too, and failed rather than skipping while every
+        # other browser-dependent test in the suite skipped correctly.
+        from tests.conftest import browser_available
+
+        if not browser_available():
+            self.skipTest("Playwright browsers not available")
+
         classifier = DomainClassifier(cache_dir=self.temp_dir)
 
         # Test with a well-known domain that should classify successfully
