@@ -5,6 +5,7 @@ __pycache__/
 
 # Docs
 docs/build
+docs/_build/
 docs/source/_build
 _site/
 _doctest/
