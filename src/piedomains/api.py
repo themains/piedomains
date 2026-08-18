@@ -32,15 +32,16 @@ class DomainClassifier:
 
     Example (Traditional ML):
         >>> classifier = DomainClassifier()
-        >>> results = classifier.classify(["google.com", "facebook.com"])
-        >>> for result in results:
+        >>> run = classifier.classify(["google.com", "facebook.com"])
+        >>> for result in run["results"]:
         ...     print(f"{result['domain']}: {result['category']} ({result['confidence']:.3f})")
         google.com: search (0.892)
         facebook.com: socialnet (0.967)
 
         # Historical analysis
-        >>> results = classifier.classify(["google.com"], archive_date="20200101")
-        >>> print(f"Archive: {results[0]['category']} from {results[0]['date_time_collected']}")
+        >>> run = classifier.classify(["google.com"], archive_date="20200101")
+        >>> result = run["results"][0]
+        >>> print(f"Archive: {result['category']} from {result['date_time_collected']}")
 
     Example (LLM-based):
         >>> classifier = DomainClassifier()
@@ -61,7 +62,8 @@ class DomainClassifier:
         >>> # Same collected content, different classification approaches
 
     JSON Output Schema:
-        All classification methods return List[Dict] with consistent structure:
+        The core classification methods return a dictionary containing ``results``
+        and a run ``report``. Each row in ``results`` has a consistent structure:
 
         Collection Data Schema (from collect_content)::
 
@@ -351,7 +353,7 @@ class DomainClassifier:
             latest: Whether to download latest model versions (default: False)
 
         Returns:
-            list[dict]: Text classification results in JSON format with fields:
+            dict: ``{"results": [...], "report": {...}}``. Result rows contain:
                 - url: Original URL/domain input
                 - domain: Parsed domain name
                 - text_path: Path to collected HTML file
@@ -366,8 +368,9 @@ class DomainClassifier:
 
         Example:
             >>> classifier = DomainClassifier()
-            >>> results = classifier.classify_by_text(["wikipedia.org"])
-            >>> print(f"{results[0]['domain']}: {results[0]['category']} ({results[0]['confidence']:.3f})")
+            >>> run = classifier.classify_by_text(["wikipedia.org"])
+            >>> result = run["results"][0]
+            >>> print(f"{result['domain']}: {result['category']} ({result['confidence']:.3f})")
             wikipedia.org: education (0.823)
         """
         return self._run(domains, "text", archive_date, use_cache, latest)
@@ -391,7 +394,7 @@ class DomainClassifier:
             latest: Whether to download latest model versions (default: False)
 
         Returns:
-            list[dict]: Image classification results in JSON format with fields:
+            dict: ``{"results": [...], "report": {...}}``. Result rows contain:
                 - url: Original URL/domain input
                 - domain: Parsed domain name
                 - text_path: Path to collected HTML file (may be None)
@@ -406,8 +409,9 @@ class DomainClassifier:
 
         Example:
             >>> classifier = DomainClassifier()
-            >>> results = classifier.classify_by_images(["instagram.com"])
-            >>> print(f"{results[0]['domain']}: {results[0]['category']} ({results[0]['confidence']:.3f})")
+            >>> run = classifier.classify_by_images(["instagram.com"])
+            >>> result = run["results"][0]
+            >>> print(f"{result['domain']}: {result['category']} ({result['confidence']:.3f})")
             instagram.com: socialnet (0.912)
         """
         return self._run(domains, "images", archive_date, use_cache, latest)

@@ -325,28 +325,20 @@ class TestCriticalIntegration(unittest.TestCase):
     @skip_in_ci()
     @pytest.mark.ml
     def test_real_model_inference_basic(self):
-        """Test actual model inference with real TensorFlow models (requires ML models)."""
-        # classify_by_text fetches the page, so this needs a browser. @skip_in_ci
-        # keeps it off CI, which installs none -- but it ran on a developer
-        # machine without them too, and failed rather than skipping while every
-        # other browser-dependent test in the suite skipped correctly.
-        from tests.conftest import browser_available
+        """Run the published PyTorch checkpoint without depending on a live page."""
+        from piedomains.text import TextClassifier
 
-        if not browser_available():
-            self.skipTest("Playwright browsers not available")
+        classifier = TextClassifier(cache_dir=self.temp_dir)
+        classifier.load_models()
+        prediction = classifier._predict_text(
+            "wikipedia encyclopedia reference articles history science education"
+        )
 
-        classifier = DomainClassifier(cache_dir=self.temp_dir)
-
-        # Test with a well-known domain that should classify successfully
-        result = classifier.classify_by_text(["google.com"])
-
-        self.assertIsInstance(result, list)
-        self.assertEqual(len(result), 1)
-        self.assertEqual(result[0]["domain"], "google.com")
-        self.assertIsInstance(result[0]["category"], str)
-        self.assertIsInstance(result[0]["confidence"], float)
-        self.assertGreater(result[0]["confidence"], 0.0)
-        self.assertLessEqual(result[0]["confidence"], 1.0)
+        self.assertIsInstance(prediction["text_label"], str)
+        self.assertIsInstance(prediction["text_prob"], float)
+        self.assertGreater(prediction["text_prob"], 0.0)
+        self.assertLessEqual(prediction["text_prob"], 1.0)
+        self.assertAlmostEqual(sum(prediction["text_domain_probs"].values()), 1.0)
 
     def test_archive_date_validation(self):
         """Test archive date validation and error handling."""

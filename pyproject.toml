@@ -48,7 +48,7 @@ dependencies = [
     # tensorflow does not, which is why it is gone.
     "torch>=2.6.0",
     "transformers>=5.0.0",
-    "huggingface-hub>=0.23",
+    "huggingface-hub>=1.27.0",
     "safetensors>=0.4.5",
     "litellm>=1.55.0",
     "requests>=2.25.0",
