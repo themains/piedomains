@@ -69,8 +69,8 @@ class TestResizeForModel(unittest.TestCase):
     def test_is_deterministic(self):
         source = Image.effect_noise((1280, 1024), 40).convert("RGB")
         self.assertEqual(
-            list(resize_for_model(source).getdata()),
-            list(resize_for_model(source).getdata()),
+            resize_for_model(source).tobytes(),
+            resize_for_model(source).tobytes(),
         )
 
 

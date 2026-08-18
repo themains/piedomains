@@ -59,6 +59,31 @@ class TestTrainingScriptsShip(unittest.TestCase):
         self.assertTrue((kaggle / "train_image_kaggle.py").exists())
         self.assertTrue((kaggle / "push_kernel.py").exists())
 
+    def test_kaggle_model_override_carries_its_immutable_revision(self):
+        """A custom Hub repo must not inherit another model's commit SHA."""
+        from piedomains.training.kaggle.push_kernel import (
+            DEFAULT_SCRIPT,
+            build_source,
+        )
+
+        source = build_source(
+            None,
+            DEFAULT_SCRIPT,
+            image_model=("example/model", "deadbeef"),
+        )
+        self.assertIn(
+            "IMAGE_MODEL: tuple[str, str] | None = ('example/model', 'deadbeef')",
+            source,
+        )
+
+    def test_kaggle_model_override_requires_a_revision(self):
+        """The kernel generator refuses an unpinned Hub checkpoint."""
+        from piedomains.training.kaggle.push_kernel import main as push_kernel_main
+
+        with self.assertRaises(SystemExit) as caught:
+            push_kernel_main(["--image-model", "example/model", "--dry-run"])
+        self.assertEqual(caught.exception.code, 2)
+
     def test_missing_scripts_raise_rather_than_returning_a_dead_path(self):
         from unittest.mock import patch
 

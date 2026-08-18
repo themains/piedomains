@@ -225,12 +225,13 @@ class TestDomainClassifierLLM(unittest.TestCase):
 
     def test_configure_llm(self):
         """Test LLM configuration."""
-        self.classifier.configure_llm(
-            provider="openai",
-            model="gpt-4o",
-            api_key="test-key",
-            categories=["news", "tech"],
-        )
+        with patch("piedomains.llm_classifier.LLMClassifier._test_connection"):
+            self.classifier.configure_llm(
+                provider="openai",
+                model="gpt-4o",
+                api_key="test-key",
+                categories=["news", "tech"],
+            )
 
         self.assertIsNotNone(self.classifier._llm_config)
         self.assertIsNotNone(self.classifier._llm_classifier)

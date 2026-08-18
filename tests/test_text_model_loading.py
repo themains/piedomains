@@ -18,7 +18,11 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 from piedomains.checkpoints import read_labels, read_sidecar, read_temperature
-from piedomains.text import DEFAULT_TEXT_MODEL, resolve_text_model
+from piedomains.text import (
+    DEFAULT_TEXT_MODEL,
+    DEFAULT_TEXT_REVISION,
+    resolve_text_model,
+)
 
 
 class TestModelResolution(unittest.TestCase):
@@ -66,6 +70,24 @@ class TestSidecarFiles(unittest.TestCase):
             ) as download:
                 self.assertAlmostEqual(read_temperature("owner/model"), 3.4161)
             download.assert_called_once()
+
+    def test_hub_sidecar_uses_the_exact_revision(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            downloaded = Path(tmp) / "labels.json"
+            downloaded.write_text(json.dumps(["news"]))
+            with patch(
+                "huggingface_hub.hf_hub_download", return_value=str(downloaded)
+            ) as download:
+                read_sidecar(
+                    DEFAULT_TEXT_MODEL,
+                    "labels.json",
+                    revision=DEFAULT_TEXT_REVISION,
+                )
+            download.assert_called_once_with(
+                repo_id=DEFAULT_TEXT_MODEL,
+                filename="labels.json",
+                revision=DEFAULT_TEXT_REVISION,
+            )
 
     def test_absent_calibration_falls_back_to_no_scaling(self):
         with patch("huggingface_hub.hf_hub_download", side_effect=OSError("404")):

@@ -1,6 +1,9 @@
 [build-system]
-requires = ["hatchling", "uv-dynamic-versioning"]
-build-backend = "hatchling.build"
+requires = ["uv_build>=0.12.5,<0.13"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+source-exclude = ["src/piedomains/model/**"]
 
 [project]
 name = "piedomains"
@@ -36,25 +39,22 @@ classifiers = [
 ]
 requires-python = ">=3.11"
 dependencies = [
-    "pandas>=2.0.0",
     "numpy>=1.24.0",
     "beautifulsoup4>=4.10.0",
     "playwright>=1.40.0",
     "Pillow>=10.0.0",
-    "joblib>=1.2.0",
-    "tqdm>=4.64.0",
     "nltk>=3.8",
     # Inference for the fine-tuned text classifier. torch ships cp314 wheels;
     # tensorflow does not, which is why it is gone.
     "torch>=2.6.0",
-    "transformers>=4.48.0",
+    "transformers>=5.0.0",
+    "huggingface-hub>=0.23",
     "safetensors>=0.4.5",
     "litellm>=1.55.0",
     "requests>=2.25.0",
     "aiohttp>=3.8.0",
     "protego>=0.3.0",
     "warcio>=1.7.0",
-    "scikit-learn>=1.3.0",
     # CDX + Memento client for archive.org. Deps are only requests + urllib3,
     # both already pulled in above.
     "wayback>=0.5.1",
@@ -72,7 +72,7 @@ dependencies = [
     # 264 to 7.
     "trafilatura>=2.0",
 ]
-dynamic = ["version"]
+version = "0.14.0"
 
 [project.urls]
 Homepage = "https://github.com/themains/piedomains"
@@ -84,24 +84,7 @@ Changelog = "https://github.com/themains/piedomains/blob/main/CHANGELOG.md"
 [project.scripts]
 classify_domains = "piedomains.cli:main"
 
-[tool.hatch.build]
-exclude = [
-    "/.github",
-    "/.venv",
-    "/docs",
-    "/tests",
-    "/.gitignore",
-    "/.pre-commit-config.yaml",
-]
-
-[tool.hatch.build.targets.wheel]
-packages = ["src/piedomains"]
-
-
 # Ruff configuration
-
-[tool.hatch.version]
-source = "uv-dynamic-versioning"
 [tool.ruff]
 line-length = 88
 target-version = "py311"
@@ -140,6 +123,8 @@ python_functions = ["test_*"]
 addopts = [
     "-ra",
     "--strict-markers",
+    "-m",
+    "not live and not archive and not ml and not slow",
 ]
 markers = [
     "ml: marks tests that require ML models",
@@ -148,6 +133,7 @@ markers = [
     "integration: marks tests that exercise multiple components together",
     "archive: marks tests that hit archive.org",
     "llm: marks tests that exercise the LLM classifier",
+    "live: reaches Hugging Face and is deselected by default",
 ]
 
 # mypy configuration
@@ -173,21 +159,24 @@ extend_exclude = [
     "examples",
     "docs",
     "tests",
+    "src/piedomains/training",
+    "streamlit",
 ]
-pep621_dev_dependency_groups = ["test", "docs", "dev"]
 # Use per-rule ignores for specific dependency issues
 [tool.deptry.per_rule_ignores]
-DEP002 = ["scikit-learn"]  # Used via joblib for loading calibrated models
-DEP004 = ["pytest"]        # Test framework used in tests directory
+# Loaded by Transformers at inference time rather than imported directly here.
+DEP002 = ["safetensors", "torchvision"]
 
 [tool.deptry.package_module_name_map]
-pillow = "PIL"
+Pillow = "PIL"
 beautifulsoup4 = "bs4"
 scikit-learn = "sklearn"
 
 [tool.pyright]
 include = ["src"]
 typeCheckingMode = "standard"
+venvPath = "."
+venv = ".venv"
 
 [tool.pydoclint]
 style = "google"
@@ -196,10 +185,6 @@ check-return-types = false
 check-class-attributes = false
 allow-init-docstring = true
 exclude = '\.venv|tests|docs'
-
-[tool.uv-dynamic-versioning]
-vcs = "git"
-style = "pep440"
 
 [tool.preen]
 src_layout = true
@@ -253,6 +238,8 @@ docs = [
 train = [
     "datasets>=2.20",
     "accelerate>=0.34",
+    "joblib>=1.2.0",
+    "scikit-learn>=1.3.0",
 ]
 dev = [
     { include-group = "test" },
@@ -268,11 +255,10 @@ dev = [
 #
 #   ist          German -- "seite ist offline", a block-page phrase in blocking.py
 #   adresse, ans French -- a docstring example of French page text
-#   sav          the .sav extension of the committed calibrator files
 #   tabacco      inside a verbatim quotation of Shallalist's own category
 #                definition. Correcting it would misquote the source.
 #   unparseable  a valid spelling; codespell prefers the other one
-ignore-words-list = "ist,adresse,ans,sav,tabacco,unparseable"
+ignore-words-list = "ist,adresse,ans,tabacco,unparseable"
 # The corpora are domain names and scraped page text, where a "misspelling" is
 # usually just a real domain. Auto-correcting one would corrupt training data.
-skip = "*.csv,*.parquet,*.sav,*.joblib,./src/piedomains/model,./CHANGELOG.md,uv.lock"
+skip = "*.csv,*.parquet,*.joblib,./CHANGELOG.md,uv.lock"

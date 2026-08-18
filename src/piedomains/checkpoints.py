@@ -25,7 +25,9 @@ __all__ = ["eager_config", "read_labels", "read_sidecar", "read_temperature"]
 logger = get_logger()
 
 
-def read_sidecar(source: str, filename: str) -> dict | None:
+def read_sidecar(
+    source: str, filename: str, *, revision: str | None = None
+) -> dict | None:
     """Read a JSON file shipped alongside the weights.
 
     ``source`` is either a local directory or a Hub repo id, and the difference matters:
@@ -34,6 +36,7 @@ def read_sidecar(source: str, filename: str) -> dict | None:
     Args:
         source: Local directory or Hugging Face Hub repo id.
         filename: Sidecar file to read.
+        revision: Immutable Hub revision. Ignored for local directories.
 
     Returns:
         dict | None: The parsed contents, or ``None`` when absent.
@@ -44,19 +47,26 @@ def read_sidecar(source: str, filename: str) -> dict | None:
     if Path(source).exists():
         return None  # a real local directory that simply lacks the file
 
+    # `errors` does not export this in supported Hub 0.23; `utils` does in 0.23 and 1.x.
     from huggingface_hub import hf_hub_download  # pyright: ignore[reportMissingImports]
-    from huggingface_hub.errors import (  # pyright: ignore[reportMissingImports]
-        EntryNotFoundError,
+    from huggingface_hub.utils import (
+        EntryNotFoundError,  # pyright: ignore[reportPrivateImportUsage]
     )
 
     try:
-        path = hf_hub_download(repo_id=source, filename=filename)
+        path = hf_hub_download(repo_id=source, filename=filename, revision=revision)
     except (EntryNotFoundError, OSError, ValueError):
         return None
     return json.loads(Path(path).read_text(encoding="utf-8"))
 
 
-def read_labels(source: str, config: Any, fallback: list[str]) -> list[str]:
+def read_labels(
+    source: str,
+    config: Any,
+    fallback: list[str],
+    *,
+    revision: str | None = None,
+) -> list[str]:
     """Read class order for a checkpoint.
 
     ``labels.json`` is authoritative when present; otherwise the model's own ``id2label``
@@ -67,11 +77,12 @@ def read_labels(source: str, config: Any, fallback: list[str]) -> list[str]:
         source: Local directory or Hub repo id the model came from.
         config: The loaded model's config.
         fallback: Class list to use when the checkpoint carries no usable names.
+        revision: Immutable Hub revision. Ignored for local directories.
 
     Returns:
         list[str]: Category names in class-index order.
     """
-    payload = read_sidecar(source, "labels.json")
+    payload = read_sidecar(source, "labels.json", revision=revision)
     if payload:
         return list(payload)
 
@@ -88,16 +99,17 @@ def read_labels(source: str, config: Any, fallback: list[str]) -> list[str]:
     return list(fallback)
 
 
-def read_temperature(source: str) -> float:
+def read_temperature(source: str, *, revision: str | None = None) -> float:
     """Read the fitted calibration temperature.
 
     Args:
         source: Local directory or Hub repo id the model came from.
+        revision: Immutable Hub revision. Ignored for local directories.
 
     Returns:
         float: The temperature, or ``1.0`` (no scaling) when absent.
     """
-    payload = read_sidecar(source, "calibration.json")
+    payload = read_sidecar(source, "calibration.json", revision=revision)
     if payload:
         return float(payload.get("temperature", 1.0))
     logger.warning(
@@ -108,7 +120,7 @@ def read_temperature(source: str) -> float:
     return 1.0
 
 
-def eager_config(source: str) -> Any:
+def eager_config(source: str, *, revision: str | None = None) -> Any:
     """Load a model config with graph compilation switched off.
 
     ModernBERT compiles its encoder through TorchInductor, whose Triton backend requires
@@ -127,6 +139,7 @@ def eager_config(source: str) -> Any:
 
     Args:
         source: Local directory or Hugging Face Hub repo id.
+        revision: Immutable Hub revision. Ignored for local directories.
 
     Returns:
         Any: The config, with ``reference_compile`` disabled.
@@ -135,6 +148,6 @@ def eager_config(source: str) -> Any:
     from transformers import AutoConfig  # pyright: ignore[reportMissingImports]
 
     torch._dynamo.config.suppress_errors = True
-    config = AutoConfig.from_pretrained(source)
+    config = AutoConfig.from_pretrained(source, revision=revision)
     config.reference_compile = False
     return config

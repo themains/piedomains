@@ -20,14 +20,6 @@ piedomains.api module
    :show-inheritance:
    :undoc-members:
 
-piedomains.base module
-----------------------
-
-.. automodule:: piedomains.base
-   :members:
-   :show-inheritance:
-   :undoc-members:
-
 piedomains.cli module
 ---------------------
 

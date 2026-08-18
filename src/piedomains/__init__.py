@@ -21,8 +21,6 @@ if TYPE_CHECKING:
     from .text import TextClassifier
 
 try:
-    # The git tag is the version; uv-dynamic-versioning bakes it into the
-    # distribution metadata at build time. No version string lives in source.
     __version__ = version("piedomains")
 except PackageNotFoundError:  # pragma: no cover - running from a source tree
     __version__ = "0.0.0.dev0"

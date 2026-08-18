@@ -4,8 +4,20 @@
 [![PyPI Version](https://img.shields.io/pypi/v/piedomains.svg)](https://pypi.org/project/piedomains)
 [![Downloads](https://pepy.tech/badge/piedomains)](https://pepy.tech/project/piedomains)
 [![Documentation](https://img.shields.io/badge/docs-github.io-blue)](https://themains.github.io/piedomains/)
+[![Text model](https://img.shields.io/badge/%F0%9F%A4%97-text%20model-yellow)](https://huggingface.co/gojiberries/piedomains-text)
+[![Image model](https://img.shields.io/badge/%F0%9F%A4%97-image%20model-yellow)](https://huggingface.co/gojiberries/piedomains-image)
 
-## What's New in v0.12.0
+## What's New in v0.14.0
+
+- **Model weights live on Hugging Face, not in the Python wheel.** The text and image
+  checkpoints are fetched from the `gojiberries` organization at pinned commit SHAs,
+  while environment variables still allow local checkpoints during development.
+- **The wheel is small again.** Unused legacy TensorFlow SavedModels and pickle
+  calibrators are no longer packaged; the wheel is about 245 KB instead of 365 MB.
+- **Packaging follows py-canon.** `uv_build` now builds from an explicit project version,
+  and one trusted-publishing workflow handles PyPI and GitHub releases.
+
+## From v0.12.0
 
 - **The model was reading an alphabetised set of words.** The cleaner deduplicated tokens
   twice, sorted them alphabetically and stripped every non-Latin script — discarding 73% of

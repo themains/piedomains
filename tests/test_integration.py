@@ -283,14 +283,19 @@ class TestLoggingIntegration:
 class TestEndToEndWorkflows:
     """Test complete end-to-end workflows."""
 
-    @patch("requests.get")
-    def test_classification_workflow_mocked(self, mock_get):
+    @patch("piedomains.data_collector.DataCollector.collect")
+    def test_classification_workflow_mocked(self, mock_collect):
         """Test complete classification workflow with mocked dependencies."""
-        # Mock HTTP response
-        mock_response = Mock()
-        mock_response.text = "<html><body><h1>News Article</h1><p>Breaking news story...</p></body></html>"
-        mock_response.raise_for_status.return_value = None
-        mock_get.return_value = mock_response
+        mock_collect.return_value = {
+            "collection_id": "test",
+            "domains": [
+                {
+                    "domain": "example.com",
+                    "text_path": "html/example.com.html",
+                    "image_path": None,
+                }
+            ],
+        }
 
         with tempfile.TemporaryDirectory() as temp_dir:
             classifier = DomainClassifier(cache_dir=temp_dir)
@@ -320,10 +325,7 @@ class TestEndToEndWorkflows:
                 assert result is not None
                 assert len(result) == 1
                 assert result[0]["category"] == "news"
-                # Verify caching worked
-                cache_files = list(Path(temp_dir).glob("**/*.html"))
-                # Collection should have created cache files
-                assert len(cache_files) >= 0  # May or may not cache depending on mock
+                mock_collect.assert_called_once()
 
 
 if __name__ == "__main__":

@@ -34,7 +34,8 @@ logger = get_logger()
 
 #: Where the fine-tuned screenshot model lives. Overridable with
 #: ``PIEDOMAINS_IMAGE_MODEL`` (a Hub repo id or a local directory).
-DEFAULT_IMAGE_MODEL = "soodoku/piedomains-image"
+DEFAULT_IMAGE_MODEL = "gojiberries/piedomains-image"
+DEFAULT_IMAGE_REVISION = "2c5704bd8f3e81b81548f568b6f4b774fb093836"
 
 
 def resolve_image_model(latest: bool = False) -> str:
@@ -57,7 +58,7 @@ def resolve_image_model(latest: bool = False) -> str:
     if configured:
         return str(configured)
     if latest:
-        logger.info("latest=True: re-resolving %s from the Hub", DEFAULT_IMAGE_MODEL)
+        logger.info("latest=True: reloading pinned %s checkpoint", DEFAULT_IMAGE_MODEL)
     return DEFAULT_IMAGE_MODEL
 
 
@@ -104,14 +105,21 @@ class ImageClassifier:
             from .text import _pick_device
 
             source = resolve_image_model(latest)
-            self._processor = AutoImageProcessor.from_pretrained(source)
-            self._model = AutoModelForImageClassification.from_pretrained(source)
+            revision = DEFAULT_IMAGE_REVISION if source == DEFAULT_IMAGE_MODEL else None
+            self._processor = AutoImageProcessor.from_pretrained(
+                source, revision=revision
+            )
+            self._model = AutoModelForImageClassification.from_pretrained(
+                source, revision=revision
+            )
             self._model.eval()
             self._device = _pick_device()
             self._model.to(self._device)
 
-            self._labels = read_labels(source, self._model.config, classes)
-            self._temperature = read_temperature(source)
+            self._labels = read_labels(
+                source, self._model.config, classes, revision=revision
+            )
+            self._temperature = read_temperature(source, revision=revision)
 
             logger.info(
                 f"Loaded image model from {source} on {self._device}: "

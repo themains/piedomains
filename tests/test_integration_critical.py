@@ -55,7 +55,7 @@ class TestCriticalIntegration(unittest.TestCase):
             self.assertEqual(len(rm._temp_files), 0)
             self.assertEqual(len(rm._temp_dirs), 0)
 
-    @patch("piedomains.data_collector.DataCollector.collect")
+    @patch("piedomains.api.DomainClassifier.collect_content")
     @patch("piedomains.text.TextClassifier.classify_from_data")
     def test_domain_validation_edge_cases(self, mock_classify, mock_collect):
         """Test domain validation with edge cases and security inputs."""
@@ -128,7 +128,7 @@ class TestCriticalIntegration(unittest.TestCase):
                     # Should have meaningful error messages
                     self.assertIn("domain", str(e).lower())
 
-    @patch("piedomains.data_collector.DataCollector.collect")
+    @patch("piedomains.api.DomainClassifier.collect_content")
     @patch("piedomains.text.TextClassifier.classify_from_data")
     def test_batch_processing_memory_management(self, mock_classify, mock_collect):
         """Test batch processing doesn't leak memory."""
