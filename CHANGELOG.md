@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-08-17
+
+### Changed
+
+- Moved the default text and image checkpoints to the `gojiberries` Hugging Face
+  organization and pinned every runtime and training download to an immutable commit.
+  Aligned the fusion sidecar with the current 44-label runtime taxonomy and pinned
+  image-unsupported classes to text-only weights.
+  Removed the unused 491 MB TensorFlow SavedModels and their obsolete downloader from
+  the wheel.
+- Removed the bundled per-category pickle calibrators and their scikit-learn runtime
+  dependency; calibration metadata now travels with the Hugging Face checkpoints.
+- Raised the Transformers floor to 5.0, matching the version that wrote the published
+  checkpoints and their tokenizer metadata.
+- Replaced Hatchling and Git-derived versions with `uv_build` and an explicit project
+  version, matching the py-canon standard.
+- Consolidated publishing in `release.yml` and removed the legacy
+  `python-publish.yml` workflow.
+
 ## [0.13.0] - 2026-08-02
 
 ### The crawler identifies itself and obeys robots.txt

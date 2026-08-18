@@ -1970,6 +1970,7 @@ wheels = [
 
 [[package]]
 name = "piedomains"
+version = "0.14.0"
 source = { editable = "." }
 dependencies = [
     { name = "aiohttp" },
@@ -1978,7 +1979,6 @@ dependencies = [
     { name = "litellm" },
     { name = "nltk" },
     { name = "numpy" },
-    { name = "pandas" },
     { name = "pillow" },
     { name = "playwright" },
     { name = "protego" },
@@ -1986,7 +1986,6 @@ dependencies = [
     { name = "safetensors" },
     { name = "torch" },
     { name = "torchvision" },
-    { name = "tqdm" },
     { name = "trafilatura" },
     { name = "transformers" },
     { name = "warcio" },
@@ -2035,7 +2034,6 @@ requires-dist = [
     { name = "litellm", specifier = ">=1.55.0" },
     { name = "nltk", specifier = ">=3.8" },
     { name = "numpy", specifier = ">=1.24.0" },
-    { name = "pandas", specifier = ">=2.0.0" },
     { name = "pillow", specifier = ">=10.0.0" },
     { name = "playwright", specifier = ">=1.40.0" },
     { name = "protego", specifier = ">=0.3.0" },
@@ -2043,9 +2041,8 @@ requires-dist = [
     { name = "safetensors", specifier = ">=0.4.5" },
     { name = "torch", specifier = ">=2.6.0" },
     { name = "torchvision", specifier = ">=0.20" },
-    { name = "tqdm", specifier = ">=4.64.0" },
     { name = "trafilatura", specifier = ">=2.0" },
-    { name = "transformers", specifier = ">=4.48.0" },
+    { name = "transformers", specifier = ">=5.0.0" },
     { name = "warcio", specifier = ">=1.7.0" },
     { name = "wayback", specifier = ">=0.5.1" },
 ]

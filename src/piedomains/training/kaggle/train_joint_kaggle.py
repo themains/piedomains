@@ -48,7 +48,7 @@ TEXT_MODEL_DATASET = "piedomains-text-model"
 SPLITS_DATASET = "piedomains-text-v13"
 
 IMAGE_MODEL = "gojiberries/piedomains-image"
-IMAGE_MODEL_REVISION = "e751348e3ca57b24cb299db7c4ce87a924a91c21"
+IMAGE_MODEL_REVISION = "2c5704bd8f3e81b81548f568b6f4b774fb093836"
 
 IMAGE_SIZE = 224
 MAX_PER_CLASS = 3000
@@ -144,7 +144,7 @@ def setup() -> tuple[Path, Path, Path]:
             "pip",
             "install",
             "-q",
-            "transformers>=4.48",
+            "transformers>=5.0",
             "torchvision",
             "pillow",
             "requests",

@@ -47,9 +47,10 @@ def read_sidecar(
     if Path(source).exists():
         return None  # a real local directory that simply lacks the file
 
+    # `errors` does not export this in supported Hub 0.23; `utils` does in 0.23 and 1.x.
     from huggingface_hub import hf_hub_download  # pyright: ignore[reportMissingImports]
-    from huggingface_hub.errors import (  # pyright: ignore[reportMissingImports]
-        EntryNotFoundError,
+    from huggingface_hub.utils import (
+        EntryNotFoundError,  # pyright: ignore[reportPrivateImportUsage]
     )
 
     try:

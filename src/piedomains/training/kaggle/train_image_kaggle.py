@@ -113,14 +113,13 @@ BACKBONE = "google/siglip2-base-patch16-224"
 TEXT_MODEL = "gojiberries/piedomains-text"
 TEXT_MODEL_REVISION = "38d7e6403f911902f47b9218ce5c645a06dd02fe"
 
-#: Set this to a Hub repo to skip training and calibration and fuse an already-trained
-#: checkpoint instead. Fusion cannot be done locally -- the resized screenshots live in
-#: TEMP and die with the session -- so a fusion that fails for an avoidable reason
-#: otherwise costs a second full GPU run. The first one did: it pulled TEXT_MODEL from the
-#: Hub while a new text model was still uploading, compared the new flat class names
-#: against the old prefixed ones, and refused.
-IMAGE_MODEL: str | None = None  # e.g. "gojiberries/piedomains-image"
-IMAGE_MODEL_REVISION = "e751348e3ca57b24cb299db7c4ce87a924a91c21"
+#: Set this to a ``(Hub repo, commit SHA)`` pair to skip training and calibration and
+#: fuse an already-trained checkpoint instead. Fusion cannot be done locally -- the
+#: resized screenshots live in TEMP and die with the session -- so a fusion that fails
+#: for an avoidable reason otherwise costs a second full GPU run. The first one did: it
+#: pulled TEXT_MODEL from the Hub while a new text model was still uploading, compared
+#: the new flat class names against the old prefixed ones, and refused.
+IMAGE_MODEL: tuple[str, str] | None = None
 
 #: Name of the attached Dataset holding the current text splits. The image model must be
 #: aligned to *these*, not to an earlier version: re-preparing the text corpus reshuffled
@@ -210,7 +209,7 @@ def setup() -> Path:
             "pip",
             "install",
             "-q",
-            "transformers>=4.48",
+            "transformers>=5.0",
             "torchvision",
             "pillow",
             "requests",
@@ -637,10 +636,9 @@ def main() -> int:
     if IMAGE_MODEL:
         from huggingface_hub import snapshot_download
 
-        print(f"\nusing the published checkpoint {IMAGE_MODEL}; not training")
-        model = Path(
-            snapshot_download(repo_id=IMAGE_MODEL, revision=IMAGE_MODEL_REVISION)
-        )
+        image_repo, image_revision = IMAGE_MODEL
+        print(f"\nusing the published checkpoint {image_repo}; not training")
+        model = Path(snapshot_download(repo_id=image_repo, revision=image_revision))
     else:
         model = stage_two_train(data)
         stage_three_calibrate(data, model)

@@ -1,6 +1,9 @@
 [build-system]
-requires = ["hatchling", "uv-dynamic-versioning"]
-build-backend = "hatchling.build"
+requires = ["uv_build>=0.12.5,<0.13"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+source-exclude = ["src/piedomains/model/**"]
 
 [project]
 name = "piedomains"
@@ -36,17 +39,15 @@ classifiers = [
 ]
 requires-python = ">=3.11"
 dependencies = [
-    "pandas>=2.0.0",
     "numpy>=1.24.0",
     "beautifulsoup4>=4.10.0",
     "playwright>=1.40.0",
     "Pillow>=10.0.0",
-    "tqdm>=4.64.0",
     "nltk>=3.8",
     # Inference for the fine-tuned text classifier. torch ships cp314 wheels;
     # tensorflow does not, which is why it is gone.
     "torch>=2.6.0",
-    "transformers>=4.48.0",
+    "transformers>=5.0.0",
     "huggingface-hub>=0.23",
     "safetensors>=0.4.5",
     "litellm>=1.55.0",
@@ -71,7 +72,7 @@ dependencies = [
     # 264 to 7.
     "trafilatura>=2.0",
 ]
-dynamic = ["version"]
+version = "0.14.0"
 
 [project.urls]
 Homepage = "https://github.com/themains/piedomains"
@@ -83,24 +84,7 @@ Changelog = "https://github.com/themains/piedomains/blob/main/CHANGELOG.md"
 [project.scripts]
 classify_domains = "piedomains.cli:main"
 
-[tool.hatch.build]
-exclude = [
-    "/.github",
-    "/.venv",
-    "/docs",
-    "/tests",
-    "/.gitignore",
-    "/.pre-commit-config.yaml",
-]
-
-[tool.hatch.build.targets.wheel]
-packages = ["src/piedomains"]
-
-
 # Ruff configuration
-
-[tool.hatch.version]
-source = "uv-dynamic-versioning"
 [tool.ruff]
 line-length = 88
 target-version = "py311"
@@ -175,14 +159,16 @@ extend_exclude = [
     "examples",
     "docs",
     "tests",
+    "src/piedomains/training",
+    "streamlit",
 ]
-pep621_dev_dependency_groups = ["test", "docs", "dev"]
 # Use per-rule ignores for specific dependency issues
 [tool.deptry.per_rule_ignores]
-DEP004 = ["pytest"]        # Test framework used in tests directory
+# Loaded by Transformers at inference time rather than imported directly here.
+DEP002 = ["safetensors", "torchvision"]
 
 [tool.deptry.package_module_name_map]
-pillow = "PIL"
+Pillow = "PIL"
 beautifulsoup4 = "bs4"
 scikit-learn = "sklearn"
 
@@ -199,10 +185,6 @@ check-return-types = false
 check-class-attributes = false
 allow-init-docstring = true
 exclude = '\.venv|tests|docs'
-
-[tool.uv-dynamic-versioning]
-vcs = "git"
-style = "pep440"
 
 [tool.preen]
 src_layout = true

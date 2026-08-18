@@ -6,6 +6,8 @@ __pycache__/
 # Docs
 docs/build
 docs/source/_build
+_site/
+_doctest/
 
 # C extensions
 *.so
@@ -53,6 +55,7 @@ coverage.xml
 *.py,cover
 .hypothesis/
 .pytest_cache/
+.ruff_cache/
 
 # Translations
 *.mo

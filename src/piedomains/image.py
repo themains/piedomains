@@ -35,7 +35,7 @@ logger = get_logger()
 #: Where the fine-tuned screenshot model lives. Overridable with
 #: ``PIEDOMAINS_IMAGE_MODEL`` (a Hub repo id or a local directory).
 DEFAULT_IMAGE_MODEL = "gojiberries/piedomains-image"
-DEFAULT_IMAGE_REVISION = "e751348e3ca57b24cb299db7c4ce87a924a91c21"
+DEFAULT_IMAGE_REVISION = "2c5704bd8f3e81b81548f568b6f4b774fb093836"
 
 
 def resolve_image_model(latest: bool = False) -> str:

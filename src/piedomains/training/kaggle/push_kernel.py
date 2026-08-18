@@ -33,14 +33,16 @@ from pathlib import Path
 DEFAULT_SCRIPT = Path(__file__).parent / "train_image_kaggle.py"
 BACKBONE_LINE = re.compile(r'^BACKBONE = "[^"]+"$', re.MULTILINE)
 DATASET_LINE = re.compile(r'^DATASET = "[^"]+"$', re.MULTILINE)
-IMAGE_MODEL_LINE = re.compile(r"^IMAGE_MODEL: str \| None = .*$", re.MULTILINE)
+IMAGE_MODEL_LINE = re.compile(
+    r"^IMAGE_MODEL: tuple\[str, str\] \| None = .*$", re.MULTILINE
+)
 
 
 def build_source(
     backbone: str | None,
     script: Path,
     datasets: list[str] | None = None,
-    image_model: str | None = None,
+    image_model: tuple[str, str] | None = None,
 ) -> str:
     """Read the training script, swapping in the backbone and dataset being pushed.
 
@@ -58,8 +60,8 @@ def build_source(
         backbone: Hub id of the encoder to train, or ``None`` to keep the script's.
         script: The training script to wrap.
         datasets: Datasets being attached, ``owner/name``. The first one names the corpus.
-        image_model: Hub repo of a trained checkpoint to fuse instead of training, or
-            ``None`` to train.
+        image_model: Hub repo and immutable revision of a trained checkpoint to fuse
+            instead of training, or ``None`` to train.
 
     Returns:
         str: The script source to embed in the notebook.
@@ -86,10 +88,13 @@ def build_source(
     if image_model is not None:
         if not IMAGE_MODEL_LINE.search(source):
             raise SystemExit(f"no `IMAGE_MODEL` assignment found in {script}")
+        repo, revision = image_model
         source = IMAGE_MODEL_LINE.sub(
-            f'IMAGE_MODEL: str | None = "{image_model}"', source, count=1
+            f"IMAGE_MODEL: tuple[str, str] | None = ({repo!r}, {revision!r})",
+            source,
+            count=1,
         )
-        print(f'  IMAGE_MODEL = "{image_model}"  (skipping training)')
+        print(f"  IMAGE_MODEL = ({repo!r}, {revision!r})  (skipping training)")
 
     return source
 
@@ -167,6 +172,11 @@ def build_parser() -> argparse.ArgumentParser:
         "refit fusion without paying for a second GPU run.",
     )
     parser.add_argument(
+        "--image-revision",
+        default=None,
+        help="Immutable Hub commit SHA for --image-model.",
+    )
+    parser.add_argument(
         "--dry-run", action="store_true", help="Write the notebook but do not push"
     )
     return parser
@@ -184,11 +194,17 @@ def main(argv: list[str] | None = None) -> int:
     Raises:
         SystemExit: If the backbone cannot be substituted, or the Kaggle CLI is absent.
     """
-    args = build_parser().parse_args(argv)
+    parser = build_parser()
+    args = parser.parse_args(argv)
+    if (args.image_model is None) != (args.image_revision is None):
+        parser.error("--image-model and --image-revision must be used together")
     title = args.id.split("/")[-1]
-    source = build_source(
-        args.backbone, Path(args.script), args.dataset, args.image_model
+    image_model = (
+        (args.image_model, args.image_revision)
+        if args.image_model is not None
+        else None
     )
+    source = build_source(args.backbone, Path(args.script), args.dataset, image_model)
 
     match = re.search(r'^BACKBONE = "([^"]+)"$', source, re.MULTILINE)
     print(f"{title}: backbone {match.group(1) if match else 'unknown'}")

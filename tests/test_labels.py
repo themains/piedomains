@@ -134,7 +134,7 @@ class TestProjection(unittest.TestCase):
 
         manifest = Path("models/text-v5/labels.json")
         if not manifest.exists():
-            self.skipTest("shipped checkpoint not present locally")
+            self.skipTest("local training checkpoint not present")
         names, groups = project(json.loads(manifest.read_text()))
         self.assertEqual(sorted(set(names) - set(classes)), [])
         self.assertEqual(sorted(set(classes) - set(names)), ["unavailable"])

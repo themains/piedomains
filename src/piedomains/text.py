@@ -6,7 +6,6 @@ from datetime import UTC
 from pathlib import Path
 from typing import Any
 
-from .base import Base
 from .blocking import is_thin
 from .checkpoints import eager_config, read_labels, read_temperature
 from .config import get_config
@@ -62,11 +61,8 @@ def resolve_text_model(latest: bool = False) -> str:
     return DEFAULT_TEXT_MODEL
 
 
-class TextClassifier(Base):
+class TextClassifier:
     """Text-based domain content classifier."""
-
-    MODELFN = "model/shallalist"
-    model_file_name = "shallalist_v5_model.tar.gz"
 
     def __init__(self, cache_dir: str | None = None, archive_date: str | None = None):
         """Initialize text classifier.
