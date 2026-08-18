@@ -238,6 +238,7 @@ class TestCrawlSelection(unittest.TestCase):
 
 
 @pytest.mark.integration
+@pytest.mark.live
 class TestLive(unittest.TestCase):
     """Skips rather than fails: the index answered 1 of 5 probes during development."""
 

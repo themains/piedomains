@@ -67,16 +67,19 @@ class FusionWeights:
         return self.text[index]
 
 
-def load_fusion_weights(source: str) -> FusionWeights | None:
+def load_fusion_weights(
+    source: str, *, revision: str | None = None
+) -> FusionWeights | None:
     """Read fitted fusion weights shipped alongside a model.
 
     Args:
         source: Local directory or Hub repo id holding ``fusion.json``.
+        revision: Immutable Hub revision. Ignored for local directories.
 
     Returns:
         FusionWeights | None: The weights, or ``None`` when absent.
     """
-    payload = read_sidecar(source, "fusion.json")
+    payload = read_sidecar(source, "fusion.json", revision=revision)
     if not payload:
         return None
     return FusionWeights(

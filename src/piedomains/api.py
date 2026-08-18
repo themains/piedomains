@@ -694,9 +694,18 @@ class DomainClassifier:
         text_rows = text_classifier.classify_from_data(collection_data, None, latest)
 
         try:
-            from .image import ImageClassifier, resolve_image_model
+            from .image import (
+                DEFAULT_IMAGE_MODEL,
+                DEFAULT_IMAGE_REVISION,
+                ImageClassifier,
+                resolve_image_model,
+            )
 
-            weights = load_fusion_weights(resolve_image_model(latest))
+            image_source = resolve_image_model(latest)
+            revision = (
+                DEFAULT_IMAGE_REVISION if image_source == DEFAULT_IMAGE_MODEL else None
+            )
+            weights = load_fusion_weights(image_source, revision=revision)
             if weights is None:
                 logger.info(
                     "No fusion weights published for the screenshot model; "

@@ -151,7 +151,7 @@ def setup() -> Path:
     if missing:
         raise SystemExit(f"branch {BRANCH!r} is missing {missing}; push it first")
 
-    run([sys.executable, "-m", "pip", "install", "-q", "transformers>=4.48", "tqdm"])
+    run([sys.executable, "-m", "pip", "install", "-q", "transformers>=5.0", "tqdm"])
 
     src = repo / "src"
     existing = os.environ.get("PYTHONPATH", "")

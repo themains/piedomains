@@ -125,7 +125,8 @@ class TestNewAPIIntegration(unittest.TestCase):
             }
         ]
 
-        result = self.classifier.classify(["example.com"])["results"]
+        with patch("piedomains.fusion.load_fusion_weights", return_value=None):
+            result = self.classifier.classify(["example.com"])["results"]
 
         self.assertEqual(len(result), 1)
         self.assertEqual(result[0]["domain"], "example.com")
@@ -294,8 +295,12 @@ class TestAPIErrorHandling(unittest.TestCase):
         mock_classify.side_effect = Exception("Model loading failed")
 
         # Should not raise, but return empty list or handle gracefully
+        collection = {"domains": [{"domain": "example.com"}]}
         try:
-            result = self.classifier.classify_by_text(["example.com"])
+            with patch.object(
+                self.classifier, "collect_content", return_value=collection
+            ):
+                result = self.classifier.classify_by_text(["example.com"])
             # Result should still be a list (might be empty or contain error info)
             self.assertIsInstance(result, list)
         except Exception:
@@ -341,7 +346,17 @@ class TestAPIErrorHandling(unittest.TestCase):
         ]
         mock_image_classify.return_value = mock_image_result
 
-        result = self.classifier.classify(["example.com", "failed.com"])["results"]
+        collection = {
+            "domains": [
+                {"domain": "example.com"},
+                {"domain": "failed.com"},
+            ]
+        }
+        with (
+            patch.object(self.classifier, "collect_content", return_value=collection),
+            patch("piedomains.fusion.load_fusion_weights", return_value=None),
+        ):
+            result = self.classifier.classify(["example.com", "failed.com"])["results"]
 
         # Should handle partial failures gracefully
         self.assertEqual(len(result), 2)

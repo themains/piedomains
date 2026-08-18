@@ -12,7 +12,6 @@ from urllib.parse import urlparse
 from bs4 import BeautifulSoup
 
 # from selenium import webdriver  # Removed - using Playwright now
-from .base import Base
 from .constants import most_common_words
 from .piedomains_logging import get_logger
 
@@ -48,11 +47,9 @@ def _initialize_nltk():
 """
 
 
-class Piedomain(Base):
+class Piedomain:
     """Legacy engine retained for its input validators."""
 
-    MODELFN = "model/shallalist"
-    model_file_name = "shallalist_v5_model.tar.gz"
     weights_loaded = False
     img_width = 254
     img_height = 254

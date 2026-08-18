@@ -10,6 +10,8 @@ import os
 import tempfile
 import unittest
 
+import pytest
+
 from piedomains import DomainClassifier
 from piedomains.fetchers import ArchiveFetcher
 from tests.conftest import skip_in_ci
@@ -29,6 +31,7 @@ class TestArchiveBatch(unittest.TestCase):
         if os.path.exists(self.temp_dir):
             shutil.rmtree(self.temp_dir)
 
+    @pytest.mark.archive
     @skip_in_ci()
     def test_archive_fetcher_batch_basic(self):
         """Test basic batch functionality with real archive.org URLs."""
@@ -90,6 +93,7 @@ class TestArchiveBatch(unittest.TestCase):
         self.assertIn("memento_calls_per_second", fetcher1._session_kwargs)
         self.assertGreater(fetcher1.search_window.days, 0)
 
+    @pytest.mark.archive
     def test_domain_classifier_with_archive_batch(self):
         """Test high-level API with archive batch processing."""
         classifier = DomainClassifier(cache_dir=self.temp_dir)

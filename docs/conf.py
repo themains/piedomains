@@ -11,7 +11,7 @@ configure(globals())
 napoleon_use_ivar = True
 
 # Do not auto-execute bare ">>>" blocks. The API docstrings use them to
-# illustrate usage — classifying a live domain, downloading a 491MB model,
+# illustrate usage — classifying a live domain, downloading a remote checkpoint,
 # calling an LLM — none of which can or should run in a docs build; all 103 of
 # them failed with NameError because each example is a fragment, not a script.
 #

@@ -47,7 +47,8 @@ TEMP = Path("/kaggle/temp")
 TEXT_MODEL_DATASET = "piedomains-text-model"
 SPLITS_DATASET = "piedomains-text-v13"
 
-IMAGE_MODEL = "soodoku/piedomains-image"
+IMAGE_MODEL = "gojiberries/piedomains-image"
+IMAGE_MODEL_REVISION = "2c5704bd8f3e81b81548f568b6f4b774fb093836"
 
 IMAGE_SIZE = 224
 MAX_PER_CLASS = 3000
@@ -143,7 +144,7 @@ def setup() -> tuple[Path, Path, Path]:
             "pip",
             "install",
             "-q",
-            "transformers>=4.48",
+            "transformers>=5.0",
             "torchvision",
             "pillow",
             "requests",
@@ -336,7 +337,7 @@ def main() -> int:
 
     from huggingface_hub import snapshot_download
 
-    image_model = snapshot_download(repo_id=IMAGE_MODEL)
+    image_model = snapshot_download(repo_id=IMAGE_MODEL, revision=IMAGE_MODEL_REVISION)
     print(f"image model at {image_model}")
 
     images = build_images(splits)
