@@ -196,6 +196,9 @@ src_layout = true
 #                  box.local, secret.onion, custom.url -- fixture hosts in
 #                  tests/ (robots downloads are faked, throttle never
 #                  fetches), not links anyone can follow
+#   monster.com    a FetchResult literal in test_archive_fallback.py, never
+#                  fetched; behind DataDome, whose bot wall trips link
+#                  checkers (SSL/403) though the site is fine for humans
 #   a base URL     raw.githubusercontent.com/Azothyran/ShallalistMirror is
 #                  LABEL_MIRROR in training/prepare_text.py, and the code
 #                  appends a category path. Bare it 404s; with a path it
@@ -207,6 +210,7 @@ link_ignore = [
     "//a\\.com",
     "//b\\.com",
     "//x\\.com",
+    "monster\\.com",
     "other\\.com",
     "valid\\.com",
     "box\\.local",
