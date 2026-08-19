@@ -100,13 +100,13 @@ Start with these verified safe domains:
 
 ```python
 safe_domains = [
-    "wikipedia.org",      # Education
-    "github.com",         # Technology
+    "wikipedia.org",  # Education
+    "github.com",  # Technology
     "stackoverflow.com",  # Forum
-    "bbc.com",           # News
-    "amazon.com",        # Shopping
-    "python.org",        # Technology
-    "google.com",        # Search
+    "bbc.com",  # News
+    "amazon.com",  # Shopping
+    "python.org",  # Technology
+    "google.com",  # Search
 ]
 ```
 
