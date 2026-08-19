@@ -245,6 +245,9 @@ train = [
 ]
 dev = [
     { include-group = "test" },
+    # The reusable CI lint job syncs only dev+test, and pyright type-checks
+    # src/piedomains/training/, so its imports must resolve from dev.
+    { include-group = "train" },
     "ruff>=0.14",
     "pyright>=1.1.390",
     "pydoclint>=0.5",
