@@ -254,26 +254,22 @@ safe_domains = [
     "wikipedia.org",
     "khanacademy.org",
     "coursera.org",
-
     # Technology
     "github.com",
     "stackoverflow.com",
     "python.org",
-
     # News (reputable)
     "bbc.com",
     "reuters.com",
     "cnn.com",
-
     # E-commerce (major)
     "amazon.com",
     "ebay.com",
     "apple.com",
-
     # Search engines
     "google.com",
     "bing.com",
-    "duckduckgo.com"
+    "duckduckgo.com",
 ]
 ```
 
@@ -287,11 +283,11 @@ from piedomains import DomainClassifier
 classifier = DomainClassifier()
 
 # Safer: text-only analysis
-result = classifier.classify_by_text(['unknown-domain.com'])
+result = classifier.classify_by_text(["unknown-domain.com"])
 
 # Only take screenshots if text analysis shows safe category
-if result.iloc[0]['pred_label'] in ['education', 'news', 'government']:
-    result = classifier.classify(['unknown-domain.com'])  # Full analysis
+if result.iloc[0]["pred_label"] in ["education", "news", "government"]:
+    result = classifier.classify(["unknown-domain.com"])  # Full analysis
 ```
 
 ### Progressive Security Approach
@@ -319,6 +315,7 @@ import tempfile
 import os
 from pathlib import Path
 
+
 def classify_in_docker(domains, output_file):
     """Run classification in Docker container."""
 
@@ -339,21 +336,30 @@ except Exception as e:
     pd.DataFrame({{'domain': domains, 'error': str(e)}}).to_csv('/app/output/errors.csv')
 """
 
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False) as f:
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False) as f:
         f.write(script_content)
         temp_script = f.name
 
     try:
         # Run in Docker
-        subprocess.run([
-            "docker", "run", "--rm",
-            "-v", f"{temp_script}:/app/classify.py",
-            "-v", f"{os.getcwd()}/output:/app/output",
-            "piedomains-sandbox",
-            "python", "/app/classify.py"
-        ], check=True)
+        subprocess.run(
+            [
+                "docker",
+                "run",
+                "--rm",
+                "-v",
+                f"{temp_script}:/app/classify.py",
+                "-v",
+                f"{os.getcwd()}/output:/app/output",
+                "piedomains-sandbox",
+                "python",
+                "/app/classify.py",
+            ],
+            check=True,
+        )
     finally:
         os.unlink(temp_script)
+
 
 if __name__ == "__main__":
     import sys
