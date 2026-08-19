@@ -192,9 +192,13 @@ src_layout = true
 # full URL here is itself extracted and checked, so the note would recreate the
 # problem it documents.
 #
-#   test fixtures  test.org, a.com, b.com, other.com, valid.com, box.local,
-#                  secret.onion, custom.url -- invented hosts in tests/, not
-#                  links anyone can follow
+#   test fixtures  test.org, a.com, b.com, x.com, other.com, valid.com,
+#                  box.local, secret.onion, custom.url -- fixture hosts in
+#                  tests/ (robots downloads are faked, throttle never
+#                  fetches), not links anyone can follow
+#   monster.com    a FetchResult literal in test_archive_fallback.py, never
+#                  fetched; behind DataDome, whose bot wall trips link
+#                  checkers (SSL/403) though the site is fine for humans
 #   a base URL     raw.githubusercontent.com/Azothyran/ShallalistMirror is
 #                  LABEL_MIRROR in training/prepare_text.py, and the code
 #                  appends a category path. Bare it 404s; with a path it
@@ -205,6 +209,8 @@ link_ignore = [
     "test\\.org",
     "//a\\.com",
     "//b\\.com",
+    "//x\\.com",
+    "monster\\.com",
     "other\\.com",
     "valid\\.com",
     "box\\.local",
@@ -243,6 +249,9 @@ train = [
 ]
 dev = [
     { include-group = "test" },
+    # The reusable CI lint job syncs only dev+test, and pyright type-checks
+    # src/piedomains/training/, so its imports must resolve from dev.
+    { include-group = "train" },
     "ruff>=0.14",
     "pyright>=1.1.390",
     "pydoclint>=0.5",

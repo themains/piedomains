@@ -19,5 +19,6 @@ jobs:
     uses: gojiplus/py-canon/.github/workflows/reusable-ci.yml@v1
     with:
       wheel-import: piedomains
-      coverage-floor: 0
+      coverage-floor: 43
       python-versions: '["3.11", "3.14"]'
+      run-preen: true
