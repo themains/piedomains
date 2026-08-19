@@ -204,7 +204,9 @@ old_run = classifier.classify(["facebook.com"], archive_date="20100101")
 # Batch processing with archive.org (respects rate limits)
 domains = ["google.com", "wikipedia.org", "cnn.com"]
 collector = DataCollector(archive_date="20050101")
-collection = collector.collect_batch(domains, batch_size=10)  # Archive.org uses conservative defaults
+collection = collector.collect_batch(
+    domains, batch_size=10
+)  # Archive.org uses conservative defaults
 historical_results = classifier.classify_from_collection(collection, method="text")
 ```
 
@@ -243,7 +245,7 @@ classifier.configure_llm(
     provider="openai",
     model="gpt-4o",
     api_key="sk-...",
-    categories=["news", "shopping", "social", "tech"]
+    categories=["news", "shopping", "social", "tech"],
 )
 
 # LLM-powered classification
@@ -251,8 +253,7 @@ result = classifier.classify_by_llm(["example.com"])
 
 # With custom instructions
 result = classifier.classify_by_llm(
-    ["site.com"],
-    custom_instructions="Classify by educational value"
+    ["site.com"], custom_instructions="Classify by educational value"
 )
 ```
 
