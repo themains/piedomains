@@ -1,4 +1,6 @@
-# piedomains: Classify website content using ML Models or LLMs
+# piedomains
+
+Guess what a website is about from its homepage.
 
 [![CI](https://github.com/themains/piedomains/actions/workflows/ci.yml/badge.svg)](https://github.com/themains/piedomains/actions/workflows/ci.yml)
 [![PyPI Version](https://img.shields.io/pypi/v/piedomains.svg)](https://pypi.org/project/piedomains)
@@ -7,103 +9,132 @@
 [![Text model](https://img.shields.io/badge/%F0%9F%A4%97-text%20model-yellow)](https://huggingface.co/gojiberries/piedomains-text)
 [![Image model](https://img.shields.io/badge/%F0%9F%A4%97-image%20model-yellow)](https://huggingface.co/gojiberries/piedomains-image)
 
-## What's New in v0.14.0
+Give it a list of domains. It fetches each homepage, reads the text, and returns
+one of 44 categories with a calibrated probability.
 
-- **Model weights live on Hugging Face, not in the Python wheel.** The text and image
-  checkpoints are fetched from the `gojiberries` organization at pinned commit SHAs,
-  while environment variables still allow local checkpoints during development.
-- **The wheel is small again.** Unused legacy TensorFlow SavedModels and pickle
-  calibrators are no longer packaged; the wheel is about 245 KB instead of 365 MB.
-- **Packaging follows py-canon.** `uv_build` now builds from an explicit project version,
-  and one trusted-publishing workflow handles PyPI and GitHub releases.
+```python
+from piedomains import DomainClassifier
 
-## From v0.12.0
+classifier = DomainClassifier()
+run = classifier.classify(["cnn.com", "wikipedia.org"])
 
-- **The model was reading an alphabetised set of words.** The cleaner deduplicated tokens
-  twice, sorted them alphabetically and stripped every non-Latin script — discarding 73% of
-  all words. Term frequency, word order and non-English text are all restored.
-- **`parked` is a category.** Domain-parking placeholders were 7.9% of the training corpus
-  and **42% of the `drugs` class**, so the model had learned that "this domain is for sale"
-  *means* drugs. It now scores **F1 0.992**, the best class in the model.
-- **Curlie agreement 0.529 → 0.543** on 155 popular domains with independent human labels,
-  and calibration ECE **0.149 → 0.010**. Blockable-category predictions on Tranco-top-100k
-  fall from 13% to 9%.
-- **Two plausible ideas that measurement rejected**: stripping standalone punctuation made
-  things worse (Curlie 0.543 → 0.523), and an earlier claim in this repo that trafilatura
-  was the weaker extractor turned out to be measured wrong.
+for r in run["results"]:
+    if r["status"] == "ok":
+        print(f"{r['domain']:16s} {r['category']:10s} {r['confidence']:.3f}")
+    else:
+        print(f"{r['domain']:16s} failed: {r['error_code']}")
 
-- **The screenshot model was retrained** on splits aligned to the current text corpus:
-  0.339 accuracy / 0.284 macro-F1 on screenshots captured today, against the previous
-  model's 0.290 / 0.214 on the same 124 domains. Still far below text, still opt-in.
-- **And it now works on pages with no text**, which are the pages it is for. A page below
-  the token floor used to fail before its screenshot was taken, so `classify_by_images()`
-  returned nothing for `espn.com` — 11 words of text and a complete homepage.
-- **The ensemble was built and not shipped.** Four ways of combining the two models were
-  measured; all four were worse than text alone. The numbers are in the changelog.
+# cnn.com          news       0.712
+# wikipedia.org    library    0.554
+```
 
-**Breaking:** the label set is 47 — `ringtones` out (it fell below the training floor once
-parking pages were relabelled out of it), `parked` in.
+A domain that could not be fetched comes back with `category` set to `None` and
+a reason in `error_code`, so check `status` before reading a label.
 
-## From v0.11.0
-
-- **Screenshot classification returned, opt-in.** `classify_by_images()` had raised since
-  0.8.0; it now runs a fine-tuned, temperature-calibrated SigLIP2 model. It scores well
-  below the text model either way — see above for the current figures.
-- **The training scripts ship with the package** as `piedomains.training`. Every number
-  here comes out of one of them; `classify_domains --training-scripts` prints where.
-
-## From v0.10.0
-
-- **A taxonomy that asks answerable questions.** Classes describing *how a site is built
-  and monetised* (`adv`, `tracker`, `spyware`, `redirector`) are gone — a page does not
-  state them, and they caused a third of all errors. `recreation` and `hobby` are split
-  into their subcategories; `porn`/`sex`/`models` merge into `adult`.
-- **Accuracy 0.627 → 0.725** on the evaluation set across the last two releases,
-  macro-F1 0.602 → 0.705.
-- **Confidence is a real probability**: temperature-scaled softmax, rather than 39
-  per-class isotonic regressions applied elementwise and never renormalized.
-- **TensorFlow is gone**, so Python 3.14 works.
-- **Failures are named.** Every row carries a stable `error_code`; the run report
-  aggregates by reason, stage and source.
-
-**Partly multilingual.** The training corpus is overwhelmingly English, so non-English
-pages classify at 0.667 accuracy against 0.738 for English. Usable but not equal, and
-closing the gap needs multilingual training data rather than a multilingual encoder alone.
-
-**Breaking:** the label set is 44 classes, not 39, and some names changed
-(`porn`→`adult`, `recreation`→`sports`). See the
-[changelog](https://github.com/themains/piedomains/blob/main/CHANGELOG.md).
-
-## Installation
+## Install
 
 ```bash
 pip install piedomains
 ```
 
-Requires Python 3.11+ (3.14 supported).
+Python 3.11 or newer. The wheel is about 245 KB; model weights download from
+Hugging Face on first use and cache locally.
 
-## Basic Usage
+Live pages render in headless Chromium, so install the browser once:
 
-```python
-from piedomains import DomainClassifier, DataCollector
-
-classifier = DomainClassifier()
-run = classifier.classify(["cnn.com", "amazon.com", "wikipedia.org"])
-
-for result in run["results"]:
-    print(f"{result['domain']}: {result['category']} ({result['confidence']:.3f})")
-
-# Output:
-# cnn.com: news (0.876)
-# amazon.com: shopping (0.923)
-# wikipedia.org: education (0.891)
+```bash
+playwright install chromium
 ```
 
-## Knowing What Failed
+Archived pages are fetched over plain HTTP and need no browser.
 
-Every call returns both the per-domain rows and a run report, so a long URL list
-never fails silently. Each row carries a machine-readable `status`, the `stage` it
-reached, and a stable `error_code`:
+## How accurate it is
+
+Read this before you trust a label. These are the numbers the two shipped
+checkpoints report for themselves, on documents held out of their own training:
+
+| model | accuracy | macro-F1 | held-out n | calibration error |
+|---|---|---|---|---|
+| text (the default) | 0.818 | 0.758 | 4,382 | 0.017 |
+| screenshots (opt-in) | 0.501 | 0.370 | 4,451 | 0.014 |
+
+Both benchmarks are held-out splits of the training corpus, so they share its
+distribution and its labeling conventions. Expect worse on domains that look
+nothing like it. The last check against labels this project did not write, an
+agreement test on 155 popular domains cross-referenced with Curlie, scored 0.543
+on the previous checkpoint. Read the table as an in-distribution ceiling rather
+than what you will see on an arbitrary crawl.
+
+Accuracy is also very uneven across the 44 classes. The text model scores F1
+0.99 on `parked` and 0.97 on `science` and `religion`, against 0.15 on
+`urlshortener`, 0.33 on `library`, 0.37 on `socialnet`, and 0.45 on `shopping`.
+Two of those weak classes are the answers in the example above, which is a fair
+warning about how much to read into a single label.
+
+Confidence is worth reading. Temperature scaling brings calibration error to
+0.017 for text, which means a batch of predictions at 0.7 is right about 70% of
+the time. Plenty of domains come back below 0.5, and those are close to guesses.
+
+The training corpus is overwhelmingly English, and non-English pages score
+measurably worse. Usable, not equal.
+
+Every number above comes from the pinned checkpoints and can be read back:
+
+```python
+import json
+from huggingface_hub import hf_hub_download
+from piedomains.text import DEFAULT_TEXT_MODEL, DEFAULT_TEXT_REVISION
+
+path = hf_hub_download(
+    DEFAULT_TEXT_MODEL, "test_metrics.json", revision=DEFAULT_TEXT_REVISION
+)
+print(json.load(open(path))["accuracy"])
+```
+
+## What you get back
+
+Every call returns per-domain rows and a run report:
+
+```python
+run = classifier.classify(["cnn.com"])
+row = run["results"][0]
+```
+
+```json
+{
+  "domain": "cnn.com",
+  "category": "news",
+  "confidence": 0.712,
+  "categories": [
+    {"category": "news", "probability": 0.712},
+    {"category": "radiotv", "probability": 0.218}
+  ],
+  "raw_predictions": {"news": 0.712, "radiotv": 0.218, "movies": 0.026, "...": "all 44"},
+  "model_used": "text/shallalist_ml",
+  "source": "live",
+  "snapshot_timestamp": null,
+  "status": "ok",
+  "stage": "infer",
+  "error_code": null,
+  "retryable": false
+}
+```
+
+`category` is the argmax and `confidence` is its probability.
+
+The label set is not mutually exclusive. `shopping` says what a site does,
+`automobile` says what it is about, and a car dealership is honestly both, so
+`categories` reports every label above a probability floor. About 65% of domains
+get exactly one; only ambiguous ones get two. Reporting a second label raises the
+chance of covering the right answer from 79.7% to 86.6%, measured on 4,673
+held-out documents. Whether that second label is itself correct is not something
+the evaluation data can answer, because its gold labels are single-label. Treat
+it as a candidate, not a finding.
+
+## Knowing what failed
+
+A long domain list never fails silently. Each row carries a `status`, the `stage`
+it reached, and a stable `error_code`, and the report aggregates them:
 
 ```python
 run = classifier.classify(open("domains.txt").read().split())
@@ -113,30 +144,51 @@ print(run["report"])
 #  'by_reason': {'dns_error': 12, 'timeout': 9, 'cannot_classify': 11, 'thin_content': 7},
 #  'by_stage': {'fetch': 32, 'infer': 7},
 #  'by_source': {'live': 448, 'archive': 13},
-#  'missing': ['foo.com', 'bar.org', ...],
-#  'started_at': ..., 'finished_at': ..., 'elapsed_ms': 184203}
+#  'missing': ['foo.com', 'bar.org'],
+#  'elapsed_ms': 184203}
 
-# Retry only what is worth retrying
 retry = [r["domain"] for r in run["results"] if r.get("retryable")]
 ```
 
-`error_code` is a closed, stable set — safe to group on: `invalid_domain`,
-`dns_error`, `connection_error`, `timeout`, `http_error`, `robots_blocked`,
+`error_code` is a closed set, safe to group on: `invalid_domain`, `dns_error`,
+`connection_error`, `timeout`, `http_error`, `robots_blocked`,
 `content_type_rejected`, `content_too_large`, `no_archive_snapshot`,
 `archive_rate_limited`, `empty_text`, `missing_input_path`, `missing_screenshot`,
 `model_load_error`, `model_error`, `llm_error`, `bot_blocked`, `thin_content`,
-`cannot_classify`, `unknown`.
+`cannot_classify`, `unknown`. Branch on `cannot_classify` when you do not want to
+enumerate every cause.
 
-`cannot_classify` is the umbrella terminal state: branch on it when you do not want
-to enumerate every cause.
+## Command line
 
-## Bot Walls
+```bash
+classify_domains --file domains.txt --output json --report run-report.json
+# stdout: {"results": [...], "report": {...}}
+# stderr: 461/500 classified, 39 failed (run 8fe4cc80eeb5)
+#           dns_error: 12
+#           timeout: 9
+```
+
+Exit status is non-zero if any domain failed. `--method` takes `text` (the
+default), `images`, or `combined`. `--archive-date YYYYMMDD` classifies an
+archived snapshot instead of the live page.
+
+For pipelines, opt into JSON logs. Every record carries the `run_id`, plus
+`domain`, `stage`, and `error_code` where relevant, so logs join against the
+report:
+
+```bash
+PIEDOMAINS_LOG_FORMAT=json classify_domains --file domains.txt
+# {"ts":"...","level":"ERROR","run_id":"8fe4cc80eeb5","domain":"foo.com",
+#  "stage":"fetch","error_code":"timeout","msg":"navigation timed out"}
+```
+
+## Bot walls
 
 Roughly one domain in seven serves an anti-bot interstitial rather than a page.
-Changing the user-agent does not help — DataDome and Cloudflare fingerprint headless
-Chromium itself — so `piedomains` detects the interstitial and refetches the page from
-archive.org, which already has it. No evasion, and no challenge page classified as
-though it were the site.
+Changing the user-agent does not help, because DataDome and Cloudflare
+fingerprint headless Chromium itself. So piedomains detects the interstitial and
+refetches the page from archive.org, which already has it. No evasion, and no
+challenge page classified as though it were the site.
 
 ```python
 run = classifier.classify(["etsy.com", "reuters.com", "indeed.com"])
@@ -148,85 +200,47 @@ for r in run["results"]:
 ```
 
 A capture older than `archive_max_age_days` (default 365) is refused rather than
-passed off as the live page; those domains report `cannot_classify`. Set
+passed off as the live page, and those domains report `cannot_classify`. Set
 `archive_fallback=False` to turn this off and have blocked domains report
-`bot_blocked` instead.
+`bot_blocked`.
 
-From the command line:
+## Crawling politely
 
-```bash
-classify_domains --file domains.txt --output json --report run-report.json
-# stdout: {"results": [...], "report": {...}}
-# stderr: 461/500 classified, 39 failed (run 8fe4cc80eeb5)
-#           dns_error: 12
-#           timeout: 9
-# exit status is non-zero if any domain failed
-```
+The fetcher reads robots.txt through `protego`, Scrapy's parser, and obeys it
+before making any other request. It throttles per host and bounds concurrency.
+Its user-agent names the package and carries a contact URL.
 
-### Structured logs
+Robots failures are directional. A 5xx or an unparseable robots body fails
+closed, while an unreachable host fails open, so you get the real `dns_error`
+rather than a claim that the host refused you.
 
-Human-readable text is the default. For pipelines, opt into JSON lines — every
-record carries the `run_id`, plus `domain`/`stage`/`error_code` where relevant, so
-logs join against the report:
-
-```bash
-PIEDOMAINS_LOG_FORMAT=json classify_domains --file domains.txt
-# {"ts":"...","level":"ERROR","run_id":"8fe4cc80eeb5","domain":"foo.com",
-#  "stage":"fetch","error_code":"timeout","msg":"navigation timed out"}
-```
-
-## Classification Methods
+## Historical analysis
 
 ```python
-# Text. This is the default, and on the measurements above it is also the most
-# accurate thing available.
-run = classifier.classify(["github.com"])
-run = classifier.classify_by_text(["news.google.com"])
+old_run = classifier.classify(["facebook.com"], archive_date="20100101")
 
-# Screenshots, opt-in. The image model is weak on current pages (0.339 accuracy)
-# and no way of combining it with the text model beat text alone -- all four
-# tried were worse. Use it when there is no text to classify.
-run = classifier.classify(["github.com"], use_screenshots=True)
-run = classifier.classify_by_images(["github.com"])
+from piedomains import DataCollector
 
-# Batch processing with separated workflow
-collector = DataCollector()
-collection = collector.collect_batch(domains, batch_size=50)
+collector = DataCollector(archive_date="20050101")
+collection = collector.collect_batch(["google.com", "cnn.com"], batch_size=10)
 results = classifier.classify_from_collection(collection, method="text")
 ```
 
-## Historical Analysis
-
-```python
-# Analyze archived versions from archive.org
-old_run = classifier.classify(["facebook.com"], archive_date="20100101")
-
-# Batch processing with archive.org (respects rate limits)
-domains = ["google.com", "wikipedia.org", "cnn.com"]
-collector = DataCollector(archive_date="20050101")
-collection = collector.collect_batch(
-    domains, batch_size=10
-)  # Archive.org uses conservative defaults
-historical_results = classifier.classify_from_collection(collection, method="text")
-```
-
-### How archive analysis works
-
 Snapshot discovery and retrieval go through the
-[`wayback`](https://github.com/edgi-govdata-archiving/wayback) library (CDX + Memento):
+[`wayback`](https://github.com/edgi-govdata-archiving/wayback) library. Only
+status-200 captures are used, so an archived redirect or 404 is never classified
+as if it were content; the domain reports `no_archive_snapshot` instead. The
+capture actually used comes back as `snapshot_timestamp`, which is not
+necessarily the date you asked for: requesting `20100101` for `cnn.com` yields
+`20100101041727`.
 
-- **Only status-200 captures are used.** An archived redirect or 404 is never classified
-  as if it were content; the domain reports `no_archive_snapshot` instead.
-- **The capture actually used is reported** as `snapshot_timestamp` — not the date you
-  asked for. Requesting `20100101` for `cnn.com` yields `20100101041727`.
-- **Text is fetched raw** via Wayback's `id_` playback mode: no injected Wayback
-  JavaScript, no rewritten URLs, and no browser required — so the text path is fast.
-- **Screenshots render via `if_`**, which hides the Wayback toolbar but keeps archived
-  CSS and images, so the page looks as it did. (`id_` would render an unstyled skeleton.)
-- Rate limiting, retries and exponential backoff are handled by the `wayback` session.
+Text is fetched raw through Wayback's `id_` playback mode, so there is no
+injected Wayback JavaScript, no rewritten URLs, and no browser. Screenshots
+render through `if_`, which hides the Wayback toolbar but keeps archived CSS and
+images so the page looks as it did.
 
-The cache key includes the archive date, so a live fetch and snapshots from different
-years coexist rather than overwriting one another:
+The cache key includes the archive date, so a live fetch and snapshots from
+different years coexist rather than overwriting one another:
 
 ```
 cache/html/cnn.com.html            # live
@@ -234,79 +248,106 @@ cache/html/cnn.com@20050101.html   # 2005 snapshot
 cache/html/cnn.com@20150101.html   # 2015 snapshot
 ```
 
-Configure via `piedomains.config`: `archive_max_parallel`, `archive_window_days`,
-`archive_search_rate`, `archive_memento_rate`, `archive_retries`, `archive_backoff`.
+Rate limits, retries, and backoff are configurable through `piedomains.config`:
+`archive_max_parallel`, `archive_window_days`, `archive_search_rate`,
+`archive_memento_rate`, `archive_retries`, `archive_backoff`.
 
-## LLM Classification
+## Other ways to classify
+
+Text is the default and the most accurate option available here.
 
 ```python
-# Configure LLM provider
+run = classifier.classify_by_text(["news.google.com"])
+```
+
+Screenshots are opt-in and weak. The image model scores 0.501 accuracy against
+the text model's 0.818 on comparable held-out splits, and lower still on pages
+captured from the web as it looks today. Four ways of
+combining the two were measured and all four came out worse than text alone, so
+the ensemble was built and not shipped. Reach for screenshots when there is no
+text to read, which is the case they exist for.
+
+```python
+run = classifier.classify(["github.com"], use_screenshots=True)
+run = classifier.classify_by_images(["github.com"])
+```
+
+An LLM can classify into your own label set instead of the built-in 44:
+
+```python
 classifier.configure_llm(
     provider="openai",
     model="gpt-4o",
-    api_key="sk-...",
     categories=["news", "shopping", "social", "tech"],
 )
-
-# LLM-powered classification
-result = classifier.classify_by_llm(["example.com"])
-
-# With custom instructions
-result = classifier.classify_by_llm(
+run = classifier.classify_by_llm(["example.com"])
+run = classifier.classify_by_llm(
     ["site.com"], custom_instructions="Classify by educational value"
 )
 ```
 
-Set API keys via environment variables:
-```bash
-export OPENAI_API_KEY="sk-..."
-export ANTHROPIC_API_KEY="sk-ant-..."
-export GOOGLE_API_KEY="..."
+Set `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, or `GOOGLE_API_KEY` in the
+environment.
+
+To fetch once and classify several ways, separate collection from inference:
+
+```python
+collector = DataCollector()
+collection = collector.collect_batch(domains, batch_size=50)
+results = classifier.classify_from_collection(collection, method="text")
 ```
 
 ## Categories
 
-44 categories: news, finance, shopping, education, government, adult, gambling,
-social networks, search engines and others, plus `parked` and `unavailable` for domains
-with no site behind them. Derived from Shallalist, with classes that describe hosting
-rather than content removed, those asking about delivery mechanism or legality
-collapsed, and the grab-bag categories split — see
-[`piedomains.training.taxonomy`](https://github.com/themains/piedomains/blob/main/src/piedomains/training/taxonomy.py).
+44 labels: `adult`, `alcohol`, `automobile`, `cooking`, `dating`, `downloads`,
+`drugs`, `education`, `finance`, `fortunetelling`, `forum`, `gamble`, `games`,
+`gardening`, `government`, `homestyle`, `hospitals`, `humor`, `imagehosting`,
+`isp`, `jobsearch`, `library`, `military`, `movies`, `music`, `news`, `parked`,
+`pets`, `politics`, `radiotv`, `realestate`, `religion`, `restaurants`,
+`science`, `searchengines`, `shopping`, `socialnet`, `sports`, `travel`,
+`unavailable`, `urlshortener`, `weapons`, `webmail`, `wellness`.
 
-## Security & Docker
+`parked` and `unavailable` describe domains with no site behind them.
 
-**v0.5.0** includes production-ready Docker containerization for secure domain analysis:
+The set derives from Shallalist, with one rule deciding every case: is the
+category visible in the page text? Classes describing how a site is built and
+paid for rather than what it says (`adv`, `tracker`, `spyware`, `redirector`)
+are gone, because a homepage selling handmade goods reads identically whether or
+not its operator runs trackers. Those four sat behind a third of all evaluation
+errors. See
+[`piedomains.training.taxonomy`](https://github.com/themains/piedomains/blob/main/src/piedomains/training/taxonomy.py)
+for the reasoning on each one.
+
+## Running in a container
 
 ```bash
-# Build secure sandbox container
 docker build -t piedomains-sandbox .
 
-# Run with security constraints (2GB RAM, 2 CPU, read-only filesystem)
 docker run --rm --memory=2g --cpus=2 --read-only \
   --tmpfs /tmp --tmpfs /var/tmp \
   piedomains-sandbox python -c "
 from piedomains import DomainClassifier
-classifier = DomainClassifier()
-run = classifier.classify(['example.com'])
+run = DomainClassifier().classify(['example.com'])
 print(run['results'][0]['category'])
 "
 ```
 
-**Batch Processing in Container:**
+`examples/sandbox/secure_classify.py` runs a batch under the same constraints.
+
+## Retraining and evaluation
+
+The scripts that built and scored the checkpoints ship with the package:
+
 ```bash
-# Use the included secure classification script
-cd examples/sandbox
-echo -e "wikipedia.org\ngithub.com\ncnn.com" > domains.txt
-python3 secure_classify.py --file domains.txt
+classify_domains --training-scripts   # prints where they are installed
 ```
 
-For testing, use known-safe domains: `["wikipedia.org", "github.com", "cnn.com"]`
+## Links
 
-## Documentation
-
-- [API Reference](https://themains.github.io/piedomains/)
-- [Examples](https://github.com/themains/piedomains/tree/main/examples)
-- [Security Guide](https://github.com/themains/piedomains/tree/main/examples/sandbox)
+[API reference](https://themains.github.io/piedomains/) |
+[Examples](https://github.com/themains/piedomains/tree/main/examples) |
+[Changelog](https://github.com/themains/piedomains/blob/main/CHANGELOG.md) |
+[Sandbox guide](https://github.com/themains/piedomains/tree/main/examples/sandbox)
 
 ## Development
 
@@ -319,15 +360,15 @@ uv run pytest tests/ -v
 
 ## License
 
-MIT License
+MIT
 
 ## Citation
 
 ```bibtex
 @software{piedomains,
-  title={piedomains: AI-powered domain content classification},
+  title={piedomains: classify website content from homepage text},
   author={Chintalapati, Rajashekar and Sood, Gaurav},
-  year={2024},
+  year={2026},
   url={https://github.com/themains/piedomains}
 }
 ```
