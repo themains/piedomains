@@ -16,7 +16,7 @@ one of 44 categories with a calibrated probability.
 from piedomains import DomainClassifier
 
 classifier = DomainClassifier()
-run = classifier.classify(["cnn.com", "wikipedia.org"])
+run = classifier.classify(["nytimes.com", "wikipedia.org"])
 
 for r in run["results"]:
     if r["status"] == "ok":
@@ -24,12 +24,13 @@ for r in run["results"]:
     else:
         print(f"{r['domain']:16s} failed: {r['error_code']}")
 
-# cnn.com          news       0.712
+# nytimes.com      news       0.992
 # wikipedia.org    library    0.554
 ```
 
 A domain that could not be fetched comes back with `category` set to `None` and
-a reason in `error_code`, so check `status` before reading a label.
+a reason in `error_code`, so check `status` before reading a label. Homepages
+change, so the exact probabilities move a little between runs.
 
 ## Install
 
@@ -48,68 +49,22 @@ playwright install chromium
 
 Archived pages are fetched over plain HTTP and need no browser.
 
-## How accurate it is
-
-Read this before you trust a label. These are the numbers the two shipped
-checkpoints report for themselves, on documents held out of their own training:
-
-| model | accuracy | macro-F1 | held-out n | calibration error |
-|---|---|---|---|---|
-| text (the default) | 0.818 | 0.758 | 4,382 | 0.017 |
-| screenshots (opt-in) | 0.501 | 0.370 | 4,451 | 0.014 |
-
-Both benchmarks are held-out splits of the training corpus, so they share its
-distribution and its labeling conventions. Expect worse on domains that look
-nothing like it. The last check against labels this project did not write, an
-agreement test on 155 popular domains cross-referenced with Curlie, scored 0.543
-on the previous checkpoint. Read the table as an in-distribution ceiling rather
-than what you will see on an arbitrary crawl.
-
-Accuracy is also very uneven across the 44 classes. The text model scores F1
-0.99 on `parked` and 0.97 on `science` and `religion`, against 0.15 on
-`urlshortener`, 0.33 on `library`, 0.37 on `socialnet`, and 0.45 on `shopping`.
-Two of those weak classes are the answers in the example above, which is a fair
-warning about how much to read into a single label.
-
-Confidence is worth reading. Temperature scaling brings calibration error to
-0.017 for text, which means a batch of predictions at 0.7 is right about 70% of
-the time. Plenty of domains come back below 0.5, and those are close to guesses.
-
-The training corpus is overwhelmingly English, and non-English pages score
-measurably worse. Usable, not equal.
-
-Every number above comes from the pinned checkpoints and can be read back:
-
-```python
-import json
-from huggingface_hub import hf_hub_download
-from piedomains.text import DEFAULT_TEXT_MODEL, DEFAULT_TEXT_REVISION
-
-path = hf_hub_download(
-    DEFAULT_TEXT_MODEL, "test_metrics.json", revision=DEFAULT_TEXT_REVISION
-)
-print(json.load(open(path))["accuracy"])
-```
-
 ## What you get back
 
-Every call returns per-domain rows and a run report:
+Every call returns per-domain rows and a run report. One row:
 
 ```python
-run = classifier.classify(["cnn.com"])
+run = classifier.classify(["nytimes.com"])
 row = run["results"][0]
 ```
 
 ```json
 {
-  "domain": "cnn.com",
+  "domain": "nytimes.com",
   "category": "news",
-  "confidence": 0.712,
-  "categories": [
-    {"category": "news", "probability": 0.712},
-    {"category": "radiotv", "probability": 0.218}
-  ],
-  "raw_predictions": {"news": 0.712, "radiotv": 0.218, "movies": 0.026, "...": "all 44"},
+  "confidence": 0.992,
+  "categories": [{"category": "news", "probability": 0.992}],
+  "raw_predictions": {"news": 0.992, "politics": 0.002, "...": "all 44"},
   "model_used": "text/shallalist_ml",
   "source": "live",
   "snapshot_timestamp": null,
@@ -124,12 +79,67 @@ row = run["results"][0]
 
 The label set is not mutually exclusive. `shopping` says what a site does,
 `automobile` says what it is about, and a car dealership is honestly both, so
-`categories` reports every label above a probability floor. About 65% of domains
-get exactly one; only ambiguous ones get two. Reporting a second label raises the
-chance of covering the right answer from 79.7% to 86.6%, measured on 4,673
-held-out documents. Whether that second label is itself correct is not something
-the evaluation data can answer, because its gold labels are single-label. Treat
-it as a candidate, not a finding.
+`categories` reports every label above a probability floor. Most domains get one
+label and ambiguous ones get several:
+
+```
+nytimes.com      news 0.992
+wikipedia.org    library 0.554, searchengines 0.184
+nasa.gov         automobile 0.305, science 0.136, news 0.124, military 0.113
+```
+
+Reporting the runners-up raises the chance of covering the right answer. Whether
+any particular runner-up is itself correct is not something the evaluation data
+can answer, because its gold labels are single-label. Treat the extra labels as
+candidates, not findings.
+
+## How well does it work
+
+Depends on the domain, and the honest answer is that this is not settled.
+
+The `nasa.gov` row above is the useful example. The top label is `automobile` at
+0.305, which is wrong, and the closest thing to a right answer sits third. Low
+confidence is doing its job there, and a caller reading `confidence` would have
+known not to trust it.
+
+There are two numbers, and they disagree. On documents held out of its own
+training corpus, the shipped text checkpoint reports 0.818 accuracy and 0.758
+macro-F1. On 155 popular domains carrying independent human labels from Curlie,
+the previous checkpoint agreed 0.543 of the time.
+
+Part of that gap is real. Held-out documents share the training distribution and
+its labeling conventions, so the first number is an in-distribution ceiling
+rather than what an arbitrary crawl will give you. But the gap is not all
+generalization loss, because the two taxonomies have never been reconciled. A
+site Curlie files under Reference and this model calls `library` is scored as a
+disagreement under a hand-written mapping nobody has audited, and the same goes
+for every boundary the two schemes draw differently. Until the taxonomies are
+reconciled and the labeled set is itself audited, both numbers are weak evidence
+about accuracy on your data.
+
+What is worth acting on is that quality is very uneven across the 44 classes.
+The text checkpoint reports F1 of 0.99 on `parked` and 0.97 on `science` and
+`religion`, against 0.15 on `urlshortener`, 0.33 on `library`, 0.37 on
+`socialnet`, and 0.45 on `shopping`. If the categories you care about are in the
+second group, measure before trusting.
+
+Read any of this back from the pinned checkpoint rather than taking it here:
+
+```python
+import json
+from huggingface_hub import hf_hub_download
+from piedomains.text import DEFAULT_TEXT_MODEL, DEFAULT_TEXT_REVISION
+
+path = hf_hub_download(
+    DEFAULT_TEXT_MODEL, "test_metrics.json", revision=DEFAULT_TEXT_REVISION
+)
+metrics = json.load(open(path))
+print(metrics["accuracy"], metrics["per_class"]["urlshortener"]["f1"])
+```
+
+Confidence is a temperature-scaled probability rather than a raw softmax, so it
+is meaningful enough to threshold on. The training corpus is overwhelmingly
+English, and non-English pages score measurably worse.
 
 ## Knowing what failed
 
@@ -138,15 +148,28 @@ it reached, and a stable `error_code`, and the report aggregates them:
 
 ```python
 run = classifier.classify(open("domains.txt").read().split())
-
 print(run["report"])
-# {'run_id': '8fe4cc80eeb5', 'total': 500, 'classified': 461, 'failed': 39,
-#  'by_reason': {'dns_error': 12, 'timeout': 9, 'cannot_classify': 11, 'thin_content': 7},
-#  'by_stage': {'fetch': 32, 'infer': 7},
-#  'by_source': {'live': 448, 'archive': 13},
-#  'missing': ['foo.com', 'bar.org'],
-#  'elapsed_ms': 184203}
+```
 
+```json
+{
+  "run_id": "69c9c2e30071",
+  "started_at": "2026-08-20T17:57:03.348685+00:00",
+  "finished_at": "2026-08-20T17:57:07.854997+00:00",
+  "elapsed_ms": 4506,
+  "total": 7,
+  "classified": 6,
+  "failed": 1,
+  "by_reason": {"dns_error": 1},
+  "by_stage": {"fetch": 1},
+  "by_source": {"live": 6},
+  "missing": ["this-domain-does-not-exist-9z8x7.com"]
+}
+```
+
+Retry only what is worth retrying:
+
+```python
 retry = [r["domain"] for r in run["results"] if r.get("retryable")]
 ```
 
@@ -161,26 +184,46 @@ on `cannot_classify` when you do not want to enumerate every cause.
 ## Command line
 
 ```bash
-classify_domains --file domains.txt --output json --report run-report.json
-# stdout: {"results": [...], "report": {...}}
-# stderr: 461/500 classified, 39 failed (run 8fe4cc80eeb5)
-#           dns_error: 12
-#           timeout: 9
+classify_domains --file domains.txt --report run-report.json
 ```
 
-Exit status is non-zero if any domain failed. `--method` takes `text` (the
-default), `images`, or `combined`. `--archive-date YYYYMMDD` classifies an
-archived snapshot instead of the live page.
+```
+6/7 classified, 1 failed (run 961cfaf7a9f7)
+  dns_error: 1
+  no result for: this-domain-does-not-exist-9z8x7.com
+wikipedia.org                          ok      library      0.554
+github.com                             ok      downloads    0.387
+nytimes.com                            ok      news         0.992
+this-domain-does-not-exist-9z8x7.com   failed  None         n/a     dns_error
+etsy.com                               ok      shopping     0.321
+espn.com                               ok      news         0.368
+nasa.gov                               ok      automobile   0.305
+```
 
-For pipelines, opt into JSON logs. Every record carries the `run_id`, plus
-`domain`, `stage`, and `error_code` where relevant, so logs join against the
-report:
+The counts go to stderr and the rows to stdout, so they redirect separately.
+Exit status is 1 if any domain failed. `--output json` emits the full run object
+instead. `--method` takes `text` (the default), `images`, or `combined`.
+`--archive-date YYYYMMDD` classifies an archived snapshot instead of the live
+page.
+
+For pipelines, opt into JSON logs. Every record carries the `run_id`, so logs
+join against the report, and the closing record repeats the failure counts:
 
 ```bash
 PIEDOMAINS_LOG_FORMAT=json classify_domains --file domains.txt
-# {"ts":"...","level":"ERROR","run_id":"8fe4cc80eeb5","domain":"foo.com",
-#  "stage":"fetch","error_code":"timeout","msg":"navigation timed out"}
 ```
+
+```json
+{"ts": "2026-08-20T10:58:42-0700", "level": "WARNING", "logger": "piedomains",
+ "msg": "Failed to fetch data for example.invalid: refused address: dns_error",
+ "run_id": "4e9146942d05"}
+{"ts": "2026-08-20T10:58:54-0700", "level": "INFO", "logger": "piedomains",
+ "msg": "Run 4e9146942d05 finished: 1/2 classified, 1 failed",
+ "run_id": "4e9146942d05", "by_reason": {"dns_error": 1}}
+```
+
+Any keyword the package logs through `extra=` is promoted to a top-level key, so
+records carry more than `msg` where the call site supplies it.
 
 ## Bot walls
 
@@ -194,15 +237,16 @@ challenge page classified as though it were the site.
 run = classifier.classify(["etsy.com", "reuters.com", "indeed.com"])
 for r in run["results"]:
     print(r["domain"], r["category"], r["source"], r["snapshot_timestamp"])
-# etsy.com     shopping  archive  20260727020309
-# reuters.com  news      archive  20260718201522
-# indeed.com   jobsearch archive  20260724170521
+# etsy.com     shopping   archive  20260820065309
+# reuters.com  news       archive  20260816153131
+# indeed.com   jobsearch  live     None
 ```
 
-A capture older than `archive_max_age_days` (default 365) is refused rather than
-passed off as the live page, and those domains report `cannot_classify`. Set
-`archive_fallback=False` to turn this off and have blocked domains report
-`bot_blocked`.
+Which domains hit a wall changes week to week, so `source` is worth reading
+rather than assuming. A capture older than `archive_max_age_days` (default 365)
+is refused rather than passed off as the live page, and those domains report
+`cannot_classify`. Set `archive_fallback=False` to turn this off and have
+blocked domains report `bot_blocked`.
 
 ## Crawling politely
 
@@ -260,19 +304,20 @@ Text is the default and the most accurate option available here.
 run = classifier.classify_by_text(["news.google.com"])
 ```
 
-Screenshots are opt-in and weak. The image model scores 0.501 accuracy against
-the text model's 0.818 on comparable held-out splits, and lower still on pages
-captured from the web as it looks today. Four ways of
-combining the two were measured and all four came out worse than text alone, so
-the ensemble was built and not shipped. Reach for screenshots when there is no
-text to read, which is the case they exist for.
+Screenshots are opt-in and weaker. The image checkpoint reports 0.501 accuracy
+on its own held-out split against the text checkpoint's 0.818, and lower still
+on pages captured from the web as it looks today. Four ways of combining the two
+were measured and all four came out worse than text alone, so the ensemble was
+built and not shipped. Reach for screenshots when there is no text to read,
+which is the case they exist for.
 
 ```python
 run = classifier.classify(["github.com"], use_screenshots=True)
 run = classifier.classify_by_images(["github.com"])
 ```
 
-An LLM can classify into your own label set instead of the built-in 44:
+An LLM can classify into your own label set instead of the built-in 44, which is
+the escape hatch when the taxonomy here does not fit your question:
 
 ```python
 classifier.configure_llm(
@@ -313,10 +358,16 @@ The set derives from Shallalist, with one rule deciding every case: is the
 category visible in the page text? Classes describing how a site is built and
 paid for rather than what it says (`adv`, `tracker`, `spyware`, `redirector`)
 are gone, because a homepage selling handmade goods reads identically whether or
-not its operator runs trackers. Those four sat behind a third of all evaluation
-errors. See
+not its operator runs trackers. See
 [`piedomains.training.taxonomy`](https://github.com/themains/piedomains/blob/main/src/piedomains/training/taxonomy.py)
 for the reasoning on each one.
+
+The taxonomy is the live problem rather than a settled foundation. It does not
+line up with Curlie or with the other public schemes, so any number comparing
+them rests on a mapping that has not been audited, and some boundaries it draws
+are hard to answer from a homepage alone. If you have a labeled set, or an
+opinion about where the seams should be, that is the most useful thing you could
+contribute.
 
 ## Running in a container
 
