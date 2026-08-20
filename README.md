@@ -150,13 +150,13 @@ print(run["report"])
 retry = [r["domain"] for r in run["results"] if r.get("retryable")]
 ```
 
-`error_code` is a closed set, safe to group on: `invalid_domain`, `dns_error`,
-`connection_error`, `timeout`, `http_error`, `robots_blocked`,
-`content_type_rejected`, `content_too_large`, `no_archive_snapshot`,
-`archive_rate_limited`, `empty_text`, `missing_input_path`, `missing_screenshot`,
-`model_load_error`, `model_error`, `llm_error`, `bot_blocked`, `thin_content`,
-`cannot_classify`, `unknown`. Branch on `cannot_classify` when you do not want to
-enumerate every cause.
+`error_code` is a closed set of 21 values, safe to group on: `invalid_domain`,
+`dns_error`, `private_address`, `connection_error`, `timeout`, `http_error`,
+`robots_blocked`, `content_type_rejected`, `content_too_large`,
+`no_archive_snapshot`, `archive_rate_limited`, `empty_text`,
+`missing_input_path`, `missing_screenshot`, `model_load_error`, `model_error`,
+`llm_error`, `bot_blocked`, `thin_content`, `cannot_classify`, `unknown`. Branch
+on `cannot_classify` when you do not want to enumerate every cause.
 
 ## Command line
 
