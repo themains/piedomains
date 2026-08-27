@@ -30,16 +30,20 @@ def warc_bytes(url="https://example.com/", body=b"<html><body>hello</body></html
 
     buffer = io.BytesIO()
     writer = WARCWriter(buffer, gzip=True)
-    writer.write_record(
-        writer.create_warc_record(
-            url,
-            "response",
-            payload=io.BytesIO(body),
-            http_headers=StatusAndHeaders(
-                "200 OK", [("Content-Type", "text/html")], protocol="HTTP/1.1"
-            ),
-        )
+    record = writer.create_warc_record(
+        url,
+        "response",
+        payload=io.BytesIO(body),
+        http_headers=StatusAndHeaders(
+            "200 OK", [("Content-Type", "text/html")], protocol="HTTP/1.1"
+        ),
     )
+    try:
+        writer.write_record(record)
+    finally:
+        # create_warc_record buffers the payload in a SpooledTemporaryFile
+        # that write_record does not close.
+        record.raw_stream.close()
     return buffer.getvalue()
 
 
