@@ -120,9 +120,13 @@ testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
+log_level = "INFO"
+xfail_strict = true
+filterwarnings = ["error"]
 addopts = [
     "-ra",
     "--strict-markers",
+    "--strict-config",
     "-m",
     "not live and not archive and not ml and not slow",
 ]
