@@ -20,5 +20,5 @@ jobs:
     with:
       wheel-import: piedomains
       coverage-floor: 43
-      python-versions: '["3.11", "3.14"]'
+      python-versions: '["3.14"]'
       run-preen: true
