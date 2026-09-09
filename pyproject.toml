@@ -225,6 +225,12 @@ link_ignore = [
     "//spaces",
 ]
 
+# GHSA-8mgp-746c-j5xp names nltk 3.10.3, the current release, with no patched
+# version: model-artifact loading can touch files outside allowed roots. This
+# package only downloads the standard corpora and never loads model artifacts.
+# Remove once nltk ships a fix (preen reports the ignored id as info until then).
+audit_ignore = ["GHSA-8mgp-746c-j5xp"]
+
 [dependency-groups]
 # PEP 735 groups, not extras: these are development concerns, and the reusable
 # CI wheel job installs `--group test` against the built wheel.
