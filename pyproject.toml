@@ -229,7 +229,12 @@ link_ignore = [
 # version: model-artifact loading can touch files outside allowed roots. This
 # package only downloads the standard corpora and never loads model artifacts.
 # Remove once nltk ships a fix (preen reports the ignored id as info until then).
-audit_ignore = ["GHSA-8mgp-746c-j5xp"]
+#
+# GHSA-4j2p-28q2-5m79 names accelerate 1.14.0, also the current release with no
+# patched version: load_checkpoint_in_model trusts weight_map paths in a sharded
+# checkpoint index. accelerate is in the train group only, never imported by the
+# package, and training loads checkpoints this repo wrote itself.
+audit_ignore = ["GHSA-8mgp-746c-j5xp", "GHSA-4j2p-28q2-5m79"]
 
 [dependency-groups]
 # PEP 735 groups, not extras: these are development concerns, and the reusable
