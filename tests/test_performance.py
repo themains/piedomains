@@ -236,15 +236,9 @@ class TestPerformanceBenchmarks(unittest.TestCase):
         self.assertEqual(result1[0]["category"], "news")
 
     def test_memory_usage_batch_processing(self):
-        """Test memory usage doesn't grow excessively in batch processing."""
+        """Bound peak Python allocations while processing mocked batches."""
         import gc
-
-        import psutil
-
-        # Get initial memory usage
-        process = psutil.Process()
-        gc.collect()
-        initial_memory = process.memory_info().rss / 1024 / 1024  # MB
+        import tracemalloc
 
         # Mock to avoid actual model loading
         with (
@@ -293,30 +287,31 @@ class TestPerformanceBenchmarks(unittest.TestCase):
             mock_collect.side_effect = mock_collection
             mock_classify.side_effect = mock_classification
 
-            # Process multiple batches
-            for batch_num in range(5):
-                domains = [f"batch{batch_num}_test{i}.com" for i in range(50)]
-                results = self.classifier.classify_by_text(domains)["results"]
-                self.assertEqual(len(results), len(domains))
-                self.assertTrue(all(result["error"] is None for result in results))
-
-                # Force garbage collection
-                gc.collect()
+            # Models and fetching are mocked, so measure Python allocations here.
+            # Process RSS also includes unrelated model pages from earlier tests.
+            gc.collect()
+            was_tracing = tracemalloc.is_tracing()
+            tracemalloc.start()
+            initial_memory, _ = tracemalloc.get_traced_memory()
+            tracemalloc.reset_peak()
+            try:
+                for batch_num in range(5):
+                    domains = [f"batch{batch_num}_test{i}.com" for i in range(50)]
+                    results = self.classifier.classify_by_text(domains)["results"]
+                    self.assertEqual(len(results), len(domains))
+                    self.assertTrue(all(result["error"] is None for result in results))
+                    gc.collect()
+                _, peak_memory = tracemalloc.get_traced_memory()
+            finally:
+                if not was_tracing:
+                    tracemalloc.stop()
 
             self.assertEqual(mock_collect.call_count, 5)
             self.assertEqual(mock_classify.call_count, 5)
 
-        # Check final memory usage
-        final_memory = process.memory_info().rss / 1024 / 1024  # MB
-        memory_increase = final_memory - initial_memory
-
-        # Memory increase should be reasonable (less than 100MB for mocked tests)
-        self.assertLess(memory_increase, 100)
-
-        print(
-            f"Memory usage: {initial_memory:.1f}MB -> {final_memory:.1f}MB "
-            f"(+{memory_increase:.1f}MB)"
-        )
+        memory_increase = peak_memory - initial_memory
+        self.assertLess(memory_increase, 100 * 1024 * 1024)
+        print(f"Peak batch allocations: {memory_increase / 1024 / 1024:.1f} MiB")
 
 
 @pytest.mark.performance

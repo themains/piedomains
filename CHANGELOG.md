@@ -22,8 +22,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- Isolate the batch memory test from real content fetching and collect garbage
-  before measuring its baseline. Close the WARC fixture's record buffer.
+- Isolate the batch memory test from real content fetching and measure its Python
+  allocations independently of process RSS. Close the WARC fixture's record buffer.
 
 ## [0.14.0] - 2026-08-17
 
