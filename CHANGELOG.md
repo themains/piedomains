@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.15.0] - 2026-10-13
+
+### Added
+
+- Add `--batch` to corpus relabeling using batchlane, with saved request snapshots,
+  resumable collection, and an estimated-cost check before submission. Resuming
+  reuses the accepted estimate so pricing changes cannot block collection. Completed
+  caches and dry runs validate the original documents and configuration. Provider
+  failures retain successful results; explicit retries submit only unfinished work.
+
+### Changed
+
+- Require Python 3.12 or newer and refresh locked dependencies.
+
+### Fixed
+
+- Isolate the batch memory test from real content fetching and measure its Python
+  allocations independently of process RSS. Close the WARC fixture's record buffer.
+
 ## [0.14.0] - 2026-08-17
 
 ### Changed

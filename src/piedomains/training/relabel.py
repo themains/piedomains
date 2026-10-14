@@ -78,6 +78,10 @@ class BudgetExceededError(RuntimeError):
     """Raised when the next request would take the run past its spend cap."""
 
 
+class BatchFailedError(RuntimeError):
+    """Raised after collecting successful requests when a provider batch has errors."""
+
+
 @dataclass(frozen=True)
 class Verdict:
     """One model opinion about one document.
@@ -315,13 +319,41 @@ def ask(
     """
     import litellm
 
+    prompt = _prompt(batch, categories, definitions, max_chars)
+    response = _with_retry(
+        lambda: litellm.completion(
+            messages=[{"role": "user", "content": prompt}], **params
+        )
+    )
+    cost = 0.0
+    try:
+        cost = float(litellm.completion_cost(completion_response=response) or 0.0)
+    except Exception:  # pricing gaps must not abort a run
+        cost = 0.0
+
+    return _parse_verdicts(
+        response.choices[0].message.content or "",
+        batch,
+        categories,
+        params,
+        max_chars,
+        fingerprint,
+    ), cost
+
+
+def _prompt(
+    batch: list[tuple[str, dict[str, Any]]],
+    categories: list[str],
+    definitions: dict[str, str],
+    max_chars: int,
+) -> str:
+    """Build the shared relabeling prompt."""
     from ..llm.prompts import get_batch_prompt
-    from ..llm.response_parser import parse_batch_response
 
     documents = [
         {"domain": record["domain"], "content": record["text"]} for _, record in batch
     ]
-    prompt = get_batch_prompt(
+    return get_batch_prompt(
         documents,
         categories,
         definitions=definitions,
@@ -335,18 +367,19 @@ def ask(
         max_chars=max_chars,
         abstain=ABSTAIN,
     )
-    response = _with_retry(
-        lambda: litellm.completion(
-            messages=[{"role": "user", "content": prompt}], **params
-        )
-    )
-    cost = 0.0
-    try:
-        cost = float(litellm.completion_cost(completion_response=response) or 0.0)
-    except Exception:  # pricing gaps must not abort a run
-        cost = 0.0
 
-    text = response.choices[0].message.content or ""
+
+def _parse_verdicts(
+    text: str,
+    batch: list[tuple[str, dict[str, Any]]],
+    categories: list[str],
+    params: dict[str, Any],
+    max_chars: int,
+    fingerprint: str,
+) -> list[Verdict]:
+    """Match parsed annotations to their original documents and splits."""
+    from ..llm.response_parser import parse_batch_response
+
     try:
         parsed = parse_batch_response(text, allowed=categories)
     except ValueError:
@@ -406,7 +439,183 @@ def ask(
                 accepted=label if status == "ok" else None,
             )
         )
-    return verdicts, cost
+    return verdicts
+
+
+def ask_batches(
+    pending: list[tuple[str, dict[str, Any]]],
+    selected: list[tuple[str, dict[str, Any]]],
+    categories: list[str],
+    definitions: dict[str, str],
+    params: dict[str, Any],
+    max_chars: int,
+    fingerprint: str,
+    *,
+    batch_size: int,
+    checkpoint: Path,
+    budget_usd: float,
+    poll_interval: float = 30.0,
+    poll_timeout: float | None = None,
+    dry_run: bool = False,
+) -> Iterator[tuple[list[Verdict], float]]:
+    """Run offline relabeling through durable provider batches.
+
+    Exact requests, their document groups, and the accepted cost estimate are
+    saved before submission. A resumed run reuses that snapshot and estimate
+    even after some verdicts enter the cache.
+
+    Args:
+        pending: Documents without cached verdicts on this invocation.
+        selected: Complete current selection, used to validate saved documents.
+        categories: Allowed labels.
+        definitions: Category definitions.
+        params: LiteLLM configuration used by the synchronous path.
+        max_chars: Per-document truncation limit.
+        fingerprint: Prompt identity.
+        batch_size: Documents per request.
+        checkpoint: Base path for request snapshots and batchlane receipts.
+        budget_usd: Maximum estimated batch cost including a 10 percent margin.
+        poll_interval: Seconds between provider polls.
+        poll_timeout: Maximum wait per provider job, or None.
+        dry_run: Validate existing snapshots without submitting or collecting jobs.
+
+    Yields:
+        tuple[list[Verdict], float]: Verdicts and token cost per request.
+
+    Raises:
+        ValueError: If configuration or a saved request snapshot differs.
+        BudgetExceededError: If the job cannot be priced or exceeds its budget.
+        BatchFailedError: If the provider fails to return a successful request.
+    """
+    import math
+    import os
+    import tempfile
+
+    import batchlane as bl
+
+    if batch_size < 1 or not math.isfinite(budget_usd) or budget_usd <= 0:
+        raise ValueError("batch size and budget must be positive and finite")
+    request_params = dict(params)
+    model = str(request_params.pop("model"))
+    api_key = request_params.pop("api_key", None)
+    if request_params.pop("api_base", None):
+        raise ValueError("provider batches do not accept a custom api_base")
+    identity = {
+        "model": model,
+        "params": request_params,
+        "prompt_hash": fingerprint,
+        "batch_size": batch_size,
+        "max_chars": max_chars,
+    }
+    state_path = checkpoint.with_suffix(".batchstate.json")
+    current = {record["domain"]: [split, record] for split, record in selected}
+    if state_path.exists():
+        state = json.loads(state_path.read_text(encoding="utf-8"))
+        if state["identity"] != identity:
+            raise ValueError(
+                "saved batch configuration differs; use a new verdicts path"
+            )
+        saved_domains = {
+            row[1]["domain"] for group in state["groups"].values() for row in group
+        }
+        if state["selected"] != current or any(
+            record["domain"] not in saved_domains for _, record in pending
+        ):
+            raise ValueError("saved batch documents differ; use a new verdicts path")
+    else:
+        groups = {
+            f"group-{index}": group
+            for index, group in enumerate(batches(pending, batch_size))
+        }
+        state = {
+            "identity": identity,
+            "selected": current,
+            "groups": groups,
+            "requests": [
+                {
+                    "custom_id": key,
+                    "model": model,
+                    "messages": [
+                        {
+                            "role": "user",
+                            "content": _prompt(
+                                group, categories, definitions, max_chars
+                            ),
+                        }
+                    ],
+                    "params": request_params,
+                }
+                for key, group in groups.items()
+            ],
+        }
+    if not pending or dry_run:
+        return
+    lines = [bl.BatchLine(**record) for record in state["requests"]]
+    if not lines:
+        return
+    plan = bl.plan(lines)
+    if state_path.exists():
+        reserved = float(state["reserved_usd"])
+    else:
+        estimate = plan.cost
+        if estimate.batch_usd is None or estimate.output_tokens is None:
+            raise BudgetExceededError(
+                "cannot bound this batch cost; choose a priced model with an output limit"
+            )
+        reserved = estimate.batch_usd * 1.1
+        state["reserved_usd"] = reserved
+    if not math.isfinite(reserved) or reserved < 0:
+        raise BudgetExceededError("batch cost estimate must be finite and nonnegative")
+    if reserved > budget_usd:
+        raise BudgetExceededError(
+            f"estimated batch cost with 10% margin is ${reserved:.4f}, above ${budget_usd:.4f}"
+        )
+    if not state_path.exists():
+        state_path.parent.mkdir(parents=True, exist_ok=True)
+        with tempfile.NamedTemporaryFile(
+            "w", dir=state_path.parent, delete=False, encoding="utf-8"
+        ) as stream:
+            json.dump(state, stream, ensure_ascii=False)
+            stream.flush()
+            os.fsync(stream.fileno())
+            temporary = Path(stream.name)
+        temporary.replace(state_path)
+    pending_domains = {record["domain"] for _, record in pending}
+    failures = []
+    for line, result in bl.run(
+        lines,
+        checkpoint=checkpoint,
+        api_key=api_key,
+        poll_interval=poll_interval,
+        timeout=poll_timeout,
+    ):
+        group = [
+            row
+            for row in state["groups"][line.custom_id]
+            if row[1]["domain"] in pending_domains
+        ]
+        if not group:
+            continue
+        if not result.ok:
+            failures.append(f"{line.custom_id}: {result.error}")
+            continue
+        verdicts = _parse_verdicts(
+            bl.answer_text(result) or "",
+            group,
+            categories,
+            params,
+            max_chars,
+            fingerprint,
+        )
+        cost = bl.actual_cost([result], plan.provider).batch_usd
+        yield verdicts, float(cost or 0.0)
+    if failures:
+        raise BatchFailedError(
+            "Provider batch requests failed; successful verdicts were retained. "
+            "To retry, copy the verdicts file (if present) to a new path and rerun "
+            "with that --verdicts path, without copying the batch sidecars. "
+            + "; ".join(failures)
+        )
 
 
 def _verdict(
@@ -518,6 +727,7 @@ def write_manifest(path: Path, params: dict[str, Any], fingerprint: str) -> None
         ).stdout.strip()
     except OSError:
         revision = ""
+    path.parent.mkdir(parents=True, exist_ok=True)
     path.with_suffix(".manifest.json").write_text(
         json.dumps(
             {
@@ -680,6 +890,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--temperature", type=float, default=0.0)
     parser.add_argument("--max-tokens", type=int, default=8000)
     parser.add_argument("--batch-size", type=int, default=10)
+    parser.add_argument(
+        "--batch", action="store_true", help="Use resumable provider batch inference"
+    )
+    parser.add_argument("--poll-interval", type=float, default=30.0)
+    parser.add_argument("--poll-timeout", type=float, default=None)
     parser.add_argument("--max-chars", type=int, default=2000)
     parser.add_argument("--budget-usd", type=float, default=5.0)
     parser.add_argument("--min-confidence", type=float, default=0.6)
@@ -739,7 +954,7 @@ def main(argv: list[str] | None = None) -> int:
 
     spent = 0.0
     status = 0
-    if pending and not args.dry_run:
+    if args.batch or (pending and not args.dry_run):
         from ..llm.config import LLMConfig
 
         config = LLMConfig(
@@ -750,24 +965,58 @@ def main(argv: list[str] | None = None) -> int:
             categories=allowed,
         )
         params = config.to_litellm_params()
-        write_manifest(verdicts_path, params, fingerprint)
         try:
-            for index, batch in enumerate(batches(pending, args.batch_size), start=1):
-                if spent >= args.budget_usd:
-                    raise BudgetExceededError(
-                        f"spent ${spent:.2f} of ${args.budget_usd:.2f}; stopping before "
-                        f"batch {index}"
+            if args.batch:
+                results = ask_batches(
+                    pending,
+                    chosen,
+                    allowed,
+                    definitions,
+                    params,
+                    args.max_chars,
+                    fingerprint,
+                    batch_size=args.batch_size,
+                    checkpoint=Path(str(verdicts_path) + ".batchlane.jsonl"),
+                    budget_usd=args.budget_usd,
+                    poll_interval=args.poll_interval,
+                    poll_timeout=args.poll_timeout,
+                    dry_run=args.dry_run,
+                )
+                manifest_written = False
+                for produced, cost in results:
+                    if not manifest_written:
+                        write_manifest(verdicts_path, params, fingerprint)
+                        manifest_written = True
+                    append_verdicts(verdicts_path, produced)
+                    spent += cost
+                    cached.update({v.domain: v for v in produced})
+                    print(
+                        f"  collected {len(produced)} verdicts; ${spent:.3f} in provider usage",
+                        flush=True,
                     )
-                produced, cost = ask(
-                    batch, allowed, definitions, params, args.max_chars, fingerprint
-                )
-                append_verdicts(verdicts_path, produced)
-                spent += cost
-                cached.update({v.domain: v for v in produced})
-                print(
-                    f"  batch {index}: {len(produced)} verdicts, ${spent:.3f} spent",
-                    flush=True,
-                )
+            else:
+                write_manifest(verdicts_path, params, fingerprint)
+                for index, batch in enumerate(
+                    batches(pending, args.batch_size), start=1
+                ):
+                    if spent >= args.budget_usd:
+                        raise BudgetExceededError(
+                            f"spent ${spent:.2f} of ${args.budget_usd:.2f}; stopping before "
+                            f"batch {index}"
+                        )
+                    produced, cost = ask(
+                        batch, allowed, definitions, params, args.max_chars, fingerprint
+                    )
+                    append_verdicts(verdicts_path, produced)
+                    spent += cost
+                    cached.update({v.domain: v for v in produced})
+                    print(
+                        f"  batch {index}: {len(produced)} verdicts, ${spent:.3f} spent",
+                        flush=True,
+                    )
+        except (BatchFailedError, TimeoutError) as exc:
+            print(f"\n{exc}", file=sys.stderr)
+            return 1
         except BudgetExceededError as exc:
             print(f"\n{exc}", file=sys.stderr)
             status = 1

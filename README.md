@@ -38,7 +38,7 @@ change, so the exact probabilities move a little between runs.
 pip install piedomains
 ```
 
-Python 3.11 or newer. The wheel is about 245 KB; model weights download from
+Python 3.12 or newer. Model weights download from
 Hugging Face on first use and cache locally.
 
 Live pages render in headless Chromium, so install the browser once:
@@ -392,6 +392,43 @@ The scripts that built and scored the checkpoints ship with the package:
 ```bash
 classify_domains --training-scripts   # prints where they are installed
 ```
+
+### Offline batch relabeling
+
+Corpus relabeling can submit asynchronous provider jobs through
+[batchlane](https://github.com/gojiplus/batchlane):
+
+```bash
+python -m piedomains.training.relabel \
+  --data data/prepared-text --out data/relabelled \
+  --verdicts data/relabel/verdicts.jsonl \
+  --provider openai --model gpt-4o-mini --batch --budget-usd 5
+```
+
+`--batch-size` controls documents per prompt. Batchlane sizes and submits the
+provider jobs separately. Before submitting, the command requires a priced
+model and output-token limit, and checks the estimated total plus a 10% margin
+against `--budget-usd`. This is an estimate, not a provider-enforced spending cap.
+
+Exact prompts, document groups, and the accepted cost estimate are saved beside
+the verdict file. Resuming reuses that estimate, so a pricing change cannot block
+collection of submitted jobs. Keep those sidecars together and rerun the same
+command to resume; a changed document or
+configuration requires a new verdicts path, even after collection is complete.
+`--dry-run` validates an existing snapshot without calling the provider. Partial
+collection does not change which requests belong to the saved job.
+`--poll-timeout` limits the wait per job;
+the receipts remain available for a later invocation. Use one writer per verdict
+file. Omitting `--batch` retains synchronous relabeling. Both paths use the same
+domain matching, split assignment, abstention rules, and annotation parser.
+
+A failed provider job or request exits with an error and keeps any successful
+verdicts already collected. Failed requests are not cached as completed. Rerunning
+the same command reattaches to the original jobs; it does not resubmit failed
+requests. To retry them, copy the verdicts file, if it exists, to a new path and
+rerun with that `--verdicts` path. Do not copy the batch sidecars. Keep the same
+corpus and model configuration so the copied verdicts remain valid. Only requests
+without cached verdicts enter the new job and its budget estimate.
 
 ## Links
 
