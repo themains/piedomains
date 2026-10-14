@@ -243,11 +243,12 @@ class TestPerformanceBenchmarks(unittest.TestCase):
 
         # Get initial memory usage
         process = psutil.Process()
+        gc.collect()
         initial_memory = process.memory_info().rss / 1024 / 1024  # MB
 
         # Mock to avoid actual model loading
         with (
-            patch("piedomains.data_collector.DataCollector.collect") as mock_collect,
+            patch.object(self.classifier, "collect_content") as mock_collect,
             patch("piedomains.text.TextClassifier.classify_from_data") as mock_classify,
         ):
 
@@ -295,10 +296,15 @@ class TestPerformanceBenchmarks(unittest.TestCase):
             # Process multiple batches
             for batch_num in range(5):
                 domains = [f"batch{batch_num}_test{i}.com" for i in range(50)]
-                self.classifier.classify_by_text(domains)
+                results = self.classifier.classify_by_text(domains)["results"]
+                self.assertEqual(len(results), len(domains))
+                self.assertTrue(all(result["error"] is None for result in results))
 
                 # Force garbage collection
                 gc.collect()
+
+            self.assertEqual(mock_collect.call_count, 5)
+            self.assertEqual(mock_classify.call_count, 5)
 
         # Check final memory usage
         final_memory = process.memory_info().rss / 1024 / 1024  # MB
