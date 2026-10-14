@@ -38,7 +38,7 @@ change, so the exact probabilities move a little between runs.
 pip install piedomains
 ```
 
-Python 3.11 or newer. The wheel is about 245 KB; model weights download from
+Python 3.12 or newer. Model weights download from
 Hugging Face on first use and cache locally.
 
 Live pages render in headless Chromium, so install the browser once:

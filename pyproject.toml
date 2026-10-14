@@ -72,7 +72,7 @@ dependencies = [
     # 264 to 7.
     "trafilatura>=2.0",
 ]
-version = "0.14.0"
+version = "0.15.0"
 
 [project.urls]
 Homepage = "https://github.com/themains/piedomains"
