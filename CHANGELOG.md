@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- Add `--batch` to corpus relabeling using batchlane, with exact request snapshots, resumable collection, and a pre-submission estimated-cost gate. Validate completed caches and dry runs, retain successful results on provider failure, and support explicit retries without resubmitting completed requests.
+
 ## [0.14.0] - 2026-08-17
 
 ### Changed

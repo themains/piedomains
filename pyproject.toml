@@ -50,6 +50,7 @@ dependencies = [
     "huggingface-hub>=1.27.0",
     "safetensors>=0.4.5",
     "litellm>=1.55.0",
+    "batchlane>=0.2.0",
     "requests>=2.25.0",
     "aiohttp>=3.8.0",
     "protego>=0.3.0",
@@ -202,6 +203,8 @@ src_layout = true
 #   monster.com    a FetchResult literal in test_archive_fallback.py, never
 #                  fetched; behind DataDome, whose bot wall trips link
 #                  checkers (SSL/403) though the site is fine for humans
+#   API bases      mocked OpenAI and Anthropic endpoints in test_relabel_batch.py;
+#                  these are not public documentation pages
 #   a base URL     raw.githubusercontent.com/Azothyran/ShallalistMirror is
 #                  LABEL_MIRROR in training/prepare_text.py, and the code
 #                  appends a category path. Bare it 404s; with a path it
@@ -223,6 +226,8 @@ link_ignore = [
     "ShallalistMirror",
     "index\\.commoncrawl\\.org",
     "//spaces",
+    "api\\.openai\\.com/v1$",
+    "api\\.anthropic\\.com/v1/messages/batches$",
 ]
 
 # GHSA-8mgp-746c-j5xp names nltk 3.10.3, the current release, with no patched
@@ -242,6 +247,7 @@ audit_ignore = ["GHSA-8mgp-746c-j5xp", "GHSA-4j2p-28q2-5m79"]
 test = [
     "pytest>=8",
     "pytest-cov>=4",
+    "respx>=0.21",
     "pytest-mock>=3.10",
     "pytest-xdist>=3",
     "psutil>=5.9.0",
