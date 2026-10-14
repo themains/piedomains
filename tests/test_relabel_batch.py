@@ -302,6 +302,23 @@ def test_cli_timeout_resumes_without_duplicate_submission(api, cli):
     assert len(verdicts_file(cli).read_text().splitlines()) == 2
 
 
+@pytest.mark.parametrize("batch_usd", [None, 100.0])
+def test_submitted_job_reuses_approved_estimate(api, cli, monkeypatch, batch_usd):
+    import batchlane.cost
+
+    api["poll"].respond(200, json={"status": "in_progress"})
+    assert relabel.main([*cli, "--poll-timeout", "0"]) == 1
+    monkeypatch.setattr(
+        batchlane.cost,
+        "estimate_cost",
+        lambda *a: bl.CostEstimate(30, 600, batch_usd, batch_usd, "changed"),
+    )
+    api["poll"].respond(200, json={"status": "completed", "output_file_id": "out"})
+    assert relabel.main(cli) == 0
+    assert api["submit"].call_count == 1
+    assert len(verdicts_file(cli).read_text().splitlines()) == 2
+
+
 def test_cli_interrupted_collection_does_not_append_saved_verdicts_again(
     api, cli, monkeypatch
 ):

@@ -410,8 +410,10 @@ provider jobs separately. Before submitting, the command requires a priced
 model and output-token limit, and checks the estimated total plus a 10% margin
 against `--budget-usd`. This is an estimate, not a provider-enforced spending cap.
 
-Exact prompts and document groups are saved beside the verdict file. Keep those
-sidecars together and rerun the same command to resume; a changed document or
+Exact prompts, document groups, and the accepted cost estimate are saved beside
+the verdict file. Resuming reuses that estimate, so a pricing change cannot block
+collection of submitted jobs. Keep those sidecars together and rerun the same
+command to resume; a changed document or
 configuration requires a new verdicts path, even after collection is complete.
 `--dry-run` validates an existing snapshot without calling the provider. Partial
 collection does not change which requests belong to the saved job.

@@ -12,7 +12,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Add `--batch` to corpus relabeling using batchlane, with saved request snapshots,
-  resumable collection, and an estimated-cost check before submission. Completed
+  resumable collection, and an estimated-cost check before submission. Resuming
+  reuses the accepted estimate so pricing changes cannot block collection. Completed
   caches and dry runs validate the original documents and configuration. Provider
   failures retain successful results; explicit retries submit only unfinished work.
 

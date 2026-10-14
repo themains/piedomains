@@ -460,8 +460,9 @@ def ask_batches(
 ) -> Iterator[tuple[list[Verdict], float]]:
     """Run offline relabeling through durable provider batches.
 
-    Exact requests and their document groups are saved before submission. A
-    resumed run uses that snapshot even after some verdicts enter the cache.
+    Exact requests, their document groups, and the accepted cost estimate are
+    saved before submission. A resumed run reuses that snapshot and estimate
+    even after some verdicts enter the cache.
 
     Args:
         pending: Documents without cached verdicts on this invocation.
@@ -553,13 +554,19 @@ def ask_batches(
     if not lines:
         return
     plan = bl.plan(lines)
-    estimate = plan.cost
-    if estimate.batch_usd is None or estimate.output_tokens is None:
-        raise BudgetExceededError(
-            "cannot bound this batch cost; choose a priced model with an output limit"
-        )
-    reserved = estimate.batch_usd * 1.1
-    if not math.isfinite(reserved) or reserved > budget_usd:
+    if state_path.exists():
+        reserved = float(state["reserved_usd"])
+    else:
+        estimate = plan.cost
+        if estimate.batch_usd is None or estimate.output_tokens is None:
+            raise BudgetExceededError(
+                "cannot bound this batch cost; choose a priced model with an output limit"
+            )
+        reserved = estimate.batch_usd * 1.1
+        state["reserved_usd"] = reserved
+    if not math.isfinite(reserved) or reserved < 0:
+        raise BudgetExceededError("batch cost estimate must be finite and nonnegative")
+    if reserved > budget_usd:
         raise BudgetExceededError(
             f"estimated batch cost with 10% margin is ${reserved:.4f}, above ${budget_usd:.4f}"
         )
