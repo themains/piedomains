@@ -27,7 +27,7 @@ distribution and the argmax threw it away.
 **What it does not buy, and this matters.** Those are *recall* figures. Reporting more
 labels trivially raises the chance of covering the gold one, and the evaluation gold is
 single-label, so there is no way to tell from it whether the second label is *correct*.
-When a domain labelled `automobile` also gets `shopping`, this data cannot say whether that
+When a domain labeled `automobile` also gets `shopping`, this data cannot say whether that
 is a car dealership or noise. Validating that needs a gold set annotated with every
 applicable label, which does not exist yet.
 """

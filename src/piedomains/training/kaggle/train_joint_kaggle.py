@@ -249,7 +249,7 @@ def build_images(splits: Path) -> Path:
                 "-c",
                 "from piedomains.training.prepare_text import load_category_map;"
                 f"import pathlib; m = load_category_map(pathlib.Path({str(labels_dir / 'shallalist_cats.txt')!r}),"
-                f" pathlib.Path({str(cache)!r})); print(f'{{len(m):,}} labelled domains')",
+                f" pathlib.Path({str(cache)!r})); print(f'{{len(m):,}} labeled domains')",
             ]
         )
 

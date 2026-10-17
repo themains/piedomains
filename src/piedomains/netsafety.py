@@ -20,7 +20,7 @@ The one manual step is unwrapping IPv4-mapped IPv6 (``::ffff:10.0.0.1``), becaus
 **The check resolves; it does not parse.** ``ipaddress.ip_address("2130706433")`` raises, so
 a decimal-encoded address falls through to the hostname path where ``getaddrinfo`` turns it
 into ``127.0.0.1`` and the address check catches it. A parse-only guard is bypassed by
-``http://2130706433/``. Do not "optimise" the resolve away for hosts that look numeric.
+``http://2130706433/``. Do not "optimize" the resolve away for hosts that look numeric.
 
 **Every resolved address is checked, not the first.** Chromium resolves independently and
 may prefer a different record than the one we looked at, so "the first address was global"

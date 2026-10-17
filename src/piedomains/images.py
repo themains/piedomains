@@ -4,7 +4,7 @@
 **Why this is a module and not three inlined resizes.** Preprocessing that differs between
 training and serving is the single failure this project has already shipped. The previous
 image model divided pixels by 255 before a graph that already applied
-``resnet50.preprocess_input``; in production it labelled Khan Academy and Yahoo as ``porn``
+``resnet50.preprocess_input``; in production it labeled Khan Academy and Yahoo as ``porn``
 while reporting 52.9% at training time. The model was fine. It was being shown different
 pictures than it learned from.
 

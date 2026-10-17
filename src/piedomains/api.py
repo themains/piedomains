@@ -145,7 +145,7 @@ class DomainClassifier:
             not state them. So are those asking about delivery mechanism or
             legality rather than subject: games split by whether they are played
             online, radio split by whether it is broadcast, downloads split by
-            whether the licence permitted them.
+            whether the license permitted them.
 
             `parked` and `unavailable` are present for the mirror-image reason.
             A domain that resolves to a for-sale page or a server autoindex has
@@ -185,13 +185,13 @@ class DomainClassifier:
     def _normalize_archive_date(
         self, archive_date: str | datetime | None
     ) -> str | None:
-        """Validate and normalise archive date.
+        """Validate and normalize archive date.
 
         Args:
             archive_date: Date string in ``YYYYMMDD`` format or ``datetime``.
 
         Returns:
-            Normalised date string or ``None``.
+            Normalized date string or ``None``.
 
         Raises:
             ValueError: If the date is invalid or outside allowed range.
@@ -300,7 +300,7 @@ class DomainClassifier:
         ===================  ========  ========
 
         +0.001 macro-F1 is noise at that sample size, and the fitted text weight is
-        0.973 — the optimiser puts almost nothing on the screenshot. So the default does
+        0.973 — the optimizer puts almost nothing on the screenshot. So the default does
         not pay for loading a 350MB vision model and running it per domain.
 
         Pass ``use_screenshots=True`` to fuse anyway. It is honest about its own value:

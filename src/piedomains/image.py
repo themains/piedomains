@@ -2,7 +2,7 @@
 """Screenshot-based classification.
 
 Replaces a ResNet50 that reported 52.9% at training time with a frozen backbone — only a
-linear head was ever fitted — and, in production, labelled Khan Academy and Yahoo as
+linear head was ever fitted — and, in production, labeled Khan Academy and Yahoo as
 ``porn``. Two independent bugs produced that: the backbone was never fine-tuned, and the
 serving path divided pixels by 255 before handing them to a graph that already baked in
 ``resnet50.preprocess_input``, so every image arrived as a near-constant negative array.
@@ -12,7 +12,7 @@ preprocessing is the model's own ``AutoImageProcessor``, so training and inferen
 drift apart.
 
 **A screenshot is a weak signal on its own, and that is the point.** At 224px a page is
-unreadable — the model sees layout, colour and gross structure, not text. It exists to
+unreadable — the model sees layout, color and gross structure, not text. It exists to
 say something the text model cannot, which matters most on pages carrying almost no text.
 It is combined with text through calibrated late fusion, never used to overrule it
 blindly.

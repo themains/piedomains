@@ -63,7 +63,7 @@ class ErrorCode(StrEnum):
     #: Verbatim parity with the R sibling, so results from either aggregate together.
     #: Deliberately not retryable: this is a property of a DNS record rather than a
     #: transient condition, and repeated retries are exactly what a rebinding attacker
-    #: needs to get a favourable roll.
+    #: needs to get a favorable roll.
     PRIVATE_ADDRESS = "private_address"
     CONNECTION_ERROR = "connection_error"
     TIMEOUT = "timeout"

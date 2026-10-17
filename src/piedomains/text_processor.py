@@ -104,7 +104,7 @@ class TextProcessor:
 
     @staticmethod
     def clean_and_normalize_text(text: str) -> str:
-        """Normalise page text for the model.
+        """Normalize page text for the model.
 
         **What this used to do, and why it was wrong.** Until v0.12.0 this deduplicated
         tokens twice, sorted them alphabetically, and dropped every non-ASCII character.
@@ -131,14 +131,14 @@ class TextProcessor:
         So this now extracts, collapses whitespace and lowercases. Nothing else. A
         transformer wants sentences.
 
-        Set ``text_cleaning="legacy"`` in the config to restore the old behaviour, which
+        Set ``text_cleaning="legacy"`` in the config to restore the old behavior, which
         is required to reproduce v0.11.0 and earlier.
 
         Args:
             text: Raw text to clean
 
         Returns:
-            str: Normalised text, order and frequency intact.
+            str: Normalized text, order and frequency intact.
 
         Raises:
             AttributeError: If the input is not of the expected type.
@@ -161,7 +161,7 @@ class TextProcessor:
         # held-out macro-F1 0.7267 -> 0.7134, and deadspin.com went back to `gamble`.
         # Structural punctuation evidently says something about what kind of page this is.
         #
-        # `strip_punctuation=True` restores the other behaviour. Do not flip the default
+        # `strip_punctuation=True` restores the other behavior. Do not flip the default
         # without retraining: the model is fitted to whichever form it was shown.
         collapsed = re.sub(r"\s+", " ", text).strip().lower()
         if not get_config().get("strip_punctuation", False):

@@ -110,7 +110,7 @@ class ContentValidator:
 
         Step 1 of :meth:`validate_url` on its own. It exists so a caller can decide a URL
         is unfetchable -- or ask robots.txt about it -- before the preflight in step 2
-        issues a request. Sending that request first and *then* honouring robots means
+        issues a request. Sending that request first and *then* honoring robots means
         having already done the thing robots forbade.
 
         Args:

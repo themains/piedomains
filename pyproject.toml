@@ -279,6 +279,9 @@ dev = [
 ]
 
 [tool.codespell]
+builtin = "clear,rare,en-GB_to_en-US"
+# Preserve provider status values.
+ignore-regex = '''["'`](?i:cancelled|cancelling)["'`]'''  # codespell:ignore cancelled,cancelling
 # This package classifies web pages, so its fixtures and docstrings are full of
 # text that is not English and not meant to be. Every one of these was checked:
 #

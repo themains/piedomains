@@ -18,7 +18,7 @@ targets, 1.3 MB. Computing them needs the paired screenshots and an hour of GPU;
 combiner on them needs neither. Every experiment here runs in seconds.
 
 **The honest risk.** 1,704 fitting examples across 47 classes is ~36 per class, and a
-gradient booster will happily memorise that. Cross-validation is exactly what catches it:
+gradient booster will happily memorize that. Cross-validation is exactly what catches it:
 if the nonlinear models do not beat the linear one *out of fold*, that is the answer and it
 gets reported as the answer.
 

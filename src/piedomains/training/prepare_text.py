@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-r"""Turn the scraped HTML corpus into a labelled, split text dataset.
+r"""Turn the scraped HTML corpus into a labeled, split text dataset.
 
 **The corpus is read straight out of the tarball.** ``shallalist_all.tar.gz`` is
 18 GB compressed and expands past 47 GB, which does not fit on a normal disk
@@ -47,7 +47,7 @@ LABEL_MIRROR = "https://raw.githubusercontent.com/Azothyran/ShallalistMirror/mas
 
 
 def load_category_map(cats_file: Path, cache: Path) -> dict[str, str]:
-    """Build the ``domain -> category`` mapping the corpus is labelled with.
+    """Build the ``domain -> category`` mapping the corpus is labeled with.
 
     A domain listed under more than one category is dropped rather than assigned
     arbitrarily: with one label per document, an ambiguous domain is a coin
@@ -101,7 +101,7 @@ def iter_tar_documents(
         labels: Domain to category mapping; unlabelled members are skipped.
 
     Yields:
-        tuple[str, str, str]: ``(category, domain, html)`` per labelled document.
+        tuple[str, str, str]: ``(category, domain, html)`` per labeled document.
     """
     with tarfile.open(archive, "r|gz") as tar:  # streaming mode
         for member in tar:
@@ -176,7 +176,7 @@ def build_parser() -> argparse.ArgumentParser:
         argparse.ArgumentParser: The configured parser.
     """
     parser = argparse.ArgumentParser(
-        description="Turn the HTML corpus into labelled text splits"
+        description="Turn the HTML corpus into labeled text splits"
     )
     parser.add_argument(
         "--corpus",
@@ -186,7 +186,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--cats",
         default="data/labels/shallalist_cats.txt",
-        help="Category list, for labelling a tarball corpus",
+        help="Category list, for labeling a tarball corpus",
     )
     parser.add_argument(
         "--label-cache",
@@ -274,7 +274,7 @@ def main(argv: list[str] | None = None) -> int:
             labels[domain] = mapped
         if excluded:
             print(f"excluded {excluded:,} domains in classes not visible in page text")
-        print(f"labelled domains: {len(labels)}")
+        print(f"labeled domains: {len(labels)}")
         documents = (
             (category, domain, html, None)
             for category, domain, html in iter_tar_documents(corpus, labels)
@@ -315,7 +315,7 @@ def main(argv: list[str] | None = None) -> int:
         if len(text.split()) < args.min_tokens:
             continue
 
-        # A parking placeholder is labelled `parked`, not whatever the domain used to
+        # A parking placeholder is labeled `parked`, not whatever the domain used to
         # sell. 7.9% of this corpus is parking pages and they concentrate hard: 42% of
         # `drugs`, 23% of `webmail`, 18% of `downloads`, because expired domains in
         # those niches get parked. Left alone, the model learns that a for-sale template

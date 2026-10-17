@@ -7,7 +7,7 @@ verdicts themselves distinguishes the two, so the verdicts cannot be their own e
 
 Three checks, and each can fail the whole exercise:
 
-**Against the hand-checked set.** ``tests/eval/labels.csv`` is 54 domains labelled by hand.
+**Against the hand-checked set.** ``tests/eval/labels.csv`` is 54 domains labeled by hand.
 It is one-directional -- none of them are the class being audited -- so it only asks
 whether the model reads a normal site correctly. That is necessary and nowhere near
 sufficient, but it is cheap and it catches a badly-specified prompt immediately.
@@ -55,9 +55,9 @@ def wilson(hits: int, n: int) -> tuple[float, float]:
     z = 1.96
     p = hits / n
     denominator = 1 + z * z / n
-    centre = (p + z * z / (2 * n)) / denominator
+    center = (p + z * z / (2 * n)) / denominator
     spread = z * ((p * (1 - p) / n + z * z / (4 * n * n)) ** 0.5) / denominator
-    return (max(0.0, centre - spread), min(1.0, centre + spread))
+    return (max(0.0, center - spread), min(1.0, center + spread))
 
 
 def cell_of(verdict: Any) -> str:
@@ -211,7 +211,7 @@ def emit_sheet(
 ) -> dict[str, int]:
     """Write a stratified sample for a human to adjudicate.
 
-    The document's **current label is withheld**. A human shown "this is labelled drugs,
+    The document's **current label is withheld**. A human shown "this is labeled drugs,
     the model says shopping" is being asked to referee a disagreement rather than to read
     a page, and would inherit both sources' anchoring.
 
@@ -403,7 +403,7 @@ def main(argv: list[str] | None = None) -> int:
 
     report: dict[str, Any] = {
         "note": (
-            "Model reasoning is a post-hoc rationalisation, not evidence. These labels "
+            "Model reasoning is a post-hoc rationalization, not evidence. These labels "
             "must never be used as evaluation gold."
         ),
         "prompt_hash": fingerprint,

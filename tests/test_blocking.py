@@ -193,7 +193,7 @@ class TestUnavailable(unittest.TestCase):
                 self.assertTrue(looks_unavailable(text))
 
     def test_length_guard_protects_real_sites(self):
-        """Live sites say "coming soon" in passing, and the guard is the whole defence.
+        """Live sites say "coming soon" in passing, and the guard is the whole defense.
 
         Sampled at a 100-word limit the rule swept in a riding school; a 319-word breeder
         site announcing puppies, an 877-word games portal and a 592-word lottery shop all

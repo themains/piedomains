@@ -7,7 +7,7 @@ as well as viagra and similar substances", and most of the domains on that list 
 online pill-pushers that expired years ago and are now SEO spam or parked pages. They kept
 the label. So the class learned *"this page looks like a store"* rather than *"this page
 is about drugs"*, and it now competes with retail: `walmart.com` scores drugs 0.56 against
-shopping 0.14. That is a labelling failure, and no amount of additional data fixes it --
+shopping 0.14. That is a labeling failure, and no amount of additional data fixes it --
 there are only ~672 `drugs` documents corpus-wide.
 
 **This never produces evaluation gold.** If a model is ever scored against labels this
@@ -640,7 +640,7 @@ def _verdict(
         raw_label: What the model said, verbatim.
         substance: Recorded substance type.
         confidence: Model confidence.
-        reasoning: Model rationale -- a post-hoc rationalisation, not evidence.
+        reasoning: Model rationale -- a post-hoc rationalization, not evidence.
         evidence: Verbatim quote from the page.
         status: Verdict status.
         max_chars: Truncation length, to record whether this document was cut.
@@ -1051,7 +1051,7 @@ def main(argv: list[str] | None = None) -> int:
             json.dumps(
                 {
                     "note": (
-                        "Model reasoning is a post-hoc rationalisation, not evidence of "
+                        "Model reasoning is a post-hoc rationalization, not evidence of "
                         "correctness. These labels must never be used as evaluation gold."
                     ),
                     "corpus": args.data,

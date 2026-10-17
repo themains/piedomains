@@ -4,7 +4,7 @@
 
 Preprocessing that differs between training and serving is the one failure this project
 has already shipped: the previous image model divided pixels by 255 before a graph that
-already applied `resnet50.preprocess_input`, reported 52.9% at training time, and labelled
+already applied `resnet50.preprocess_input`, reported 52.9% at training time, and labeled
 Khan Academy as `porn` in production. A DRY audit then found the same shape of bug live
 again -- training centre-cropped to a square while serving squashed, and a third path
 cropped from the left.

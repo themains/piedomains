@@ -80,7 +80,7 @@ failures otherwise: tabular files (`.tab`, `.csv`) are served in a *converted*
 form unless you ask for `format=original`, and the reported `filesize` describes
 that converted copy rather than the original.
 
-Total catalogue is ~75GB. Check free disk before starting.
+Total catalog is ~75GB. Check free disk before starting.
 
 ### 3. Prepare text
 
@@ -116,7 +116,7 @@ categories become 39 — the seven parents with no directory of their own
 are the tell. `--keep-subcategories` opts out.
 
 `--max-per-class` caps documents per class. The corpus is long-tailed and only
-~750k of the 1.5M labelled domains appear in it at all, so the realistic yield
+~750k of the 1.5M labeled domains appear in it at all, so the realistic yield
 is **34,627 documents across the 39 classes** — `education` 1,506 at the head,
 `military` 85 at the tail.
 
@@ -199,7 +199,7 @@ load. Writes `calibration.json` and reports ECE before and after.
 | File | Status |
 |---|---|
 | `metrics.py` | done — macro-F1, per-class P/R, confusions, ECE |
-| `evaluate.py` | done — scores a labelled set, writes JSON |
+| `evaluate.py` | done — scores a labeled set, writes JSON |
 | `download_corpus.py` | done — resumable, checksum-verified |
 | `prepare_text.py` | done — filtering reproduced from notebooks/04 |
 | `train_text.py` | done — mmBERT fine-tune, resumable, early stopping |
@@ -258,7 +258,7 @@ with that number in the README rather than because we built it.
 
 ### What a 224px screenshot can say
 
-Not much text — a page is unreadable at that resolution, so the model sees layout, colour
+Not much text — a page is unreadable at that resolution, so the model sees layout, color
 and gross structure. If image-only macro-F1 is poor, resolution is the first lever
 (`--size 384`, roughly 3× the compute), not more epochs.
 

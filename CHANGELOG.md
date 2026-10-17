@@ -55,7 +55,7 @@ sent a user-agent impersonating Chrome on macOS while Chromium launched with
 position, stated in `blocking.py`: *"detection plus an archive.org fallback is the honest
 response rather than an evasion arms race."*
 
-- robots.txt honoured via `protego`, Scrapy's parser, fetched with `aiohttp` — already a
+- robots.txt honored via `protego`, Scrapy's parser, fetched with `aiohttp` — already a
   declared dependency that was imported nowhere. `ErrorCode.ROBOTS_BLOCKED` has existed
   since the taxonomy was written and was only ever produced by the archive path.
 - Per-host throttling and a real concurrency bound. `max_parallel` bounds browser
@@ -170,13 +170,13 @@ computed the distribution and the argmax discarded it.
 **That is a recall number and must be read as one.** Reporting more labels trivially raises
 the chance of covering the gold one, and the evaluation gold is single-label — so it cannot
 say whether a second label is *correct*, only whether the right one is present. When a
-domain labelled `automobile` also gets `shopping`, this data cannot tell a car dealership
+domain labeled `automobile` also gets `shopping`, this data cannot tell a car dealership
 from noise. Settling that needs a gold set annotated with every applicable label, which
 does not exist yet.
 
 This is the same conclusion IAB and Cloudflare reached: IAB ships arrays of categories,
 Cloudflare multi-labels with a cap of two. A faceted redesign — separate heads per axis —
-was designed in `docs/taxonomy.md` and declined in favour of this, which buys most of the
+was designed in `docs/taxonomy.md` and declined in favor of this, which buys most of the
 benefit without changing the label space or the return shape.
 
 ### Changed
@@ -374,7 +374,7 @@ Screenshot classification works again, and it is opt-in because the measurement 
 
 `classify_by_images()` has raised since 0.8.0, when the old ResNet50 was withdrawn: it
 reported 52.9% with `base_model.trainable = False` — only a linear head was ever fitted —
-and in production labelled Khan Academy and Yahoo as `porn`, because the serving path
+and in production labeled Khan Academy and Yahoo as `porn`, because the serving path
 divided pixels by 255 before a graph that already baked in `resnet50.preprocess_input`.
 It is replaced by a fully fine-tuned, temperature-calibrated SigLIP2 model.
 
@@ -396,7 +396,7 @@ Calibrated late fusion, fitted on 1,704 held-out paired domains and scored on 1,
 | fused (per-class) | 0.798 | 0.700 |
 
 +0.001 macro-F1 is noise at that sample size, and the fitted text weight is **0.973** — the
-optimiser puts almost nothing on the screenshot. So `classify()` now returns the text
+optimizer puts almost nothing on the screenshot. So `classify()` now returns the text
 answer by default and does not load a 350MB vision model to gain nothing.
 
 **Read this before re-deriving a different number.** The first fusion run reported image
@@ -478,7 +478,7 @@ Calibration is the best of the three: **T = 1.812, ECE 0.123 → 0.010**.
   goods reads identically whether or not the operator also runs trackers. They were 4.1%
   of training data and sat behind a third of evaluation errors. Cloudflare reaches the
   same conclusion from the other side: it runs these off domain age, reputation and DNS
-  behaviour, never off content. `redirector` is now an outcome, since such a page has no
+  behavior, never off content. `redirector` is now an outcome, since such a page has no
   content by construction.
 - **Split**: `recreation` → `recreation/{sports,travel,humor,restaurants,wellness}` and
   `hobby` → `hobby/{pets,games-online,games-misc,gardening,cooking}`. `recreation` was
@@ -592,7 +592,7 @@ scaling (T = 3.416, fitted on validation) takes expected calibration error from
   a calibrated, unnormalized text score against an uncalibrated image softmax — so the
   image model could not change an answer, only blur the number attached to it. The
   model it removes reported 52.9% with `base_model.trainable = False` (only a linear
-  head was ever fitted) and in practice labelled Khan Academy and Yahoo as `porn`.
+  head was ever fitted) and in practice labeled Khan Academy and Yahoo as `porn`.
   Screenshot *collection* is unaffected.
 - Result rows no longer carry `text_category` / `image_category` / `image_confidence`,
   which described a contribution that was never made.
@@ -676,7 +676,7 @@ model, not acquisition; see `training/README.md`.
 
 - **A capture older than `archive_max_age_days` (default 365) is refused** rather than
   passed off as the current page. A domain whose only captures are years old reports
-  `cannot_classify` instead of being labelled from a page that no longer exists.
+  `cannot_classify` instead of being labeled from a page that no longer exists.
 
 - **Refusal instead of a confident guess on empty pages.** Below `min_tokens` (default 30)
   the model returns its prior — `recreation` 0.31, `shopping` 0.21, `porn` 0.19 on empty

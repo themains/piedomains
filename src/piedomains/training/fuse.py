@@ -555,7 +555,7 @@ def main(argv: list[str] | None = None) -> int:
     #
     # * Do not re-rank on the test split. Taking the best of three test macro-F1 values
     #   and then running one unadjusted McNemar on the winner is a winner's-curse test:
-    #   whenever noise favours a variant the p-value no longer has its nominal 0.05 rate.
+    #   whenever noise favors a variant the p-value no longer has its nominal 0.05 rate.
     #   One challenger, fixed in advance, one test.
     # * Test the model that ships. The published artifact is the scalar-or-per-class
     #   blend `chosen` below; the stacker has no serialized form and no inference path,

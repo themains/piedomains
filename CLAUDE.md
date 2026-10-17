@@ -114,7 +114,7 @@ exported by the image kernel) — it no longer needs a Kaggle session.
 documents mention any drug or pharmacy term (vs 4% of `shopping`); the rest are
 expired pharmacy domains recycled into SEO spam, plus parked and dead pages the
 extraction missed. Live: `walmart.com` → drugs 0.56, `zappos.com` → drugs 0.40,
-and `drugs` is top-2 for four of five retailers tested. This is a labelling
+and `drugs` is top-2 for four of five retailers tested. This is a labeling
 problem, not a data-volume one.
 
 **Weak classes are incoherent, not starved.** Training volume does not predict
@@ -131,7 +131,7 @@ per-class F1 in this corpus:
 | `shopping` | **1,337** | **0.453** |
 
 `military` at 93 documents beats `shopping` at 1,337. What separates them is
-whether the class names one recognisable thing: `shopping` says what a site
+whether the class names one recognizable thing: `shopping` says what a site
 *does* while competing against topics, and `urlshortener` is a redirect stub with
 almost no page to read. So the remedy for a weak class is a cleaner definition,
 not more documents — and a small coherent class is a perfectly good outcome.

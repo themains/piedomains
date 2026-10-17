@@ -115,7 +115,7 @@ class TextDataset:
     ``DataLoader`` requires at runtime -- rather than subclassing
     ``torch.utils.data.Dataset``, which would force a module-level ``torch`` import into a
     file that is also imported just to print ``--help``. torch's stub is stricter than its
-    behaviour, so the call sites carry a narrow ignore.
+    behavior, so the call sites carry a narrow ignore.
 
     Tokenization is deferred to ``__getitem__`` rather than done up front: the
     corpus is large enough that pre-tokenizing every split costs more memory

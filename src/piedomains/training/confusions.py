@@ -15,7 +15,7 @@ So this refuses to run on a split the checkpoint has seen, and it writes what it
 
 *Confusions*, directed: `games-misc -> games-online` 33 documents, 34.4% of
 the gold class. The percentage matters more than the count -- a class can lose most of
-itself to a neighbour while contributing few errors overall.
+itself to a neighbor while contributing few errors overall.
 
 *Conflated pairs*, undirected: the same two classes trading errors in both directions is
 the signature of a distinction the text does not carry, as opposed to one class simply
@@ -102,7 +102,7 @@ def predict(model: Path, rows: list[dict], batch: int = 64) -> list[str]:
 
 
 def report(truth: list[str], pred: list[str], top: int = 25) -> dict[str, Any]:
-    """Summarise where the model is wrong and which classes trade errors.
+    """Summarize where the model is wrong and which classes trade errors.
 
     Args:
         truth: Gold labels.

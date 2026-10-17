@@ -95,9 +95,9 @@ BATCH_SIZE = 32
 #: 248,003, which is comparable to the 46,754 documents the text model trains on.
 MAX_PER_CLASS = 3000
 
-#: Pretrained vision encoder. ImageNet-21k pretraining optimises for object recognition,
+#: Pretrained vision encoder. ImageNet-21k pretraining optimizes for object recognition,
 #: and a webpage screenshot has almost no object content -- its signal is text density,
-#: layout grid and colour. CLIP-family encoders transfer better to non-object domains.
+#: layout grid and color. CLIP-family encoders transfer better to non-object domains.
 #:
 #: That was the hypothesis; it was then measured on identical data, GPU and step count.
 #: SigLIP2 scored **0.531 accuracy / 0.397 macro-F1** against ViT's **0.335 / 0.140** --
@@ -239,7 +239,7 @@ PASCAL_TORCHVISION = "0.21.0"
 PASCAL_INDEX = "https://download.pytorch.org/whl/cu124"
 
 #: Probe run in a subprocess, because a GPU verdict cannot be revised inside a process
-#: that has already initialised CUDA. Exit 42 means "device present but this torch has no
+#: that has already initialized CUDA. Exit 42 means "device present but this torch has no
 #: kernels for it" -- the failure that wasted a whole run.
 GPU_PROBE = """
 import sys, torch
@@ -368,7 +368,7 @@ def stage_one_prepare() -> Path:
                 "from piedomains.training.prepare_text import load_category_map;"
                 f"m = load_category_map(__import__('pathlib').Path({str(labels_dir / 'shallalist_cats.txt')!r}),"
                 f" __import__('pathlib').Path({str(cache)!r}));"
-                "print(f'{len(m):,} labelled domains')",
+                "print(f'{len(m):,} labeled domains')",
             ]
         )
 

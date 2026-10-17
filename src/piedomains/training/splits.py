@@ -51,7 +51,7 @@ def split_of(domain: str) -> str:
     """Return which split a domain belongs to.
 
     A pure function: the same domain always yields the same split, in every script, in
-    every run, on every machine. Case and surrounding whitespace are normalised first so
+    every run, on every machine. Case and surrounding whitespace are normalized first so
     that ``CNN.com`` and ``cnn.com`` cannot disagree.
 
     SHA-256 rather than :func:`hash` because Python salts string hashing per process --

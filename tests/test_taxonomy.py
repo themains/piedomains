@@ -122,7 +122,7 @@ class TestMerging(unittest.TestCase):
         self.assertEqual(map_category("radiotv"), "radiotv")
 
     def test_legality_splits_collapse(self):
-        """Warez is downloads the licence did not permit.
+        """Warez is downloads the license did not permit.
 
         That is a fact about the files, not about the text, and a warez site does not
         announce it. `warez` lost 30.8% of itself to `downloads`.

@@ -4,7 +4,7 @@
 
 The label set is not mutually exclusive: `shopping` says what a site does, `automobile`
 says what it is about, and a car dealership is both. Reporting only the argmax throws away
-a true answer whenever two axes overlap, so these pin the behaviour that stops it.
+a true answer whenever two axes overlap, so these pin the behavior that stops it.
 """
 
 import unittest

@@ -5,7 +5,7 @@ r"""Score the text model against Curlie's human labels on popular domains.
 the same source the model trains on, with the same selection bias (59% of Shallalist is
 blockable categories, `porn` alone is 53%) and the same 2022 vintage. A held-out split of
 a biased corpus measures how well the model learned that corpus, not whether it works.
-`tests/eval/labels.csv` is independent but is 71 domains I labelled myself.
+`tests/eval/labels.csv` is independent but is 71 domains I labeled myself.
 
 Curlie is a different thing: human editors, curated for a browsable directory rather than
 a blocklist, and released as a public dataset with the Homepage2Vec paper. Crossed with
@@ -46,7 +46,7 @@ from pathlib import Path
 #: `parked` and `unavailable` are excluded too, and for a better reason -- a domain with no
 #: site behind it has no Curlie topic to be right or wrong about. `searchengines`, `webmail`, `socialnet`, `isp`, `hosting` and
 #: friends go to `Computers` because that is where the directory puts them -- a site-type
-#: judgement, not a topic one.
+#: judgment, not a topic one.
 TO_CURLIE: dict[str, str] = {
     "news": "News",
     "radiotv": "News",
@@ -117,7 +117,7 @@ def collapse_legacy(label: str) -> str:
     A 47-class checkpoint still emits `games-misc`, `webradio` and `warez`, none of
     which are keys in :data:`TO_CURLIE` any more. Without this they would score as
     *unmappable* rather than as `games`, `radiotv` and `downloads` -- which would
-    quietly penalise the older model for a taxonomy change rather than measure it, and the
+    quietly penalize the older model for a taxonomy change rather than measure it, and the
     whole point of running this is to compare the two fairly.
 
     Delegates to :func:`piedomains.labels.project`, which the serving path also uses. A

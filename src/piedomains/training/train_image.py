@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Fine-tune a vision backbone to classify a website from its homepage screenshot.
 
-Replaces a ResNet50 that reported 52.9% at training time and, in production, labelled
+Replaces a ResNet50 that reported 52.9% at training time and, in production, labeled
 Khan Academy and Yahoo as `porn`. Two things were wrong with it, and both are fixed here
 rather than tuned around:
 
@@ -19,7 +19,7 @@ Usage::
         --data data/images-224 --out models/image-v1
 
 **What a screenshot can and cannot say.** At 224px a page is unreadable — the model sees
-layout, colour and gross structure, not text. That is a real ceiling, and if image-only
+layout, color and gross structure, not text. That is a real ceiling, and if image-only
 macro-F1 is poor the first lever is resolution (``--size 384``, roughly 3x the compute),
 not more epochs.
 
@@ -102,7 +102,7 @@ class ScreenshotDataset:
     ``DataLoader`` requires at runtime -- rather than subclassing
     ``torch.utils.data.Dataset``, which would force a module-level ``torch`` import into a
     file that is also imported just to print ``--help``. torch's stub is stricter than its
-    behaviour, so the call sites carry a narrow ignore.
+    behavior, so the call sites carry a narrow ignore.
 
     Decoding in ``__getitem__`` rather than up front keeps memory flat: the resized
     corpus is ~5 GB on disk and would not fit comfortably in RAM as tensors.
@@ -161,8 +161,8 @@ class ScreenshotDataset:
             # epoch. prepare_images.py already filters these; this is belt and braces.
             img = Image.new("RGB", (self.processor.size["height"],) * 2)
 
-        # Horizontal flip only. Rotation and heavy colour jitter are wrong here: page
-        # layout is not rotation-invariant, and colour scheme is signal.
+        # Horizontal flip only. Rotation and heavy color jitter are wrong here: page
+        # layout is not rotation-invariant, and color scheme is signal.
         if self.train and random.random() < 0.5:  # noqa: S311 -- augmentation
             from PIL import ImageOps
 

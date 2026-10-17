@@ -176,7 +176,7 @@ class TestErrorCode(unittest.TestCase):
 
     def test_private_address_is_not_retryable(self):
         # It is a property of a DNS record, not a transient condition -- and repeated
-        # retries are exactly what a rebinding attacker needs for a favourable roll.
+        # retries are exactly what a rebinding attacker needs for a favorable roll.
         self.assertEqual(ErrorCode.PRIVATE_ADDRESS.value, "private_address")
         self.assertNotIn(ErrorCode.PRIVATE_ADDRESS, RETRYABLE)
 

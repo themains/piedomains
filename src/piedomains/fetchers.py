@@ -744,7 +744,7 @@ class PlaywrightFetcher(BaseFetcher):
         #
         # 4 used to run before 3, so a host whose robots file disallowed `/` was sent a
         # HEAD -- and possibly a ranged GET -- and only then reported `robots_blocked`.
-        # Honouring robots after making the request it forbids is not honouring robots.
+        # Honoring robots after making the request it forbids is not honoring robots.
         bad = await self._address_check(url)
         if bad is not None:
             return FetchResult(

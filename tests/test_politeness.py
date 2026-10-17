@@ -50,7 +50,7 @@ class TestUserAgentToken(unittest.TestCase):
 
 
 class TestRobotsRules(unittest.TestCase):
-    """Parsing is protego's job; these pin the behaviour we depend on."""
+    """Parsing is protego's job; these pin the behavior we depend on."""
 
     def test_disallow_is_honoured(self):
         cache = cache_with("User-agent: *\nDisallow: /private\n")

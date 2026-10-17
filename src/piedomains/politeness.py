@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""Honour robots.txt, and space out requests to one host.
+"""Honor robots.txt, and space out requests to one host.
 
 **Why this did not exist.** The live fetch path never looked at robots.txt, never delayed
 between requests to the same host, and sent a user-agent impersonating Chrome on macOS
 while Chromium launched with ``--disable-blink-features=AutomationControlled``. The
 project's own position, stated in ``blocking.py``, is that evasion is not the answer --
 "detection plus an archive.org fallback is the honest response rather than an evasion arms
-race" -- so the flag contradicted the package's stated ethics as well as its behaviour.
+race" -- so the flag contradicted the package's stated ethics as well as its behavior.
 
 ``ErrorCode.ROBOTS_BLOCKED`` has existed in ``outcomes.py`` since the taxonomy was written
 and was only ever produced by the *archive* path, for archive.org's own refusals. The

@@ -21,7 +21,7 @@ order. Fixing that changes the input distribution completely, so the weights hav
 refitted. See `text_processor.clean_and_normalize_text`.
 
 The prepared Dataset also carries two corrections the old corpus did not have: anti-bot
-interstitials are refused, and domain-parking placeholders are labelled `parked` rather
+interstitials are refused, and domain-parking placeholders are labeled `parked` rather
 than left contaminating the class of whatever the domain used to sell — which was 42% of
 `drugs`.
 

@@ -18,7 +18,7 @@ reads identically whether or not the operator also runs trackers. These three ar
 the training set and sit behind a third of the evaluation errors: `amazon→adv`,
 `etsy→spyware`, `duckduckgo→spyware`, `paypal→adv`. Cloudflare reaches the same
 conclusion from the other direction — it runs these off domain age, reputation and DNS
-behaviour, and never off content.
+behavior, and never off content.
 
 **`redirector` is excluded for a different reason, and it is worth being precise about
 which.** It is not a bad category -- it is a category whose *labels* have gone stale, and
@@ -75,7 +75,7 @@ it does not include the capacity the model currently spends failing to learn the
 distinction.
 
 `aggressive` is excluded outright on the evidence rather than the rule: 9 held-out
-documents, recall 0.111, and the pages that *do* get labelled `aggressive` are politics
+documents, recall 0.111, and the pages that *do* get labeled `aggressive` are politics
 and humor. There is no support to learn it from and macro-F1 weights it the same as
 `parked`'s 378.
 """
@@ -133,7 +133,7 @@ MERGED: dict[str, str] = {
     # A web-only station and a broadcast one produce the same homepage. The split asks
     # how the signal reaches you, which the page does not say.
     "webradio": "radiotv",
-    # Warez is downloads the licence did not permit. That is a fact about the files, not
+    # Warez is downloads the license did not permit. That is a fact about the files, not
     # about the text, and the page does not volunteer it.
     "warez": "downloads",
 }

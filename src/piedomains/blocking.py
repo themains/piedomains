@@ -221,7 +221,7 @@ PARKING_PHRASES: tuple[str, ...] = (
     "domain name is for sale",
     "the domain you are looking for is for sale",
     # Found by sampling what the first version missed: orderwith.com, a parked page
-    # labelled `drugs`, said "available for sale" rather than "is for sale".
+    # labeled `drugs`, said "available for sale" rather than "is for sale".
     "available for sale",
     "available to purchase",
     "parked free of charge",

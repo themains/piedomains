@@ -144,7 +144,7 @@ class TestBlending(unittest.TestCase):
             text, image, FusionWeights(text=(0.5, 0.5, 0.5), labels=LABELS)
         )
         # Halved before renormalisation (0.45 -> 0.225); 0.367 vs 0.225 after, because
-        # the pinned blend sums to more than 1 before it is normalised.
+        # the pinned blend sums to more than 1 before it is normalized.
         self.assertGreater(pinned["shopping"], unpinned["shopping"])
         self.assertAlmostEqual(pinned["shopping"], 0.367, places=2)
         self.assertAlmostEqual(unpinned["shopping"], 0.225, places=2)

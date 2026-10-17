@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Turn the screenshot tarballs into a compact, labelled image dataset.
+"""Turn the screenshot tarballs into a compact, labeled image dataset.
 
 **Streams, and preprocesses once.** The screenshot corpus is 47.58 GB across 28
 tarballs — larger than the free disk on the machine this was written on, and larger than
@@ -79,7 +79,7 @@ def load_screenshot_index(path: Path) -> dict[str, str]:
 
     The corpus names files by an integer index, not by domain -- which is exactly why
     ``screenshot-index.tab`` (``index,full_domain``) ships alongside it. Reading the stem
-    as a domain silently matches nothing: the first run through this script labelled
+    as a domain silently matches nothing: the first run through this script labeled
     0 of 202,897 screenshots and wrote empty splits.
 
     Args:
@@ -184,7 +184,7 @@ def build_parser() -> argparse.ArgumentParser:
         argparse.ArgumentParser: The configured parser.
     """
     parser = argparse.ArgumentParser(
-        description="Turn screenshot tarballs into a labelled image dataset"
+        description="Turn screenshot tarballs into a labeled image dataset"
     )
     parser.add_argument(
         "--corpus", required=True, help="Directory of screenshot tarballs"
@@ -228,7 +228,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
-    """Build the resized, labelled image dataset.
+    """Build the resized, labeled image dataset.
 
     Args:
         argv: Command-line arguments.
@@ -245,7 +245,7 @@ def main(argv: list[str] | None = None) -> int:
     (out / "images").mkdir(parents=True, exist_ok=True)
 
     labels = load_domain_labels(Path(args.label_cache))
-    print(f"labelled domains: {len(labels):,}")
+    print(f"labeled domains: {len(labels):,}")
     index = load_screenshot_index(Path(args.index))
     print(f"screenshot index: {len(index):,} entries")
 

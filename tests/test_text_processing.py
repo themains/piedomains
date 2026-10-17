@@ -182,7 +182,7 @@ class TestDictionaryFilterDefault(unittest.TestCase):
             config.set("text_cleaning", original[1])
 
     def test_minimal_cleaning_ignores_the_dictionary_filter(self):
-        """It discarded 39.8% of tokens on English pages; minimal must not honour it."""
+        """It discarded 39.8% of tokens on English pages; minimal must not honor it."""
         from piedomains.config import get_config
         from piedomains.text_processor import TextProcessor
 

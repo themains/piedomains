@@ -117,7 +117,7 @@ class TestSuccessfulFetch(unittest.TestCase):
         # that floor exists to reject.
         html = (
             "<html><head><title>CNN</title></head><body>"
-            "breaking news today london paris tokyo markets sports weather travel finance health science culture music films books politics economy business technology europe asia america africa research university hospital government election climate energy transport housing education justice defence agriculture"
+            "breaking news today london paris tokyo markets sports weather travel finance health science culture music films books politics economy business technology europe asia america africa research university hospital government election climate energy transport housing education justice defence agriculture"  # codespell:ignore defence
             "</body></html>"
         )
         fetcher = ArchiveFetcher("20100101")
@@ -233,7 +233,7 @@ class TestArchivedThinContent(unittest.TestCase):
         # Distinct words, because the cleaner deduplicates: 60 repetitions of one word
         # survive as a single token, so the floor is really 30 *distinct* tokens.
         result = self._fetch(
-            "<html><body>breaking news today london paris tokyo markets sports weather travel finance health science culture music films books politics economy business technology europe asia america africa research university hospital government election climate energy transport housing education justice defence agriculture</body></html>"
+            "<html><body>breaking news today london paris tokyo markets sports weather travel finance health science culture music films books politics economy business technology europe asia america africa research university hospital government election climate energy transport housing education justice defence agriculture</body></html>"  # codespell:ignore defence
         )
         self.assertTrue(result.success, result.error)
         self.assertEqual(result.snapshot_timestamp, "20250807163949")

@@ -200,11 +200,11 @@ def get_batch_prompt(
         Formatted batch prompt string
     """
     if definitions:
-        catalogue = "\n".join(
+        catalog = "\n".join(
             f"- {name}: {definitions[name]}" if name in definitions else f"- {name}"
             for name in categories
         )
-        header = f"Available categories:\n{catalogue}"
+        header = f"Available categories:\n{catalog}"
     else:
         header = f"Available categories: {', '.join(categories)}"
 

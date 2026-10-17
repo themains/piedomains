@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Evaluate a piedomains model against a labelled domain set.
+"""Evaluate a piedomains model against a labeled domain set.
 
 Nothing in this repo previously measured accuracy, which is why a broken image
 preprocessing path and a train/serve mismatch both survived. Every model claim
@@ -29,13 +29,13 @@ from .metrics import format_summary, summarize
 
 
 def load_labels(path: Path) -> list[dict[str, str]]:
-    """Read a labelled evaluation set.
+    """Read a labeled evaluation set.
 
     Args:
         path: CSV with ``domain,expected`` columns; ``#`` lines are comments.
 
     Returns:
-        list[dict]: One dict per labelled domain.
+        list[dict]: One dict per labeled domain.
 
     Raises:
         ValueError: If a label is not one of the model's known categories.
@@ -65,7 +65,7 @@ def evaluate(
     cache_dir: str,
     use_cache: bool = True,
 ) -> list[dict[str, Any]]:
-    """Classify every labelled domain and pair predictions with truth.
+    """Classify every labeled domain and pair predictions with truth.
 
     Args:
         labels: Output of :func:`load_labels`.
@@ -143,7 +143,7 @@ def build_parser() -> argparse.ArgumentParser:
         argparse.ArgumentParser: The configured parser.
     """
     parser = argparse.ArgumentParser(
-        description="Measure the models against labelled domains"
+        description="Measure the models against labeled domains"
     )
     parser.add_argument(
         "--labels",
@@ -180,7 +180,7 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     labels = load_labels(Path(args.labels))
     if not labels:
-        sys.stderr.write(f"no labelled domains in {args.labels}\n")
+        sys.stderr.write(f"no labeled domains in {args.labels}\n")
         return 1
 
     rows = evaluate(labels, args.method, args.cache_dir, use_cache=not args.no_cache)

@@ -70,7 +70,7 @@ of each whether its two classes answer the same question:
 | genuine same-question confusion | 8 | 76 | 8.0% |
 
 **A quarter of all errors are the taxonomy asking two questions at once.** This is a lower
-bound: it counts only the top 25 pairs, and the classification of each pair is a judgement
+bound: it counts only the top 25 pairs, and the classification of each pair is a judgment
 call (recorded in the script that produced the table, not asserted here).
 
 Two classes dominate:
@@ -173,7 +173,7 @@ all** — it exists purely to point into the geography axis.
 
 ### Two opposite answers worth knowing about
 
-For a page genuinely about several things, Curlie **generalises upward** — list it at the
+For a page genuinely about several things, Curlie **generalizes upward** — list it at the
 common ancestor, never in each child. Cloudflare **multi-labels**, capped at two. Neither
 is obviously right; they are the two available moves once you admit the page has more than
 one true label.
@@ -191,7 +191,7 @@ performed.
 The boundary against `outcomes.py` must stay sharp, and it is **not** "is there a site" but
 **"did we get a page to read"**:
 
-| | example | modelled as |
+| | example | modeled as |
 |---|---|---|
 | no page retrieved | DNS failure, timeout, bot wall, under the token floor | **outcome** (`piedomains.outcomes`) |
 | page retrieved, and it says there is no site | "this domain is for sale", `Index of /`, "account suspended" | **status** |
@@ -202,7 +202,7 @@ one clean answer is learnable.
 
 ### Axis 1 — topic (single-valued; the only deep axis)
 
-What the site is *about*. Around 20 values, modelled on IAB Tier 1 and pruned to what this
+What the site is *about*. Around 20 values, modeled on IAB Tier 1 and pruned to what this
 corpus can support:
 
 `arts_and_entertainment` · `automotive` · `business_and_finance` · `careers` · `education` ·
@@ -344,7 +344,7 @@ equivalent exists here: Curlie is single-label, `tests/eval/labels.csv` is singl
 covers only 17 of 44 classes, and Shallalist is single-label by construction.
 
 Building one is the prerequisite for any claim of improvement — a few hundred domains
-labelled on all three axes, by hand or by an LLM pass with human adjudication of
+labeled on all three axes, by hand or by an LLM pass with human adjudication of
 disagreements. Until that exists, this document is an argument from structure and from a
 26% error-share measurement, and should be read as exactly that.
 

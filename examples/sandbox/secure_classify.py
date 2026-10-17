@@ -257,7 +257,7 @@ def interactive_mode():
     if response.lower().startswith("y"):
         return domains
     else:
-        print("Classification cancelled.")
+        print("Classification canceled.")
         return None
 
 
@@ -336,7 +336,7 @@ Examples:
             print(f"   - {domain}")
         response = input("Continue anyway? (y/N): ")
         if not response.lower().startswith("y"):
-            print("Classification cancelled for safety.")
+            print("Classification canceled for safety.")
             sys.exit(0)
 
     # Choose sandboxing method
