@@ -121,7 +121,7 @@ def build_source(
     if datasets and DATASET_LINE.search(source):
         name = datasets[0].split("/")[-1]
         source = DATASET_LINE.sub(f'DATASET = "{name}"', source, count=1)
-        print(f'  DATASET = "{name}"  (from --dataset {datasets[0]})')
+        print(f'  DATASET = "{name}"  (from --dataset {datasets[0]})', file=sys.stderr)
 
     if image_model is not None:
         if not IMAGE_MODEL_LINE.search(source):
@@ -132,7 +132,10 @@ def build_source(
             source,
             count=1,
         )
-        print(f"  IMAGE_MODEL = ({repo!r}, {revision!r})  (skipping training)")
+        print(
+            f"  IMAGE_MODEL = ({repo!r}, {revision!r})  (skipping training)",
+            file=sys.stderr,
+        )
 
     return source
 

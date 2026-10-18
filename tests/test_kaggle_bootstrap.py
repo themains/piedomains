@@ -100,3 +100,19 @@ def test_print_gives_the_script_to_paste_by_hand(kernel, capsys):
     printed = capsys.readouterr().out
     assert printed.strip() == build_source(None, KAGGLE / kernel).strip()
     assert "import ensure_usable_gpu" not in printed
+
+
+@pytest.mark.parametrize(
+    ("kernel", "options"),
+    [
+        ("train_text_kaggle.py", ["--dataset", "someone/piedomains-text-99"]),
+        (
+            "train_image_kaggle.py",
+            ["--image-model", "example/model", "--image-revision", "abc123"],
+        ),
+    ],
+)
+def test_print_stays_pasteable_with_substitutions(kernel, options, capsys):
+    assert main(["--script", str(KAGGLE / kernel), "--print", *options]) == 0
+
+    compile(capsys.readouterr().out, kernel, "exec")
