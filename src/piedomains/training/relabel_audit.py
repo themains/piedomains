@@ -435,10 +435,12 @@ def main(argv: list[str] | None = None) -> int:
     if args.emit_sheet:
         corpus_text: dict[str, str] = {}
         if args.corpus:
-            from .train_text import read_jsonl
+            from ._finetune import read_jsonl
 
             for name in SPLITS:
-                for record in read_jsonl(Path(args.corpus) / f"{name}.jsonl"):
+                for record in read_jsonl(
+                    Path(args.corpus) / f"{name}.jsonl", "prepare_text.py"
+                ):
                     corpus_text[record["domain"]] = record["text"]
         drawn = emit_sheet(
             verdicts,

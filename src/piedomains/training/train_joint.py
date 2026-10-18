@@ -44,8 +44,8 @@ from pathlib import Path
 from typing import Any
 
 from ..checkpoints import eager_config
+from ._finetune import pick_device, read_jsonl
 from .metrics import macro_f1, per_class_report
-from .train_text import pick_device, read_jsonl
 
 #: Classes where per-class late fusion gave the screenshot model real weight. Reported
 #: separately because an aggregate over 47 classes hides an effect concentrated in four.
@@ -304,7 +304,7 @@ def main(argv: list[str] | None = None) -> int:
     def paired(split: str) -> list[dict[str, Any]]:
         return [
             r
-            for r in read_jsonl(data / f"{split}.jsonl")
+            for r in read_jsonl(data / f"{split}.jsonl", "prepare_text.py")
             if r["domain"].lower() in available
         ]
 

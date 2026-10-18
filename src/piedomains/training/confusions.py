@@ -41,8 +41,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from ._finetune import pick_device, read_jsonl
 from .metrics import accuracy, macro_f1
-from .train_text import pick_device, read_jsonl
 
 #: Merges to simulate, as ``(description, {from: to})``. Each is a distinction that asks
 #: about delivery mechanism or legality rather than subject -- see ``taxonomy.py``.
@@ -216,7 +216,7 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     model, data = Path(args.model), Path(args.data)
 
-    rows = read_jsonl(data / f"{args.split}.jsonl")
+    rows = read_jsonl(data / f"{args.split}.jsonl", "prepare_text.py")
     truth = [r["category"] for r in rows]
     pred = predict(model, rows)
 

@@ -150,12 +150,14 @@ def read_corpus(data: Path) -> tuple[dict[str, list[dict[str, Any]]], list[str]]
     Raises:
         SystemExit: If the directory is not a prepared corpus.
     """
-    from .train_text import read_jsonl
+    from ._finetune import read_jsonl
 
     labels_file = data / "labels.json"
     if not labels_file.exists():
         raise SystemExit(f"{labels_file} not found -- run prepare_text.py first")
-    rows = {name: read_jsonl(data / f"{name}.jsonl") for name in SPLITS}
+    rows = {
+        name: read_jsonl(data / f"{name}.jsonl", "prepare_text.py") for name in SPLITS
+    }
     return rows, json.loads(labels_file.read_text(encoding="utf-8"))
 
 

@@ -40,8 +40,9 @@ from pathlib import Path
 from typing import Any
 
 from ..checkpoints import eager_config
+from ._finetune import pick_device, read_jsonl
 from .metrics import expected_calibration_error
-from .train_text import TextDataset, pick_device, read_jsonl
+from .train_text import TextDataset
 
 
 def collect_logits(model: Any, loader: Any, device: str) -> tuple[Any, Any]:
@@ -190,7 +191,7 @@ def main(argv: list[str] | None = None) -> int:
 
         def build_image_dataset(split: str) -> Any:
             return ScreenshotDataset(
-                read_jsonl(data / f"{split}.jsonl"),
+                read_jsonl(data / f"{split}.jsonl", "prepare_text.py"),
                 data / "images",
                 labels,
                 processor,
@@ -207,7 +208,10 @@ def main(argv: list[str] | None = None) -> int:
 
         def build_text_dataset(split: str) -> Any:
             return TextDataset(
-                read_jsonl(data / f"{split}.jsonl"), tokenizer, labels, args.max_length
+                read_jsonl(data / f"{split}.jsonl", "prepare_text.py"),
+                tokenizer,
+                labels,
+                args.max_length,
             )
 
         make_dataset = build_text_dataset

@@ -38,8 +38,9 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from ._finetune import pick_device, read_jsonl
 from .metrics import macro_f1, per_class_report
-from .train_text import TrainConfig, pick_device, read_jsonl
+from .train_text import TrainConfig
 
 
 def load_calibrated(model_dir: Path) -> float:
@@ -435,7 +436,7 @@ def main(argv: list[str] | None = None) -> int:
     available = {p.stem for p in (image_data / "images").glob("*.jpg")}
 
     def paired(split: str) -> list[dict[str, Any]]:
-        rows = read_jsonl(text_data / f"{split}.jsonl")
+        rows = read_jsonl(text_data / f"{split}.jsonl", "prepare_text.py")
         return [r for r in rows if r["domain"].lower() in available]
 
     fit_rows, test_rows = paired("val"), paired("test")
