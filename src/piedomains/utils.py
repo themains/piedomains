@@ -190,8 +190,6 @@ def safe_extract(
     tar: tarfile.TarFile,
     path: str = ".",
     members: list | None = None,
-    *,
-    numeric_owner: bool = False,
 ) -> None:
     """Securely extract a tar archive with path traversal protection.
 
@@ -205,8 +203,6 @@ def safe_extract(
                    Defaults to current directory (".").
         members: Specific members to extract. If None,
                                  extracts all members. Defaults to None.
-        numeric_owner: If True, preserve numeric user/group IDs.
-                             If False, use current user. Defaults to False.
 
 
     Example:
@@ -231,33 +227,43 @@ def safe_extract(
     """
     logger.debug(f"Performing secure extraction to {path}")
 
-    # Device files are skipped rather than refused, as before; the "data" filter
-    # below would otherwise reject the whole archive for one of them.
+    # Every member is checked before anything is written, so a rejected archive
+    # cannot overwrite files it was allowed to reach first. tarfile.data_filter
+    # (PEP 706) is the check: it refuses "..", links pointing outside, and the
+    # rest. A hand-written version here once compared paths as strings, which let
+    # "../extract-evil/x" through, and never looked at hard links.
     validated_members = []
     for member in members or tar.getmembers():
-        # The "data" filter would strip the leading slash and extract inside
-        # `path`; an archive naming absolute paths is refused outright instead,
-        # as this function always has.
+        # data_filter would strip the leading slash and extract inside `path`; an
+        # archive naming absolute paths is refused outright, as it always was.
         if os.path.isabs(member.name):
             raise SecurityError(
                 f"Path traversal detected in tar archive: absolute member "
                 f"'{member.name}'"
             )
+        # Skipped rather than refused, as before; data_filter rejects them.
         if member.isdev():
             logger.warning(f"Skipping device file in archive: {member.name}")
             continue
+        try:
+            tarfile.data_filter(member, path)
+        except tarfile.FilterError as exc:
+            raise SecurityError(
+                f"Path traversal detected in tar archive: {exc}"
+            ) from exc
         validated_members.append(member)
 
-    # The standard library's "data" filter (PEP 706) refuses every way out of
-    # `path`: "..", absolute names, and symbolic or hard links that point
-    # outside. A hand-written check here once compared paths as strings, which
-    # let "../extract-evil/x" through, and never looked at hard links.
+    # Extraction applies the same filter again, which catches what only shows up
+    # mid-extraction: a link one member creates and a later member writes
+    # through. extractall only raises filter errors at errorlevel >= 1, so the
+    # caller's TarFile cannot turn this check into a log line.
+    errorlevel, tar.errorlevel = tar.errorlevel, max(tar.errorlevel, 1)
     try:
-        tar.extractall(
-            path, validated_members, numeric_owner=numeric_owner, filter="data"
-        )
+        tar.extractall(path, validated_members, filter="data")
     except tarfile.FilterError as exc:
         raise SecurityError(f"Path traversal detected in tar archive: {exc}") from exc
+    finally:
+        tar.errorlevel = errorlevel
 
     logger.info(f"Safely extracted {len(validated_members)} files to {path}")
 

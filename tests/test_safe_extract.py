@@ -147,3 +147,37 @@ def test_a_nested_symlink_to_a_file_inside_still_extracts(tmp_path):
         utils.safe_extract(tar, str(target))
 
     assert (target / "sub" / "alias").read_bytes() == b"ok"
+
+
+def test_the_check_holds_when_the_archive_is_opened_with_errorlevel_0(tmp_path):
+    # At errorlevel 0, extractall only logs filter errors; the check must not
+    # depend on how the caller opened the archive.
+    target = tmp_path / "extract"
+    target.mkdir()
+    _tar(tmp_path / "evil.tar", _file("../escaped.txt"), b"payload")
+
+    with (
+        tarfile.open(tmp_path / "evil.tar", errorlevel=0) as tar,
+        pytest.raises(utils.SecurityError),
+    ):
+        utils.safe_extract(tar, str(target))
+
+    assert not (tmp_path / "escaped.txt").exists()
+
+
+def test_a_rejected_archive_leaves_existing_files_alone(tmp_path):
+    # Every member is checked before any is written, so a bad member late in the
+    # archive cannot follow a good one that overwrites a model file.
+    target = tmp_path / "extract"
+    target.mkdir()
+    (target / "weights").write_text("ORIGINAL")
+    with tarfile.open(tmp_path / "evil.tar", "w") as tar:
+        for name in ("weights", "../escaped.txt"):
+            info = tarfile.TarInfo(name)
+            info.size = 7
+            tar.addfile(info, io.BytesIO(b"PAYLOAD"))
+
+    with tarfile.open(tmp_path / "evil.tar") as tar, pytest.raises(utils.SecurityError):
+        utils.safe_extract(tar, str(target))
+
+    assert (target / "weights").read_text() == "ORIGINAL"
