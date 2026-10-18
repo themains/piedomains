@@ -11,7 +11,7 @@ mocking for CI environments.
 import os
 import tempfile
 from pathlib import Path
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 
 import pytest
 
@@ -173,23 +173,26 @@ class TestSecurityIntegration:
             is_within_directory("/safe/dir", "/safe/dir/../../../etc/passwd") is False
         )
 
-    @patch("tarfile.open")
-    def test_safe_extract_validation(self, mock_tarfile):
-        """Test safe extraction validates all members."""
-        # Mock tar file with dangerous path
-        mock_tar = Mock()
-        mock_member = Mock()
-        mock_member.name = "../../../etc/passwd"
-        mock_tar.getmembers.return_value = [mock_member]
-        mock_tarfile.return_value.__enter__.return_value = mock_tar
+    def test_safe_extract_validation(self, tmp_path):
+        """A real archive with a traversing member is refused before anything lands."""
+        import io
+        import tarfile
 
-        with tempfile.TemporaryDirectory() as temp_dir:
-            from piedomains.utils import SecurityError, safe_extract
+        from piedomains.utils import SecurityError, safe_extract
 
-            with pytest.raises(SecurityError) as exc_info:
-                safe_extract(mock_tar, temp_dir)
+        archive = tmp_path / "evil.tar"
+        with tarfile.open(archive, "w") as tar:
+            member = tarfile.TarInfo("../../../etc/passwd")
+            member.size = 4
+            tar.addfile(member, io.BytesIO(b"root"))
+        target = tmp_path / "extract"
+        target.mkdir()
 
-            assert "Path traversal detected" in str(exc_info.value)
+        with tarfile.open(archive) as tar, pytest.raises(SecurityError) as exc_info:
+            safe_extract(tar, str(target))
+
+        assert "Path traversal detected" in str(exc_info.value)
+        assert list(target.iterdir()) == []
 
 
 class TestResourceManagement:
