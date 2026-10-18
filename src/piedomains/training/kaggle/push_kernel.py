@@ -36,6 +36,43 @@ DATASET_LINE = re.compile(r'^DATASET = "[^"]+"$', re.MULTILINE)
 IMAGE_MODEL_LINE = re.compile(
     r"^IMAGE_MODEL: tuple\[str, str\] \| None = .*$", re.MULTILINE
 )
+BOOTSTRAP = Path(__file__).parent / "_bootstrap.py"
+BOOTSTRAP_IMPORT = re.compile(r"^from \._bootstrap import .*$", re.MULTILINE)
+INLINE_MARKER = (
+    "# INLINE: everything below is pasted into each notebook by push_kernel.py."
+)
+
+
+def inline_bootstrap(source: str, script: Path) -> str:
+    """Paste the shared GPU check in place of the kernel's import of it.
+
+    The notebook runs the kernel as one file, before the repository is cloned, so a
+    relative import cannot work there. Only the part of ``_bootstrap.py`` below its
+    marker is pasted; its own imports stay behind, and the kernel provides them.
+
+    Args:
+        source: The kernel's source.
+        script: The kernel's path, named in errors.
+
+    Returns:
+        str: The source with the import replaced.
+
+    Raises:
+        SystemExit: If the kernel does not import the bootstrap, or the result does not
+            compile. A notebook that fails at its first line would only say so after
+            Kaggle had queued and started it.
+    """
+    if len(BOOTSTRAP_IMPORT.findall(source)) != 1:
+        raise SystemExit(f"{script} must import ._bootstrap exactly once")
+    shared = BOOTSTRAP.read_text(encoding="utf-8").split(INLINE_MARKER, 1)[1]
+    inlined = BOOTSTRAP_IMPORT.sub(lambda _: shared.strip("\n"), source, count=1)
+    try:
+        compile(inlined, str(script), "exec")
+    except SyntaxError as exc:
+        raise SystemExit(
+            f"{script} does not compile with the bootstrap inlined: {exc}"
+        ) from exc
+    return inlined
 
 
 def build_source(
@@ -69,8 +106,9 @@ def build_source(
     Raises:
         SystemExit: If the backbone assignment cannot be found. Pushing a challenger that
             silently kept the baseline's encoder would compare the baseline to itself.
+            Also raised by :func:`inline_bootstrap`.
     """
-    source = script.read_text(encoding="utf-8")
+    source = inline_bootstrap(script.read_text(encoding="utf-8"), script)
 
     if backbone is not None:
         if not BACKBONE_LINE.search(source):
@@ -83,7 +121,7 @@ def build_source(
     if datasets and DATASET_LINE.search(source):
         name = datasets[0].split("/")[-1]
         source = DATASET_LINE.sub(f'DATASET = "{name}"', source, count=1)
-        print(f'  DATASET = "{name}"  (from --dataset {datasets[0]})')
+        print(f'  DATASET = "{name}"  (from --dataset {datasets[0]})', file=sys.stderr)
 
     if image_model is not None:
         if not IMAGE_MODEL_LINE.search(source):
@@ -94,7 +132,10 @@ def build_source(
             source,
             count=1,
         )
-        print(f"  IMAGE_MODEL = ({repo!r}, {revision!r})  (skipping training)")
+        print(
+            f"  IMAGE_MODEL = ({repo!r}, {revision!r})  (skipping training)",
+            file=sys.stderr,
+        )
 
     return source
 
@@ -179,6 +220,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--dry-run", action="store_true", help="Write the notebook but do not push"
     )
+    parser.add_argument(
+        "--print",
+        action="store_true",
+        dest="print_source",
+        help="Print the self-contained script, to paste into a notebook by hand",
+    )
     return parser
 
 
@@ -205,6 +252,9 @@ def main(argv: list[str] | None = None) -> int:
         else None
     )
     source = build_source(args.backbone, Path(args.script), args.dataset, image_model)
+    if args.print_source:
+        print(source)
+        return 0
 
     match = re.search(r'^BACKBONE = "([^"]+)"$', source, re.MULTILINE)
     print(f"{title}: backbone {match.group(1) if match else 'unknown'}")

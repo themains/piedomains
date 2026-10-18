@@ -41,6 +41,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+from ._bootstrap import ensure_usable_gpu  # inlined into the notebook by push_kernel.py
+
 REPO = "https://github.com/themains/piedomains.git"
 
 #: Branch carrying the 43-class taxonomy.
@@ -76,42 +78,6 @@ BATCH_SIZE = 32
 #: Multilingual ModernBERT. The corpus is overwhelmingly English, but the cleaner no
 #: longer strips non-Latin scripts, so this can finally use what it was chosen for.
 BACKBONE = "jhu-clsp/mmBERT-base"
-
-GPU_PROBE = """
-import sys, torch
-print("torch", torch.__version__, "cuda", torch.version.cuda)
-if not torch.cuda.is_available():
-    print("no CUDA device")
-    sys.exit(1)
-major, minor = torch.cuda.get_device_capability()
-sm = f"sm_{major}{minor}"
-print("device", torch.cuda.get_device_name(0), sm)
-print("this torch builds for", torch.cuda.get_arch_list())
-if sm not in torch.cuda.get_arch_list():
-    print(f"INCOMPATIBLE: {sm} is not in the build")
-    sys.exit(42)
-torch.zeros(8, device="cuda").add_(1).sum().item()
-print("OK: a real kernel launched on", sm)
-"""
-
-#: The version has to satisfy two constraints at once, which is a narrow window:
-#: transformers refuses torch < 2.6 outright ("we now require users to upgrade torch to
-#: at least v2.6"), while Kaggle's P100 is sm_60 and current builds start at sm_70. 2.6.0
-#: is the oldest release that clears the first. `ensure_usable_gpu` verifies the second at
-#: runtime rather than trusting this comment, so a wrong guess costs 30 seconds.
-PASCAL_TORCH = "2.6.0"
-
-#: Pinned with torch, not left behind. torchvision registers C++ operators against a
-#: specific torch build, so downgrading one alone gives
-#: "operator torchvision::nms does not exist" -- and transformers imports torchvision, so
-#: even a text-only model then fails with
-#: "Could not import module 'ModernBertForSequenceClassification'".
-PASCAL_TORCHVISION = "0.21.0"
-
-#: cu124, not cu121: the cu121 index stops at torch 2.5.1, which transformers
-#: rejects. Three constraints have to hold at once -- transformers needs >= 2.6,
-#: the P100 needs sm_60 kernels, and the wheel has to exist on the index.
-PASCAL_INDEX = "https://download.pytorch.org/whl/cu124"
 
 
 def run(cmd: list[str]) -> None:
@@ -192,52 +158,6 @@ def find_dataset() -> Path:
     )
 
 
-def ensure_usable_gpu() -> None:
-    """Prove the GPU can run a kernel before anything expensive starts.
-
-    Raises:
-        SystemExit: If no GPU is present, or it is still unusable after reinstalling.
-    """
-    probe = TEMP / "gpu_probe.py"
-    probe.parent.mkdir(parents=True, exist_ok=True)
-    probe.write_text(GPU_PROBE, encoding="utf-8")
-
-    first = subprocess.run(  # noqa: S603
-        [sys.executable, str(probe)], capture_output=True, text=True, check=False
-    )
-    print(first.stdout.strip() or first.stderr.strip()[:600])
-    if first.returncode == 0:
-        return
-    if first.returncode != 42:
-        raise SystemExit("no usable GPU; set this notebook's accelerator to GPU")
-
-    print(f"\ninstalling torch {PASCAL_TORCH} for this device...")
-    run(
-        [
-            sys.executable,
-            "-m",
-            "pip",
-            "install",
-            "-q",
-            "--force-reinstall",
-            "--no-cache-dir",
-            "--index-url",
-            PASCAL_INDEX,
-            f"torch=={PASCAL_TORCH}",
-            f"torchvision=={PASCAL_TORCHVISION}",
-        ]
-    )
-    second = subprocess.run(  # noqa: S603
-        [sys.executable, str(probe)], capture_output=True, text=True, check=False
-    )
-    print(second.stdout.strip() or second.stderr.strip()[:600])
-    if second.returncode != 0:
-        raise SystemExit(
-            "GPU still unusable. Switch the accelerator to 'GPU T4 x2' (sm_75); P100 is "
-            "sm_60, which current torch builds no longer ship kernels for."
-        )
-
-
 def main() -> int:
     """Train and calibrate the text model.
 
@@ -249,7 +169,7 @@ def main() -> int:
         return 1
 
     data = setup()
-    ensure_usable_gpu()
+    ensure_usable_gpu(TEMP, run)
 
     out = WORK / "text-v5"
     run(
