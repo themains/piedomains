@@ -66,6 +66,8 @@ class TestUtils(unittest.TestCase):
 
         # Mock tarfile extraction
         mock_tar = MagicMock()
+        mock_tar.errorlevel = 1  # TarFile's default
+        mock_tar.getmembers.return_value = []
         mock_tarfile.return_value.__enter__.return_value = mock_tar
 
         result = utils.download_file(

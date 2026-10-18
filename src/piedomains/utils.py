@@ -221,6 +221,13 @@ def safe_extract(
         when handling archives from untrusted sources, which includes
         downloaded model files.
 
+        Every member is checked before anything is written, so an archive
+        refused for an unsafe name or link writes nothing. One case is only
+        visible during extraction: a link that one member creates and a later
+        member writes through. That archive is refused when the later member
+        is reached, and files extracted before it remain inside ``path``.
+        Nothing is ever written outside ``path``.
+
 
     Raises:
         SecurityError: If a security validation fails.
@@ -257,7 +264,9 @@ def safe_extract(
     # mid-extraction: a link one member creates and a later member writes
     # through. extractall only raises filter errors at errorlevel >= 1, so the
     # caller's TarFile cannot turn this check into a log line.
-    errorlevel, tar.errorlevel = tar.errorlevel, max(tar.errorlevel, 1)
+    errorlevel = tar.errorlevel
+    if errorlevel < 1:
+        tar.errorlevel = 1
     try:
         tar.extractall(path, validated_members, filter="data")
     except tarfile.FilterError as exc:
