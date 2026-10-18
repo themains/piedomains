@@ -34,6 +34,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+from ._bootstrap import ensure_usable_gpu  # inlined into the notebook by push_kernel.py
+
 REPO = "https://github.com/themains/piedomains.git"
 BRANCH = "taxonomy-round-2"
 
@@ -57,25 +59,6 @@ MAX_PER_CLASS = 3000
 #: head over frozen encoders trains in minutes rather than hours.
 JOINT_EPOCHS = 6
 JOINT_BATCH = 16
-
-PASCAL_TORCH = "2.6.0"
-PASCAL_TORCHVISION = "0.21.0"
-PASCAL_INDEX = "https://download.pytorch.org/whl/cu124"
-
-GPU_PROBE = """
-import sys, torch
-print("torch", torch.__version__, "cuda", torch.version.cuda)
-if not torch.cuda.is_available():
-    print("no CUDA device"); sys.exit(1)
-major, minor = torch.cuda.get_device_capability()
-sm = f"sm_{major}{minor}"
-print("device", torch.cuda.get_device_name(0), sm)
-print("this torch builds for", torch.cuda.get_arch_list())
-if sm not in torch.cuda.get_arch_list():
-    print(f"INCOMPATIBLE: {sm} is not in the build"); sys.exit(42)
-torch.zeros(8, device="cuda").add_(1).sum().item()
-print("OK: a real kernel launched on", sm)
-"""
 
 
 def run(cmd: list[str]) -> None:
@@ -166,49 +149,6 @@ def setup() -> tuple[Path, Path, Path]:
     return repo, text_model, splits
 
 
-def ensure_usable_gpu() -> None:
-    """Prove the GPU can run a kernel before an hour of data preparation.
-
-    Raises:
-        SystemExit: If no GPU, or still unusable after installing a compatible build.
-    """
-    probe = TEMP / "gpu_probe.py"
-    probe.parent.mkdir(parents=True, exist_ok=True)
-    probe.write_text(GPU_PROBE, encoding="utf-8")
-
-    first = subprocess.run(  # noqa: S603
-        [sys.executable, str(probe)], capture_output=True, text=True, check=False
-    )
-    print(first.stdout.strip() or first.stderr.strip()[:600])
-    if first.returncode == 0:
-        return
-    if first.returncode != 42:
-        raise SystemExit("no usable GPU; set this notebook's accelerator to GPU")
-
-    print(f"\ninstalling torch {PASCAL_TORCH} for this device...")
-    run(
-        [
-            sys.executable,
-            "-m",
-            "pip",
-            "install",
-            "-q",
-            "--force-reinstall",
-            "--no-cache-dir",
-            "--index-url",
-            PASCAL_INDEX,
-            f"torch=={PASCAL_TORCH}",
-            f"torchvision=={PASCAL_TORCHVISION}",
-        ]
-    )
-    second = subprocess.run(  # noqa: S603
-        [sys.executable, str(probe)], capture_output=True, text=True, check=False
-    )
-    print(second.stdout.strip() or second.stderr.strip()[:600])
-    if second.returncode != 0:
-        raise SystemExit("GPU still unusable; switch the accelerator to GPU T4 x2")
-
-
 def build_images() -> Path:
     """Stream the screenshot corpus and resize it.
 
@@ -249,7 +189,7 @@ def main() -> int:
         return 1
 
     _, text_model, splits = setup()
-    ensure_usable_gpu()
+    ensure_usable_gpu(TEMP, run)
 
     from huggingface_hub import snapshot_download
 
