@@ -39,6 +39,9 @@ ESCAPES = {
     "absolute path": _file("/tmp/piedomains-escaped.txt"),
     "symlink outside": _link("link", "../outside", tarfile.SYMTYPE),
     "hard link outside": _link("hard", "../outside", tarfile.LNKTYPE),
+    "symlink to a prefix-sharing sibling": _link(
+        "alias", "../extract-evil", tarfile.SYMTYPE
+    ),
 }
 
 
@@ -108,3 +111,39 @@ def test_a_device_file_is_skipped_not_extracted(tmp_path):
 )
 def test_is_within_directory_compares_path_components(directory, target, inside):
     assert utils.is_within_directory(directory, target) is inside
+
+
+def test_a_hard_link_cannot_be_used_to_overwrite_a_file_outside(tmp_path):
+    # The link points at an outside file; a later member with the same name would
+    # write through it. Main's check let both through and changed the outside file.
+    outside = tmp_path / "outside"
+    outside.write_text("ORIGINAL")
+    target = tmp_path / "extract"
+    target.mkdir()
+    with tarfile.open(tmp_path / "evil.tar", "w") as tar:
+        tar.addfile(_link("alias", "../outside", tarfile.LNKTYPE))
+        info = tarfile.TarInfo("alias")
+        info.size = 7
+        tar.addfile(info, io.BytesIO(b"PAYLOAD"))
+
+    with tarfile.open(tmp_path / "evil.tar") as tar, pytest.raises(utils.SecurityError):
+        utils.safe_extract(tar, str(target))
+
+    assert outside.read_text() == "ORIGINAL"
+
+
+def test_a_nested_symlink_to_a_file_inside_still_extracts(tmp_path):
+    # Resolved from its own directory, sub/alias -> ../model.bin stays inside;
+    # main's check resolved it from the root and refused it.
+    target = tmp_path / "extract"
+    target.mkdir()
+    with tarfile.open(tmp_path / "ok.tar", "w") as tar:
+        info = tarfile.TarInfo("model.bin")
+        info.size = 2
+        tar.addfile(info, io.BytesIO(b"ok"))
+        tar.addfile(_link("sub/alias", "../model.bin", tarfile.SYMTYPE))
+
+    with tarfile.open(tmp_path / "ok.tar") as tar:
+        utils.safe_extract(tar, str(target))
+
+    assert (target / "sub" / "alias").read_bytes() == b"ok"
