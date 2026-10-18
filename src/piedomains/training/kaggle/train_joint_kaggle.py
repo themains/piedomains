@@ -132,7 +132,14 @@ def setup() -> tuple[Path, Path, Path]:
         run(["git", "clone", "--depth", "1", "-b", BRANCH, REPO, str(repo)])
 
     training = repo / "src" / "piedomains" / "training"
-    required = ("prepare_images.py", "fuse.py", "train_joint.py", "download_corpus.py")
+    required = (
+        "prepare_images.py",
+        "fuse.py",
+        "train_joint.py",
+        "_finetune.py",
+        "stage_images.py",
+        "download_corpus.py",
+    )
     missing = [n for n in required if not (training / n).exists()]
     if missing:
         raise SystemExit(f"branch {BRANCH!r} is missing {missing}; push it first")
@@ -202,124 +209,33 @@ def ensure_usable_gpu() -> None:
         raise SystemExit("GPU still unusable; switch the accelerator to GPU T4 x2")
 
 
-def build_images(splits: Path) -> Path:
-    """Stream the screenshot corpus and resize it, aligned to the text splits.
+def build_images() -> Path:
+    """Stream the screenshot corpus and resize it.
 
-    Splits come from :func:`piedomains.training.splits.split_of`, so the screenshots and
-    the text corpus cannot disagree about where a domain belongs. That used to be a flag
-    you had to remember, and forgetting it put the image model's training set inside the
-    domains fusion scored -- reported as 0.768 against an honest 0.429.
-
-    Args:
-        splits: Directory of prepared text splits.
+    Splits come from :func:`piedomains.training.splits.split_of`, inside
+    ``prepare_images``, so the screenshots and the text corpus cannot disagree about
+    where a domain belongs. That used to be a flag you had to remember, and forgetting
+    it put the image model's training set inside the domains fusion scored -- reported
+    as 0.768 against an honest 0.429. The work is
+    :mod:`piedomains.training.stage_images`, shared with the image kernel.
 
     Returns:
         Path: Directory of resized screenshots.
-
-    Raises:
-        SystemExit: If every tarball fails.
     """
-    out = TEMP / "images-224"
-    if (out / "labels.json").exists():
-        print(f"{out} already built")
-        return out
-
-    corpus = TEMP / "corpus"
-    corpus.mkdir(parents=True, exist_ok=True)
-    labels_dir = TEMP / "labels"
-
-    if not (labels_dir / "shallalist_cats.txt").exists():
-        run(
-            [
-                sys.executable,
-                "-m",
-                "piedomains.training.download_corpus",
-                "--set",
-                "labels",
-                "--out",
-                str(labels_dir),
-            ]
-        )
-
-    cache = labels_dir / "domains"
-    if not cache.exists() or not any(cache.glob("*.txt")):
-        run(
-            [
-                sys.executable,
-                "-c",
-                "from piedomains.training.prepare_text import load_category_map;"
-                f"import pathlib; m = load_category_map(pathlib.Path({str(labels_dir / 'shallalist_cats.txt')!r}),"
-                f" pathlib.Path({str(cache)!r})); print(f'{{len(m):,}} labeled domains')",
-            ]
-        )
-
-    listing = subprocess.run(
+    run(
         [
             sys.executable,
             "-m",
-            "piedomains.training.download_corpus",
-            "--set",
-            "screenshots",
-            "--names",
-        ],
-        capture_output=True,
-        text=True,
-        check=False,
+            "piedomains.training.stage_images",
+            "--temp",
+            str(TEMP),
+            "--size",
+            str(IMAGE_SIZE),
+            "--max-per-class",
+            str(MAX_PER_CLASS),
+        ]
     )
-    tarballs = [n for n in listing.stdout.split() if n.endswith(".tar.gz")]
-    if not tarballs:
-        raise SystemExit(f"could not enumerate tarballs: {listing.stderr[:300]!r}")
-    print(f"{len(tarballs)} tarballs to stream")
-
-    skipped = []
-    for i, name in enumerate(tarballs, 1):
-        print(f"\n[{i}/{len(tarballs)}] {name}", flush=True)
-        try:
-            run(
-                [
-                    sys.executable,
-                    "-m",
-                    "piedomains.training.download_corpus",
-                    "--set",
-                    "screenshots",
-                    "--only",
-                    name,
-                    "--out",
-                    str(corpus),
-                ]
-            )
-            run(
-                [
-                    sys.executable,
-                    "-m",
-                    "piedomains.training.prepare_images",
-                    "--corpus",
-                    str(corpus),
-                    "--out",
-                    str(out),
-                    "--label-cache",
-                    str(cache),
-                    "--size",
-                    str(IMAGE_SIZE),
-                    "--max-per-class",
-                    str(MAX_PER_CLASS),
-                    "--append",
-                    "--index",
-                    str(labels_dir / "screenshot-index.tab"),
-                ]
-            )
-        except subprocess.CalledProcessError as exc:
-            print(f"  SKIPPING {name}: {exc}", flush=True)
-            skipped.append(name)
-        finally:
-            for spent in corpus.glob("*.tar.gz"):
-                spent.unlink()
-
-    if skipped:
-        print(f"\n{len(skipped)}/{len(tarballs)} skipped: {', '.join(skipped)}")
-    if len(skipped) == len(tarballs):
-        raise SystemExit("every tarball failed; nothing to train on")
-    return out
+    return TEMP / f"images-{IMAGE_SIZE}"
 
 
 def main() -> int:
@@ -340,7 +256,7 @@ def main() -> int:
     image_model = snapshot_download(repo_id=IMAGE_MODEL, revision=IMAGE_MODEL_REVISION)
     print(f"image model at {image_model}")
 
-    images = build_images(splits)
+    images = build_images()
 
     # fuse.py reports text-only, image-only, weighted and STACKED side by side. A
     # non-zero exit means fusion did not beat text alone, which is a result rather than

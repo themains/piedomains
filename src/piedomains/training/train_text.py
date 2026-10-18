@@ -31,14 +31,12 @@ from __future__ import annotations
 
 import argparse
 import json
-import math
-import time
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 from ..checkpoints import eager_config
-from .metrics import macro_f1, per_class_report
+from ._finetune import pick_device, read_jsonl, train_and_evaluate
 
 #: Multilingual ModernBERT-architecture encoder.
 #:
@@ -73,39 +71,6 @@ class TrainConfig:
     seed: int = 42
     #: Stop when val macro-F1 has not improved for this many epochs.
     patience: int = 2
-
-
-def pick_device() -> str:
-    """Choose the fastest available torch device.
-
-    Returns:
-        str: ``cuda``, ``mps`` or ``cpu``.
-    """
-    import torch
-
-    if torch.cuda.is_available():
-        return "cuda"
-    if torch.backends.mps.is_available():
-        return "mps"
-    return "cpu"
-
-
-def read_jsonl(path: Path) -> list[dict[str, Any]]:
-    """Read a JSONL split written by ``prepare_text.py``.
-
-    Args:
-        path: File to read.
-
-    Returns:
-        list[dict[str, Any]]: One dict per line.
-
-    Raises:
-        SystemExit: If the file does not exist, naming the step that makes it.
-    """
-    if not path.exists():
-        raise SystemExit(f"{path} not found -- run prepare_text.py first")
-    with open(path, encoding="utf-8") as handle:
-        return [json.loads(line) for line in handle if line.strip()]
 
 
 class TextDataset:
@@ -175,72 +140,6 @@ class TextDataset:
             "attention_mask": encoded["attention_mask"].squeeze(0),
             "labels": torch.tensor(self.index[row["category"]], dtype=torch.long),
         }
-
-
-def evaluate_split(
-    model: Any, loader: Any, device: str, labels: list[str]
-) -> tuple[float, list[str], list[str]]:
-    """Score the model over a loader.
-
-    Args:
-        model: The classifier.
-        loader: A DataLoader over a split.
-        device: Torch device string.
-        labels: Ordered category names.
-
-    Returns:
-        tuple: ``(macro_f1, truth, predicted)``.
-    """
-    import torch
-
-    model.eval()
-    truth: list[str] = []
-    predicted: list[str] = []
-    with torch.no_grad():
-        for batch in loader:
-            ids = batch["input_ids"].to(device)
-            mask = batch["attention_mask"].to(device)
-            logits = model(input_ids=ids, attention_mask=mask).logits
-            for gold, pred in zip(
-                batch["labels"].tolist(), logits.argmax(-1).cpu().tolist(), strict=True
-            ):
-                truth.append(labels[gold])
-                predicted.append(labels[pred])
-    return macro_f1(truth, predicted), truth, predicted
-
-
-def save_checkpoint(
-    out: Path,
-    model: Any,
-    tokenizer: Any,
-    labels: list[str],
-    config: TrainConfig,
-    state: dict,
-) -> None:
-    """Write weights, tokenizer, labels and run state.
-
-    This used to also write ``train_domains.json``, so a later evaluation could prove it
-    was not scoring the model on its own training data. That is no longer something a
-    checkpoint has to record: :func:`piedomains.training.splits.split_of` derives the
-    split from the domain, so anyone can recompute what this model trained on without
-    being told.
-
-    Args:
-        out: Directory to write into.
-        model: The classifier.
-        tokenizer: Its tokenizer.
-        labels: Ordered category names.
-        config: The run configuration.
-        state: Epoch/score bookkeeping for resuming.
-    """
-    out.mkdir(parents=True, exist_ok=True)
-    model.save_pretrained(out, safe_serialization=True)
-    tokenizer.save_pretrained(out)
-    (out / "labels.json").write_text(json.dumps(labels, indent=2), encoding="utf-8")
-    (out / "config.json.piedomains").write_text(
-        json.dumps(asdict(config), indent=2), encoding="utf-8"
-    )
-    (out / "state.json").write_text(json.dumps(state, indent=2), encoding="utf-8")
 
 
 def load_best(out: Path, fallback: Any) -> Any:
@@ -322,7 +221,6 @@ def main(argv: list[str] | None = None) -> int:
     from transformers import (
         AutoModelForSequenceClassification,
         AutoTokenizer,
-        get_linear_schedule_with_warmup,
     )
 
     config = TrainConfig(
@@ -339,9 +237,9 @@ def main(argv: list[str] | None = None) -> int:
     data = Path(args.data)
     out = Path(args.out)
     labels = json.loads((data / "labels.json").read_text(encoding="utf-8"))
-    train_rows = read_jsonl(data / "train.jsonl")
-    val_rows = read_jsonl(data / "val.jsonl")
-    test_rows = read_jsonl(data / "test.jsonl")
+    train_rows = read_jsonl(data / "train.jsonl", "prepare_text.py")
+    val_rows = read_jsonl(data / "val.jsonl", "prepare_text.py")
+    test_rows = read_jsonl(data / "test.jsonl", "prepare_text.py")
     if args.limit:
         train_rows = train_rows[: args.limit]
         val_rows = val_rows[: max(1, args.limit // 8)]
@@ -368,7 +266,7 @@ def main(argv: list[str] | None = None) -> int:
         source, config=model_config
     ).to(device)
 
-    start_epoch, best_f1, stale = 0, 0.0, 0
+    start_epoch, best_f1 = 0, 0.0
     if args.resume and (out / "state.json").exists():
         state = json.loads((out / "state.json").read_text(encoding="utf-8"))
         start_epoch, best_f1 = state.get("epoch", 0), state.get("best_f1", 0.0)
@@ -384,113 +282,19 @@ def main(argv: list[str] | None = None) -> int:
     val_loader = make(val_rows, False)
     test_loader = make(test_rows, False)
 
-    steps_per_epoch = math.ceil(len(train_loader) / config.grad_accum)
-    total_steps = steps_per_epoch * max(1, config.epochs - start_epoch)
-    optimizer = torch.optim.AdamW(
-        model.parameters(), lr=config.lr, weight_decay=config.weight_decay
+    return train_and_evaluate(
+        model=model,
+        preprocessor=tokenizer,
+        labels=labels,
+        config=config,
+        device=device,
+        out=out,
+        loaders=(train_loader, val_loader, test_loader),
+        input_keys=("input_ids", "attention_mask"),
+        load_best=load_best,
+        start_epoch=start_epoch,
+        best_f1=best_f1,
     )
-    scheduler = get_linear_schedule_with_warmup(
-        optimizer, int(total_steps * config.warmup_ratio), total_steps
-    )
-
-    for epoch in range(start_epoch, config.epochs):
-        model.train()
-        started = time.time()
-        running = 0.0
-        optimizer.zero_grad()
-
-        for step, batch in enumerate(train_loader):
-            out_ = model(
-                input_ids=batch["input_ids"].to(device),
-                attention_mask=batch["attention_mask"].to(device),
-                labels=batch["labels"].to(device),
-            )
-            (out_.loss / config.grad_accum).backward()
-            running += out_.loss.item()
-
-            if (step + 1) % config.grad_accum == 0:
-                torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
-                optimizer.step()
-                scheduler.step()
-                optimizer.zero_grad()
-
-            # MPS does not release cached blocks aggressively, and on a 16GB
-            # unified-memory machine that accumulation is enough to push the
-            # process into swap and wedge it in uninterruptible IO wait.
-            if step % 50 == 0 and device == "mps":
-                torch.mps.empty_cache()
-
-            if step % 100 == 0:
-                done = step + 1
-                print(
-                    f"  epoch {epoch + 1} step {done}/{len(train_loader)} "
-                    f"loss {running / done:.4f}",
-                    flush=True,
-                )
-
-        val_f1, _, _ = evaluate_split(model, val_loader, device, labels)
-        mins = (time.time() - started) / 60
-        print(
-            f"epoch {epoch + 1}: loss {running / len(train_loader):.4f}, "
-            f"val macro-F1 {val_f1:.4f} ({mins:.1f} min)"
-        )
-
-        improved = val_f1 > best_f1
-        if improved:
-            best_f1, stale = val_f1, 0
-        else:
-            stale += 1
-
-        # Only overwrite on an improvement. Saving every epoch unconditionally
-        # means the artifact left on disk is the *last* epoch, not the best one,
-        # which is silently wrong whenever the model starts overfitting -- and it
-        # does: val macro-F1 peaked at epoch 3 and fell at epoch 4 on the first
-        # real run.
-        if improved:
-            save_checkpoint(
-                out,
-                model,
-                tokenizer,
-                labels,
-                config,
-                {"epoch": epoch + 1, "best_f1": best_f1, "last_val_f1": val_f1},
-            )
-            print(f"  checkpoint saved to {out} (new best)")
-        else:
-            print(f"  not saved: {val_f1:.4f} does not beat {best_f1:.4f}")
-
-        if stale >= config.patience:
-            print(f"no improvement in {stale} epochs; stopping")
-            break
-
-    # Score the checkpoint on disk, not the model in memory. With best-epoch-only
-    # checkpointing, `model` holds the *last* epoch's weights whenever validation peaked
-    # earlier or early stopping fired -- so test_metrics.json described a model nobody
-    # would ever load. The published image model was saved at epoch 4 and reported epoch
-    # 5's score.
-    best = load_best(out, model)
-    test_f1, truth, predicted = evaluate_split(best, test_loader, device, labels)
-    report = per_class_report(truth, predicted)
-    accuracy = sum(t == p for t, p in zip(truth, predicted, strict=True)) / max(
-        1, len(truth)
-    )
-
-    print(f"\nheld-out test: accuracy {accuracy:.4f}, macro-F1 {test_f1:.4f}")
-    print(f"{'category':18s} {'prec':>6s} {'rec':>6s} {'f1':>6s} {'n':>6s}")
-    for name, row in sorted(report.items(), key=lambda kv: -kv[1]["support"]):
-        print(
-            f"{name:18s} {row['precision']:6.3f} {row['recall']:6.3f} "
-            f"{row['f1']:6.3f} {int(row['support']):6d}"
-        )
-
-    (out / "test_metrics.json").write_text(
-        json.dumps(
-            {"accuracy": accuracy, "macro_f1": test_f1, "per_class": report}, indent=2
-        ),
-        encoding="utf-8",
-    )
-    print(f"\nwrote {out}/test_metrics.json")
-    return 0
 
 
 if __name__ == "__main__":
