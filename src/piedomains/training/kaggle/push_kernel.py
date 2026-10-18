@@ -217,6 +217,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--dry-run", action="store_true", help="Write the notebook but do not push"
     )
+    parser.add_argument(
+        "--print",
+        action="store_true",
+        dest="print_source",
+        help="Print the self-contained script, to paste into a notebook by hand",
+    )
     return parser
 
 
@@ -243,6 +249,9 @@ def main(argv: list[str] | None = None) -> int:
         else None
     )
     source = build_source(args.backbone, Path(args.script), args.dataset, image_model)
+    if args.print_source:
+        print(source)
+        return 0
 
     match = re.search(r'^BACKBONE = "([^"]+)"$', source, re.MULTILINE)
     print(f"{title}: backbone {match.group(1) if match else 'unknown'}")

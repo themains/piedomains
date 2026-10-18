@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pytest
 
-from piedomains.training.kaggle.push_kernel import build_source, inline_bootstrap
+from piedomains.training.kaggle.push_kernel import build_source, inline_bootstrap, main
 
 KAGGLE = Path(__file__).parents[1] / "src" / "piedomains" / "training" / "kaggle"
 KERNELS = ["train_image_kaggle.py", "train_joint_kaggle.py", "train_text_kaggle.py"]
@@ -46,7 +46,7 @@ def _notebook_module(
 def test_the_notebook_carries_the_check_instead_of_importing_it(kernel):
     source = build_source(None, KAGGLE / kernel)
 
-    assert "_bootstrap" not in source
+    assert "import ensure_usable_gpu" not in source
     assert "def ensure_usable_gpu(" in source
     compile(source, kernel, "exec")
 
@@ -91,3 +91,12 @@ def test_a_kernel_without_the_import_is_refused(tmp_path):
 
     with pytest.raises(SystemExit, match=r"must import \._bootstrap exactly once"):
         inline_bootstrap("def main(): ...\n", kernel)
+
+
+@pytest.mark.parametrize("kernel", KERNELS)
+def test_print_gives_the_script_to_paste_by_hand(kernel, capsys):
+    assert main(["--script", str(KAGGLE / kernel), "--print"]) == 0
+
+    printed = capsys.readouterr().out
+    assert printed.strip() == build_source(None, KAGGLE / kernel).strip()
+    assert "import ensure_usable_gpu" not in printed

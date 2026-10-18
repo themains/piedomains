@@ -218,9 +218,12 @@ shipped models. It is kept for provenance; the paths in it are Colab-specific
 ## 6. The image model
 
 Run it on [Kaggle](https://www.kaggle.com/code): 30 GPU-hours a week free, 12-hour
-sessions, 200 GB of dataset storage. The job needs 3–5 hours, so it costs nothing. Paste
-`kaggle/train_image_kaggle.py` into a notebook with Accelerator set to GPU and Internet
-on.
+sessions, 200 GB of dataset storage. The job needs 3–5 hours, so it costs nothing. Push
+it with `kaggle/push_kernel.py`, or paste the output of
+`uv run python src/piedomains/training/kaggle/push_kernel.py --print` into a notebook
+with Accelerator set to GPU and Internet on. Paste that output, not
+`kaggle/train_image_kaggle.py` itself: the kernel imports the GPU check it shares with
+the other kernels, and only the built script carries it inline.
 
 **Never download the whole corpus.** It is 47.58 GB across 28 tarballs — more than
 Kaggle's 20 GB persistent volume and, on the machine this was written on, more than the

@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 """Train the screenshot classifier on Kaggle, free.
 
-Paste this into a Kaggle notebook cell (Settings → Accelerator → **GPU T4 x2**, Internet →
-On). It is a plain script rather than a notebook so it can be diffed and linted;
-`jupytext` or a single `%run` cell turns it into one.
+Push it with ``push_kernel.py``, or paste the output of ``push_kernel.py --print`` into
+a Kaggle notebook cell (Settings → Accelerator → **GPU T4 x2**, Internet → On). Not this
+file itself: it imports the shared GPU check from ``_bootstrap.py``, which only the
+built script carries inline. It is a plain script rather than a notebook so it can be
+diffed and linted.
 
 **Pick T4, not P100.** A P100 is sm_60 (Pascal), and current PyTorch builds ship no
 kernels for it: one run spent an hour on stage 1 and then died on `no kernel image is
