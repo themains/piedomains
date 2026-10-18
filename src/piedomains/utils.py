@@ -176,7 +176,11 @@ def is_within_directory(directory: str, target: str) -> bool:
     abs_directory = os.path.realpath(directory)
     abs_target = os.path.realpath(target)
 
-    is_safe = os.path.commonpath([abs_directory, abs_target]) == abs_directory
+    try:
+        is_safe = os.path.commonpath([abs_directory, abs_target]) == abs_directory
+    except ValueError:
+        # Paths on different Windows drives share no common path.
+        is_safe = False
 
     if not is_safe:
         logger.warning(

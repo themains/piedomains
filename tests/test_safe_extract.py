@@ -181,3 +181,13 @@ def test_a_rejected_archive_leaves_existing_files_alone(tmp_path):
         utils.safe_extract(tar, str(target))
 
     assert (target / "weights").read_text() == "ORIGINAL"
+
+
+def test_paths_with_no_common_root_are_not_inside(monkeypatch):
+    # On Windows, commonpath raises ValueError for paths on different drives.
+    def different_drives(paths):
+        raise ValueError("Paths don't have the same drive")
+
+    monkeypatch.setattr(utils.os.path, "commonpath", different_drives)
+
+    assert utils.is_within_directory("C:/models", "D:/elsewhere/file") is False
