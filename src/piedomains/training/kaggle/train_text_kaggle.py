@@ -146,7 +146,9 @@ def setup() -> Path:
 
     training = repo / "src" / "piedomains" / "training"
     missing = [
-        n for n in ("train_text.py", "calibrate.py") if not (training / n).exists()
+        n
+        for n in ("train_text.py", "_finetune.py", "calibrate.py")
+        if not (training / n).exists()
     ]
     if missing:
         raise SystemExit(f"branch {BRANCH!r} is missing {missing}; push it first")

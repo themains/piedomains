@@ -132,7 +132,14 @@ def setup() -> tuple[Path, Path, Path]:
         run(["git", "clone", "--depth", "1", "-b", BRANCH, REPO, str(repo)])
 
     training = repo / "src" / "piedomains" / "training"
-    required = ("prepare_images.py", "fuse.py", "train_joint.py", "download_corpus.py")
+    required = (
+        "prepare_images.py",
+        "fuse.py",
+        "train_joint.py",
+        "_finetune.py",
+        "stage_images.py",
+        "download_corpus.py",
+    )
     missing = [n for n in required if not (training / n).exists()]
     if missing:
         raise SystemExit(f"branch {BRANCH!r} is missing {missing}; push it first")

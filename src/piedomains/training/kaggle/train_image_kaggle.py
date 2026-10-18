@@ -192,6 +192,8 @@ def setup() -> Path:
         "prepare_images.py",
         "prepare_text.py",
         "train_image.py",
+        "_finetune.py",
+        "stage_images.py",
         "calibrate.py",
         "taxonomy.py",
     ]
