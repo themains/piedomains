@@ -169,14 +169,14 @@ def is_within_directory(directory: str, target: str) -> bool:
         malicious archives attempt to extract files outside the intended directory.
 
     Note:
-        This function uses os.path.abspath() to resolve all relative path
-        components and symbolic links before performing the security check.
+        Paths are resolved with os.path.realpath(), which follows symbolic links
+        that exist, and compared component by component: "/safe/dir-evil" is
+        not inside "/safe/dir", though it starts with the same characters.
     """
-    abs_directory = os.path.abspath(directory)
-    abs_target = os.path.abspath(target)
+    abs_directory = os.path.realpath(directory)
+    abs_target = os.path.realpath(target)
 
-    prefix = os.path.commonprefix([abs_directory, abs_target])
-    is_safe = prefix == abs_directory
+    is_safe = os.path.commonpath([abs_directory, abs_target]) == abs_directory
 
     if not is_safe:
         logger.warning(
@@ -231,42 +231,33 @@ def safe_extract(
     """
     logger.debug(f"Performing secure extraction to {path}")
 
-    # Get members to extract (all if none specified)
-    members_to_extract = members or tar.getmembers()
-
-    # Validate each member before extraction
+    # Device files are skipped rather than refused, as before; the "data" filter
+    # below would otherwise reject the whole archive for one of them.
     validated_members = []
-    for member in members_to_extract:
-        member_path = os.path.join(path, member.name)
-
-        if not is_within_directory(path, member_path):
+    for member in members or tar.getmembers():
+        # The "data" filter would strip the leading slash and extract inside
+        # `path`; an archive naming absolute paths is refused outright instead,
+        # as this function always has.
+        if os.path.isabs(member.name):
             raise SecurityError(
-                f"Path traversal detected in tar archive: member '{member.name}' "
-                f"would extract to '{member_path}' outside target directory '{path}'"
+                f"Path traversal detected in tar archive: absolute member "
+                f"'{member.name}'"
             )
-
-        # Additional security checks
         if member.isdev():
             logger.warning(f"Skipping device file in archive: {member.name}")
             continue
-
-        # Check that symlinks don't escape the directory
-        if member.issym():
-            link_path = os.path.join(path, member.linkname)
-            if not is_within_directory(path, link_path):
-                raise SecurityError(
-                    f"Symlink traversal detected: {member.name} -> {member.linkname}"
-                )
-
         validated_members.append(member)
 
-    logger.debug(f"All {len(members_to_extract)} archive members validated")
-
-    # Extract only the validated members. Passing the original `members` here
-    # would re-admit the device files skipped above.
-    # filter="tar" is pinned so behavior does not shift when Python 3.14 changes
-    # the default. Traversal and symlink escapes are already rejected above.
-    tar.extractall(path, validated_members, numeric_owner=numeric_owner, filter="tar")
+    # The standard library's "data" filter (PEP 706) refuses every way out of
+    # `path`: "..", absolute names, and symbolic or hard links that point
+    # outside. A hand-written check here once compared paths as strings, which
+    # let "../extract-evil/x" through, and never looked at hard links.
+    try:
+        tar.extractall(
+            path, validated_members, numeric_owner=numeric_owner, filter="data"
+        )
+    except tarfile.FilterError as exc:
+        raise SecurityError(f"Path traversal detected in tar archive: {exc}") from exc
 
     logger.info(f"Safely extracted {len(validated_members)} files to {path}")
 
