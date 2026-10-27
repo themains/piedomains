@@ -2290,7 +2290,7 @@ requires-dist = [
     { name = "aiohttp", specifier = ">=3.8.0" },
     { name = "batchlane", specifier = ">=0.2.0" },
     { name = "beautifulsoup4", specifier = ">=4.10.0" },
-    { name = "huggingface-hub", specifier = ">=1.27.0" },
+    { name = "huggingface-hub", specifier = ">=1.27.0,<2" },
     { name = "litellm", specifier = ">=1.55.0" },
     { name = "nltk", specifier = ">=3.8" },
     { name = "numpy", specifier = ">=1.24.0" },
