@@ -47,7 +47,7 @@ dependencies = [
     # tensorflow does not, which is why it is gone.
     "torch>=2.6.0",
     "transformers>=5.0.0",
-    "huggingface-hub>=1.27.0",
+    "huggingface-hub>=1.27.0,<2",
     "safetensors>=0.4.5",
     "litellm>=1.55.0",
     "batchlane>=0.2.0",
@@ -212,6 +212,9 @@ src_layout = true
 #   an outage      index.commoncrawl.org answers 503 today. That is the service
 #                  being down, not this repo being wrong.
 link_ignore = [
+    # These documentation pages return 503 from Actions but 200 locally.
+    "^https://curlie\\.org/docs/en/guidelines/site-specific\\.html$",
+    "^https://curlie\\.org/docs/en/guidelines/regional/template\\.html$",
     "test\\.org",
     "//a\\.com",
     "//b\\.com",
