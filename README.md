@@ -1,4 +1,4 @@
-# piedomains
+# piedomains: what is this website about?
 
 Guess what a website is about from its homepage.
 
