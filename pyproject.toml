@@ -49,7 +49,7 @@ dependencies = [
     "transformers>=5.0.0",
     "huggingface-hub>=1.27.0,<2",
     "safetensors>=0.4.5",
-    "litellm>=1.55.0",
+    "litellm>=1.106.0",
     "batchlane>=0.2.0",
     "requests>=2.25.0",
     "aiohttp>=3.8.0",
@@ -212,6 +212,9 @@ src_layout = true
 #   an outage      index.commoncrawl.org answers 503 today. That is the service
 #                  being down, not this repo being wrong.
 link_ignore = [
+    # Temporary: Pepy returns HTTP 503 during its outage.
+    "^https://pepy[.]tech/badge/piedomains$",
+    "^https://pepy[.]tech/project/piedomains$",
     # These documentation pages return 503 from Actions but 200 locally.
     "^https://curlie\\.org/docs/en/guidelines/site-specific\\.html$",
     "^https://curlie\\.org/docs/en/guidelines/regional/template\\.html$",
