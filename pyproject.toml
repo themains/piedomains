@@ -122,7 +122,12 @@ python_classes = ["Test*"]
 python_functions = ["test_*"]
 log_level = "INFO"
 xfail_strict = true
-filterwarnings = ["error"]
+filterwarnings = [
+    "error",
+    # litellm and google-genai mark TypedDict items ReadOnly, a static-only annotation.
+    # Pydantic warns that it will not enforce it; nothing here relies on that.
+    "ignore:.*using the `ReadOnly` qualifier:UserWarning:pydantic[.]_internal[.]_generate_schema",
+]
 addopts = [
     "-ra",
     "--strict-markers",
