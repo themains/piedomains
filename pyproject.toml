@@ -127,6 +127,11 @@ filterwarnings = [
     # litellm and google-genai mark TypedDict items ReadOnly, a static-only annotation.
     # Pydantic warns that it will not enforce it; nothing here relies on that.
     "ignore:.*using the `ReadOnly` qualifier:UserWarning:pydantic[.]_internal[.]_generate_schema",
+    # trafilatura tries urllib3's optional SOCKS support at import and falls back
+    # when PySocks is absent, but urllib3 warns before raising the ImportError
+    # trafilatura catches. Surfaced by courlan 1.5.0, which stopped importing
+    # urllib3 first.
+    "ignore:SOCKS support in urllib3 requires:urllib3.exceptions.DependencyWarning",
 ]
 addopts = [
     "-ra",
