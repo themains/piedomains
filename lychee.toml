@@ -1,0 +1,44 @@
+# Patterns are written without a scheme: preen's links check scans this file
+# too, and a pattern with one would be extracted and checked as a link.
+
+# Hosts a link checker cannot fetch meaningfully:
+#
+#   test fixtures  test.org, a.com, b.com, x.com, other.com, valid.com,
+#                  box.local, secret.onion, custom.url -- fixture hosts in
+#                  tests/ (robots downloads are faked, throttle never
+#                  fetches), not links anyone can follow
+#   monster.com    a FetchResult literal in test_archive_fallback.py, never
+#                  fetched; behind DataDome, whose bot wall trips link
+#                  checkers (SSL/403) though the site is fine for humans
+#   API bases      mocked OpenAI and Anthropic endpoints in test_relabel_batch.py;
+#                  these are not public documentation pages
+#   a base URL     raw.githubusercontent.com/Azothyran/ShallalistMirror is
+#                  LABEL_MIRROR in training/prepare_text.py, and the code
+#                  appends a category path. Bare it 404s; with a path it
+#                  answers 200, so the mirror is alive and the finding is not.
+#   an outage      index.commoncrawl.org answers 503 today. That is the service
+#                  being down, not this repo being wrong.
+exclude = [
+  # Temporary: Pepy returns HTTP 503 during its outage.
+  '//pepy[.]tech/badge/piedomains$',
+  '//pepy[.]tech/project/piedomains$',
+  # These documentation pages return 503 from Actions but 200 locally.
+  '//curlie\.org/docs/en/guidelines/site-specific\.html$',
+  '//curlie\.org/docs/en/guidelines/regional/template\.html$',
+  'test\.org',
+  '//a\.com',
+  '//b\.com',
+  '//x\.com',
+  'monster\.com',
+  'other\.com',
+  'valid\.com',
+  'box\.local',
+  'secret\.onion',
+  'custom\.url',
+  'facebook\.com/page',
+  'ShallalistMirror',
+  'index\.commoncrawl\.org',
+  '//spaces',
+  'api\.openai\.com/v1$',
+  'api\.anthropic\.com/v1/messages/batches$',
+]
