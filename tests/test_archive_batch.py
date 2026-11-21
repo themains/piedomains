@@ -11,6 +11,7 @@ import tempfile
 import unittest
 
 import pytest
+import requests
 
 from piedomains import DomainClassifier
 from piedomains.fetchers import ArchiveFetcher
@@ -106,23 +107,18 @@ class TestArchiveBatch(unittest.TestCase):
         try:
             # This should use the new batch processing internally
             result = classifier.classify_by_text(test_domains, archive_date="20100101")
+        except requests.RequestException as e:
+            self.skipTest(f"archive.org unavailable: {e}")
 
-            # Verify we got a list back
-            self.assertIsInstance(result, list)
-            self.assertEqual(len(result), len(test_domains))
+        # The API returns per-domain results plus a run report.
+        results = result["results"]
+        self.assertEqual([r["domain"] for r in results], test_domains)
+        self.assertEqual(result["report"]["total"], len(test_domains))
 
-            print(f"✓ DomainClassifier archive batch returned {len(result)} results")
-
-            # Check that at least one domain was processed
-            successful_domains = [r for r in result if r.get("category") is not None]
-            print(
-                f"✓ Successfully classified {len(successful_domains)}/{len(result)} domains from archives"
-            )
-
-        except Exception as e:
-            # Archive.org may be unavailable - this is acceptable for the test
-            print(f"Archive.org unavailable (this is acceptable): {e}")
-            self.skipTest("archive.org unavailable")
+        # Archive.org being up but returning nothing usable is a real failure.
+        successful = [r for r in results if r.get("category") is not None]
+        self.assertTrue(successful, f"no domain classified: {result['report']}")
+        self.assertTrue(all(r["source"] == "archive" for r in successful))
 
 
 if __name__ == "__main__":

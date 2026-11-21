@@ -242,15 +242,12 @@ def skip_if_no_models():
     """Skip test if ML models are not available."""
 
     def _skip_if_no_models():
-        try:
-            from piedomains.config import get_config
+        from piedomains.config import get_config
 
-            config = get_config()
-            model_dir = Path(config.get("model_cache_dir", "model"))
-            if not (model_dir / "shallalist").exists():
-                pytest.skip("ML models not available")
-        except Exception:
-            pytest.skip("Unable to check for ML models")
+        config = get_config()
+        model_dir = Path(config.get("model_cache_dir", "model"))
+        if not (model_dir / "shallalist").exists():
+            pytest.skip("ML models not available")
 
     return _skip_if_no_models
 
@@ -260,11 +257,11 @@ def skip_if_no_network():
     """Skip test if network is not available."""
 
     def _skip_if_no_network():
-        try:
-            import requests
+        import requests
 
+        try:
             requests.get("https://httpbin.org/get", timeout=5)
-        except Exception:
+        except requests.RequestException:
             pytest.skip("Network not available")
 
     return _skip_if_no_network
