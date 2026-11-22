@@ -13,7 +13,7 @@ license = "MIT"
 license-files = ["LICENSE"]
 authors = [
     {name = "Rajashekar Chintalapati", email = "rajshekar.ch@gmail.com"},
-    {name = "Gaurav Sood", email = "gsood07@gmail.com"}
+    {name = "Gaurav Sood"}
 ]
 keywords = [
     "domain classification",
