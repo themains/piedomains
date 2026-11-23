@@ -128,7 +128,7 @@ _global_client = None
 
 
 @contextmanager
-def http_client() -> Generator[PooledHTTPClient, None, None]:
+def http_client() -> Generator[PooledHTTPClient]:
     """Context manager for getting a pooled HTTP client.
 
     Yields:

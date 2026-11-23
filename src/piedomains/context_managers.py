@@ -36,7 +36,7 @@ def webdriver_context():
 
 
 @contextmanager
-def playwright_context() -> Generator[PlaywrightFetcher, None, None]:
+def playwright_context() -> Generator[PlaywrightFetcher]:
     """Context manager for PlaywrightFetcher instances.
 
     Yields:
@@ -67,7 +67,7 @@ def playwright_context() -> Generator[PlaywrightFetcher, None, None]:
 @contextmanager
 def temporary_directory(
     suffix: str = "", prefix: str = "piedomains_"
-) -> Generator[str, None, None]:
+) -> Generator[str]:
     """Context manager for temporary directories.
 
     Args:
@@ -103,7 +103,7 @@ def temporary_directory(
 
 
 @contextmanager
-def file_cleanup(*file_paths: str) -> Generator[None, None, None]:
+def file_cleanup(*file_paths: str) -> Generator[None]:
     """Context manager for file cleanup.
 
     Args:
@@ -128,7 +128,7 @@ def file_cleanup(*file_paths: str) -> Generator[None, None, None]:
 @contextmanager
 def error_recovery(
     operation_name: str, fallback_value: Any = None, reraise: bool = False
-) -> Generator[dict[str, Any], None, None]:
+) -> Generator[dict[str, Any]]:
     """Context manager for error recovery with logging.
 
     Args:
@@ -163,7 +163,7 @@ def error_recovery(
 @contextmanager
 def batch_progress_tracking(
     total_items: int, operation_name: str = "Processing"
-) -> Generator[Callable[[int], None], None, None]:
+) -> Generator[Callable[[int], None]]:
     """Context manager for tracking batch processing progress.
 
     Args:
