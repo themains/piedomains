@@ -37,10 +37,10 @@ classifiers = [
 ]
 requires-python = ">=3.13"
 dependencies = [
-    "numpy>=1.24.0",
+    "numpy>=2.1.0",
     "beautifulsoup4>=4.10.0",
     "playwright>=1.40.0",
-    "Pillow>=10.0.0",
+    "Pillow>=10.4.0",
     "nltk>=3.8",
     # Inference for the fine-tuned text classifier. torch ships cp314 wheels;
     # tensorflow does not, which is why it is gone.
@@ -51,7 +51,7 @@ dependencies = [
     "litellm>=1.106.0",
     "batchlane>=0.2.0",
     "requests>=2.25.0",
-    "aiohttp>=3.8.0",
+    "aiohttp>=3.10.5",
     "protego>=0.3.0",
     "warcio>=1.7.0",
     # CDX + Memento client for archive.org. Deps are only requests + urllib3,
@@ -61,7 +61,7 @@ dependencies = [
     # It lived in the `train` group until a clean `pip install piedomains` proved that
     # PEP 735 groups are not installed for ordinary users and classify_by_images() then
     # died with "AutoImageProcessor requires the Torchvision library".
-    "torchvision>=0.20",
+    "torchvision>=0.21.0",
     # The default extractor (config `extractor`). It powers FineWeb/RefinedWeb and
     # tops the WCXB benchmark. An earlier note here claimed it was worse than the
     # legacy cleaner on our homepages (16/33 pages under the token floor against
