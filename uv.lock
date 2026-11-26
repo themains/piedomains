@@ -2145,7 +2145,7 @@ train = [
 
 [package.metadata]
 requires-dist = [
-    { name = "aiohttp", specifier = ">=3.10.5" },
+    { name = "aiohttp", specifier = ">=3.14.2" },
     { name = "batchlane", specifier = ">=0.2.0" },
     { name = "beautifulsoup4", specifier = ">=4.10.0" },
     { name = "huggingface-hub", specifier = ">=1.27.0,<3" },
@@ -2153,9 +2153,9 @@ requires-dist = [
     { name = "nltk", specifier = ">=3.8" },
     { name = "numpy", specifier = ">=2.1.0" },
     { name = "pillow", specifier = ">=10.4.0" },
-    { name = "playwright", specifier = ">=1.40.0" },
+    { name = "playwright", specifier = ">=1.48.0" },
     { name = "protego", specifier = ">=0.3.0" },
-    { name = "requests", specifier = ">=2.25.0" },
+    { name = "requests", specifier = ">=2.32.2" },
     { name = "safetensors", specifier = ">=0.4.5" },
     { name = "torch", specifier = ">=2.6.0" },
     { name = "torchvision", specifier = ">=0.21.0" },
